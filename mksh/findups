@@ -1,0 +1,179 @@
+#!/bin/mksh
+# $MirOS: contrib/code/Snippets/findups,v 1.2 2011/01/02 00:15:25 tg Exp $
+#-
+# Copyright (c) 2010, 2011
+#	Thorsten Glaser <tg@mirbsd.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un-
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided "AS IS" and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person's immediate fault when using the work as intended.
+#-
+# Find duplicate files occupying separate inodes and output calls to
+# ln to make them hardlinks of each other. Assumes no pathnames with
+# newlines are used. Links will be generated in argument order.
+
+nl='
+'
+if stat --help >/dev/null 2>&1; then
+	set -A statcmd stat -c '%s %D %i %n'	# GNU stat
+else
+	set -A statcmd stat -f '%z %d %i %N'	# BSD stat (or so we assume)
+fi
+hashalg='cksum -a md4,sfv,oaat1s'; T=$(print | $hashalg 2>/dev/null)
+if [[ ${T//$nl} = 8c5b220bf6f482881a90287a64aea15032D7069366DFECC2 ]]; then
+	function hashprint {
+		print -r -- "${1//$nl} $2"
+	}
+else
+	function hashprint {
+		print -r -- "${1%% *} $2"
+	}
+	for hashalg in md5 md5sum false; do
+		T=$(print | $hashalg 2>/dev/null)
+		[[ ${T%% *} = 68b329da9893e34099c7d8ad5cb9c940 ]] && break
+	done
+	if [[ $hashalg = false ]]; then
+		print -u2 Cannot find a suitable cksum, md5 or md5sum.
+		exit 1
+	fi
+fi
+
+if (( !$# )); then
+	print -u2 Please pass a directory or several to scan.
+	exit 1
+fi
+
+if ! T=$(mktemp -d /tmp/findups.XXXXXXXXXX); then
+	print -u2 Error: cannot create temporary directory.
+	exit 255
+fi
+
+print -nu2 Phase 1/4: prepare: finding...
+find "$@" -type f >"$T/1"
+print -nu2 " found, stating..."
+# if this yields stderr, you have newlines in pathnames, which get skipped
+tr '\n' '\0' <"$T/1" | xargs -0 "${statcmd[@]}" >"$T/2"
+print -u2 " done"
+if [[ ! -s $T/2 ]]; then
+	rm -rf "$T"
+	exit 0
+fi
+
+# we have output, for each file, size dev_t inode name
+
+print -nu2 Phase 2/4: counting...
+# prepend a hex numerical to keep order
+typeset -Uui16 -Z11 i=0
+while IFS= read -r line; do
+	print -r -- "${i#16#} $line"
+	let i++
+done <"$T/2" >"$T/3"
+typeset -i10 i total=i
+print -u2 " done, $total files found"
+
+# order-id size dev_t inode name
+
+i=0
+j=0
+p=-1
+# for all files of same size, hash and proceed
+lastsz=-
+sort -nk2,2 -nk3,3 -nk4,4 <"$T/3" |&
+while IFS= read -pr line; do
+	if (( (q = (++i * 100) / total) > p )); then
+		(( p = q ))
+		print -nu2 '\r'Phase 3/4: hashing... ${p}%, ${i}/${total}
+	fi
+	oid=${line%% *}
+	line=${line#* }
+	sz=${line%% *}
+	line=${line#* }
+	dev=${line%% *}
+	line=${line#* }
+	ino=${line%% *}
+	nm=${line#* }
+
+	# on first and if sizes differ
+	if [[ $sz != "$lastsz" ]]; then
+		# queue for use later if another file has same size
+		lastoid=$oid
+		lastsz=$sz
+		lastdev=$dev
+		lastino=$ino
+		lastnm=$nm
+		lastfirst=1
+		continue
+	fi
+
+	# whether one was queued, process it now, lazily
+	if (( lastfirst )); then
+		lastmd=$($hashalg <"$lastnm")
+		hashprint "$lastmd" "$lastoid $lastdev $lastino $lastnm"
+		let ++j
+		lastfirst=0
+	fi
+
+	# skip hashing if already hardlinked
+	[[ $lastdev:$lastino = "$dev:$ino" ]] || lastmd=$($hashalg <"$nm")
+
+	# process follow-up file
+	lastoid=$oid
+	lastdev=$dev
+	lastino=$ino
+	lastnm=$nm
+	hashprint "$lastmd" "$lastoid $lastdev $lastino $lastnm"
+	let ++j
+done >"$T/4"
+(( total = j ))
+print -u2 '\r'Phase 3/4: hashing... done, $total files in total hashed
+
+# hash order dev_t inode name
+
+i=0
+j=0
+p=-1
+# for all files of same hash, emit hardlink command unless already hardlinked
+lastmd=-
+sort <"$T/4" |&
+while IFS= read -pr line; do
+	if (( (q = (++i * 100) / total) > p )); then
+		(( p = q ))
+		print -nu2 '\r'Phase 4/4: generating... ${p}%, ${i}/${total}
+	fi
+	md=${line%% *}
+	line=${line#* }
+	line=${line#* }
+	dev=${line%% *}
+	line=${line#* }
+	ino=${line%% *}
+	nm=${line#* }
+
+	if [[ $lastmd != "$md" || $lastdev != "$dev" ]]; then
+		# first with my hash, or cannot cross-device hardlink anyway
+		lastmd=$md
+		lastdev=$dev
+		lastino=$ino
+		lastnm=$nm
+		continue
+	fi
+
+	# attempt to link, unless already done so
+	[[ $lastino = "$ino" ]] && continue
+	print -r -- ln -f \
+	    "'${lastnm//\'/\'\\\'\'}'" "'${nm//\'/\'\\\'\'}'"
+	let j++
+done
+print -u2 '\r'Phase 4/4: generating... done, $j files in total linked
+
+rm -rf "$T"
