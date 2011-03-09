@@ -1,0 +1,40 @@
+# Not complicated enough for copyright.
+
+# clear screen
+alias cls='echo -ne \\033c'
+# clear screen, kill ssh-agent, and out
+bye() {			# cu ;-)
+	[ "$1" = k ] && ssh-agent -k
+	M='\033c'
+	[ $? -ne 0 ] && M='\033c Warning: ssh-agent returned error!\n'
+	echo -n "$M"
+	exit
+	logout
+}
+
+ggs() {			# Google Search
+	${BROWSER:-lynx} "http://www.google.com/search?hl=la&num=100&safe=off&q=$*"
+}
+ggr() {			# Google GRoups
+	${BROWSER:-lynx} "http://groups.google.com/groups?hl=la&num=100&safe=off&as_umsgid=$*"
+}
+
+ge() {			# German English
+	${BROWSER:-lynx} "http://dict.leo.org/?search=$*"
+}
+ges() {			# German Spanish
+	${BROWSER:-lynx} "http://dict.leo.org/esde?search=$*"
+}
+espanol() {		# explica en español
+	lynx -dump --nolist "http://buscon.rae.es/draeI/SrvltGUIBusUsual?TIPO_HTML=2&LEMA=$*"
+}
+
+loadimage() {		# call xloadimage by URI
+	for fi in "$@"; do
+		if [ -e "$fi" ]; then
+			xloadimage "$fi"
+		else
+			wget -qO - "$fi" | xloadimage stdin
+		fi
+	done
+}
