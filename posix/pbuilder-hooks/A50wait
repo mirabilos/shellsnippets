@@ -1,0 +1,23 @@
+#!/bin/bash
+# $MirOS: contrib/hosted/tg/deb/hookdir/A50wait,v 1.2 2011/03/04 14:34:00 tg Exp $
+#-
+# Not complicated enough for copyright.
+
+:>/waiting
+i=1
+while [ -e /waiting ]; do
+	i=$((i-1))
+	if [ $i = 0 ]; then
+		echo
+		ls -l /waiting
+		echo -n 'Waiting '
+		i=300
+	fi
+	if [ $((i%5)) = 0 ]; then
+		echo -n .
+	fi
+	sleep 2
+done
+echo
+echo Continuing.
+exit 0

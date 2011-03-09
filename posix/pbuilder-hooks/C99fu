@@ -1,0 +1,11 @@
+#!/bin/sh
+# $MirOS: contrib/hosted/tg/deb/hookdir/C99fu,v 1.1 2010/03/18 19:46:22 tg Exp $
+#-
+# Not complicated enough for copyright.
+
+echo
+echo Build failed. Trying to invoke a shell.
+echo
+apt-get -y --force-yes install less mksh
+ENV=/etc/skel/.mkshrc /bin/mksh -l 0<>/dev/tty >&0 2>&0 || \
+    /bin/sh 0<>/dev/tty >&0 2>&0
