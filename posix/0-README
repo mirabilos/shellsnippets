@@ -1,0 +1,2 @@
+Shell snippets that run with a POSIX shell.
+GNU bash, dash, AT&T ksh93, mksh. Maybe pdksh, posh, zsh in “emulate sh” mode.
