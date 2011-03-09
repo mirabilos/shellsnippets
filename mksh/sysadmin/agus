@@ -1,0 +1,23 @@
+#!/bin/mksh
+# $Id: agus 1563 2010-11-12 16:27:24Z tglase $
+#-
+# From Planet Debian. Not complicated enough for copyright.
+
+unset LANGUAGE
+export LC_ALL=C
+
+(( USER_ID )) && exec sudo mksh "$0" "$@"
+
+if [[ -n $1 && -s /etc/apt/sources.list.$1 ]]; then
+	cat "/etc/apt/sources.list.$1" >/etc/apt/sources.list
+fi
+
+rv=
+set -x
+apt-get update || rv=$?
+dpkg --clear-avail || rv=${rv:-$?}
+dpkg --forget-old-unavail || rv=${rv:-$?}
+if sa=$(whence -p sync-available); then
+	mksh "$sa" || rv=${rv:-$?}
+fi
+exit $rv

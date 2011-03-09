@@ -1,0 +1,103 @@
+#!/bin/mksh
+# DEB $Id: mkhosts 1671 2011-02-11 13:16:02Z tglase $
+# RPM $Id: mkhosts 1687 2011-02-14 13:37:38Z tglase $
+#-
+# Copyright © 2010, 2011
+#	Thorsten Glaser <t.glaser@tarent.de>
+# Licenced under the AGPLv3
+
+rpm=0
+
+[[ $1 = really && $USER_ID = 0 ]] || exec sudo mksh "$0" really "$@"
+shift
+
+myipsx=
+while getopts "i:" ch; do
+	case $ch {
+	(i) myipsx=$OPTARG ;;
+	}
+done
+shift $((OPTIND - 1))
+
+nl='
+'
+saveIFS=$IFS
+IFS=,
+set -A ips -- $myipsx
+IFS=$saveIFS
+set -A myips
+for ip in "${ips[@]}"; do
+	skip=0
+	if [[ $ip = +([0-9]).+([0-9]).+([0-9]).+([0-9]) ]]; then
+		IFS=.
+		set -A ipsub -- $ip
+		IFS=$saveIFS
+		for x in ${ipsub[*]}; do
+			(( x < 0 || x > 255 )) && skip=1
+		done
+		ip=$((ipsub[0])).$((ipsub[1])).$((ipsub[2])).$((ipsub[3]))
+	elif [[ $ip = +([0-9a-fA-F:]) ]]; then
+		: #XXX check validity
+	else
+		skip=1
+	fi
+	if (( skip )); then
+		print -u2 "WARNING: skipping invalid IP '$ip'"
+	else
+		myips[${#myips[*]}]=$ip
+	fi
+done
+(( ${#myips[*]} )); noips=$?
+
+printf '%s\n' "Old Hostname: $(hostname -f) ($(hostname))"
+while :; do
+	printf "New Hostname: "
+	read hn
+	[[ $hn = [a-zA-Z0-9]?(*([a-zA-Z0-9-])[a-zA-Z0-9])+(.[a-zA-Z0-9]?(*([a-zA-Z0-9-])[a-zA-Z0-9])) ]] && break
+done
+
+if (( noips )); then
+	if (( rpm )); then
+		is="127.0.0.1	$hn ${hn%%.*} localhost localhost.localdomain"
+	else
+		is="127.0.0.1	$hn ${hn%%.*} localhost"
+	fi
+else
+	if (( rpm )); then
+		is="127.0.0.1	localhost localhost.localdomain"
+	else
+		is="127.0.0.1	localhost"
+	fi
+	for ip in "${myips[@]}"; do
+		is="$is${nl}$ip	$hn ${hn%%.*}"
+	done
+fi
+
+if (( rpm )); then
+	grep -vi '^HOSTNAME=' /etc/sysconfig/network >/etc/sysconfig/network~
+	echo "HOSTNAME=$hn" >>/etc/sysconfig/network~
+	cat /etc/sysconfig/network~ >/etc/sysconfig/network
+	rm -f /etc/sysconfig/network~
+	cat >/etc/hosts <<-EOF
+		$is
+
+		::1		localhost6 localhost6.localdomain6
+EOF
+else
+	echo $hn >/etc/hostname
+	cat >/etc/hosts <<-EOF
+		$is
+
+		::1     ip6-localhost ip6-loopback
+		fe00::0 ip6-localnet
+		ff00::0 ip6-mcastprefix
+		ff02::1 ip6-allnodes
+		ff02::2 ip6-allrouters
+		ff02::3 ip6-allhosts
+EOF
+fi
+echo $hn >/proc/sys/kernel/hostname
+hostname $hn
+test x"$(hostname -f)" = x"$hn" && exit 0
+echo "Hostname $(hostname -f) ($(hostname)) doesn’t match $hn!"
+exit 1
