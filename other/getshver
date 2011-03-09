@@ -1,0 +1,172 @@
+# $MirOS: contrib/code/Snippets/getshver,v 1.10 2010/09/27 21:13:18 tg Exp $
+#-
+# Copyright (c) 2009, 2010
+#	Thorsten Glaser <tg@mirbsd.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un-
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided "AS IS" and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person's immediate fault when using the work as intended.
+
+# escape this from tclsh \
+set x = 1
+# escape this from tclsh \
+test 1 = "$x" && goto CSH
+
+# escape this from tclsh \
+if false; then
+	puts tclsh
+	exit 0
+fi
+
+if test x"`echo u ^ echo x`" = x"x"; then
+	# Bourne shell, maybe Heirloom sh (tested)
+	echo bourne
+	exit 0
+fi
+if test x"$(echo u)" != x"u"; then
+	# other non-POSIX shell, maybe Solaris /bin/sh
+	echo binsh
+	exit 0
+fi
+# POSIX shell
+
+case $ZSH_VERSION in
+*[0-9]*) echo "zsh $ZSH_VERSION"; exit 0 ;;
+esac
+
+case x$SHELL_VERSION in
+x) ;;
+*[0-9]*build*)
+	if ( (set -o korn) && (set -o bash) ) >&- 2>&-; then
+		# MKS {,Korn,Bash} Shell (fixed by Michael Langguth)
+		( # subshell, just in case
+		typeset _o
+
+		_o=`set -o`
+		if [ -z "${_o##*-o bash*}" ]; then
+			echo "mksbash $SHELL_VERSION"
+		elif [ -z "${_o##*-o korn*}" ]; then
+			echo "mksksh $SHELL_VERSION"
+		else
+			echo "mkssh $SHELL_VERSION"
+		fi ) || echo "mks $SHELL_VERSION"
+		exit 0
+	fi
+	;;
+esac
+
+x=
+case x$BASH_VERSION in
+# no GNU bash
+x) ;;
+# known GNU bash versions
+x2*) x=bash2 ;;
+x3*) x=bash3 ;;
+x4*) x=bash4 ;;
+# either bash1 or an unlikely version
+*) x=bash ;;
+esac
+if test x"$x" != x""; then
+	echo "$x $BASH_VERSION"
+	exit 0
+fi
+
+# mksh, mirbsdksh (pre-mksh), oksh (3.7+), pdksh
+case $KSH_VERSION in
+*MIRBSD\ KSH*) echo "mksh ${KSH_VERSION#*KSH }" ; exit 0 ;;
+*PD\ KSH*MirOS*) echo "pdksh-mbsd${KSH_VERSION#*PD KSH}"; exit 0 ;;
+*PD\ KSH*)
+	if test x"`typeset -i10 x=0x10 2>&-; echo $x`" = x"16"; then
+		# printing KSH_VERSION here is rather useless though
+		echo "pdksh-obsd ${KSH_VERSION#*KSH }"
+	else
+		# unspecified: Debian (modern), 5.2.14 (sorta modern),
+		# some older or vendor-modified version, old oksh
+		echo "pdksh ${KSH_VERSION#*KSH }"
+	fi
+	exit 0 ;;
+esac
+
+x=.sh.version
+(eval x=\$\{$x\}) 2>&- || x=fail
+if test fail != "$x"; then
+	if builtin XBell >/dev/null 2>&1; then
+		eval echo 'dtksh ${.sh.version#Version }'
+	else
+		eval echo 'ksh93 ${.sh.version#Version }'
+	fi
+	exit 0
+fi
+if (
+	typeset _p
+
+	_p='f+([ o])bar'
+	eval [[ foobar = $_p '&&' \"foo bar\" = $_p ]]
+) 2>&-; then
+	echo ksh88
+	exit 0
+fi
+
+if test x"$POSH_VERSION" != x""; then
+	echo "posix-posh $POSH_VERSION"
+	exit 0
+fi
+if ( [[ 0 < 1 ]] ) 2>&-; then
+	echo posix-ext
+	exit 0
+fi
+if test x"`
+	foo() {
+		local a
+
+		a=2
+	}
+	a=1
+	foo
+	echo $a
+    `" = x"1"; then
+	# we have a working "local"
+	if test x"$(PATH=/nonexistent; export PATH
+	    printf 'f%so' o 2>/dev/null)" = x"foo"; then
+		# probably, but not certain
+		# also: NetBSD /bin/sh on MirBSD; dash on Debian
+		echo posix-dash
+		exit 0
+	fi
+	# test if we fulfil Debian Policy 10.4
+	if ( test 1 -eq 1 -a a = a ) && test x"`echo -n a;
+	    echo -n b`" = x"ab"; then
+		echo posix-debian
+		exit 0
+	fi
+fi
+if test x"`echo -n a; echo -n b`" = x"ab"; then
+	echo posix-echon
+	exit 0
+fi
+if test x"`echo a'\c'; echo b`" = x"ab"; then
+	echo posix-echoc
+	exit 0
+fi
+echo posix
+exit 0
+
+CSH:
+
+if { bindkey >& /dev/null } then
+	echo "tcsh $tcsh"
+else
+	echo csh
+endif
+exit 0
