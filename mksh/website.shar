@@ -1,0 +1,1329 @@
+# This is a shell archive.  Save it in a file, remove anything before
+# this line, and then unpack it by entering "sh file".  Note, it may
+# create directories; files and directories will be owned by you and
+# have default permissions.
+#
+# This archive contains:
+#
+#	LICENCE
+#	Makefile
+#	mk/common
+#	mk/htsconv
+#	mk/inc2htm
+#	mk/inc2rss
+#	mk/mkdepend
+#	mk/parser
+#	mk/strftm.c
+#	mk/ttf2png
+#
+echo x - LICENCE
+sed 's/^X//' >LICENCE << 'END-of-LICENCE'
+X$MirOS: www/LICENCE,v 1.20 2011/02/18 22:37:29 tg Exp $
+X
+X[…]
+XThe MirOS Project web site source code is
+XCopyright © 2007, 2008, 2009, 2011
+X	Thorsten “mirabilos” Glaser <tg@mirbsd.de>
+XCopyright © 2006, 2008
+X	Benny Siegert <bsiegert@mirbsd.org>
+XThis source code is available under the terms of the stan-
+Xdard MirOS licence, see […] mk/common
+END-of-LICENCE
+echo x - Makefile
+sed 's/^X//' >Makefile << 'END-of-Makefile'
+X# $MirOS: www/Makefile,v 1.73 2011/02/12 23:00:00 bsiegert Exp $
+X#-
+X# This file is part of the website of The MirOS Project, which is
+X# copyrighted material, please read the LICENCE file for details.
+X
+X.ifndef TOP
+XTOP!=		realpath ${.CURDIR:Q}
+XDST!=		realpath ${.OBJDIR:Q}
+X.MAKEFLAGS:=	${.MAKEFLAGS} TOP=${TOP:Q} DST=${DST:Q}
+X.endif
+X
+Xall:
+X
+X.include <bsd.own.mk>
+XBSDSRCDIR?=/nonexistant
+X.if exists(${DST}/.depend)
+X.  include "${DST}/.depend"
+X.endif
+X
+XU_ENV+=		TOP=${TOP:Q} DST=${DST:Q} MKSH=${MKSH:Q} SHELL=${MKSH:Q} TZ=UTC
+X
+XSRCS+=		a4rcontrb.hts a4rp5bsd.hts
+XSRCS+=		about.hts
+XSRCS+=		anargeek.hts
+XSRCS+=		ann-10.hts
+XSRCS+=		bt.hts
+XSRCS+=		clog11.hts
+XSRCS+=		danke.hts
+XSRCS+=		devel.hts
+XSRCS+=		errata10.hts
+XSRCS+=		getting.hts
+XSRCS+=		irc.hts
+XSRCS+=		jupp.hts
+XSRCS+=		ksh-chan.hts
+XSRCS+=		kwalletcli.hts
+XSRCS+=		main.hts
+XSRCS+=		makefs.hts
+XSRCS+=		mksh.hts mksh_bld.hts mksh_old.hts
+XSRCS+=		oldnews.hts
+XSRCS+=		pkgsrc.hts
+XSRCS+=		ports.hts
+XSRCS+=		projects.hts
+XSRCS+=		randex.hts
+XSRCS+=		rss.hts
+XSRCS+=		tags.hts
+XCLEANFILES+=	tags.lst tags.out
+XTAGCLOUD+=	debian
+XTAGCLOUD+=	event
+XTAGCLOUD+=	mksh
+XWLOGS=		9 10
+X
+X# legacy content
+XSRCS+=		ann-7.hts ann-8.hts anoncvs.hts bsd-intro.hts clog-2004.hts \
+X		clog-2005.hts clog-2006.hts cvsweb.hts docs.hts errata8.hts \
+X		faq.es.hts faq.hts history.hts ipv6-sixxs.hts \
+X		isdn.hts mirrors.hts mirwarum.hts
+XSRCS+=		wlog-0.hts wlog-1.hts wlog-2.hts wlog-3.hts wlog-4.hts \
+X		wlog-5.hts wlog-6.hts wlog-7.hts wlog-8.hts
+X
+XINCSRCS+=	datatest
+X
+XINCSRCS+=	news
+Xnews.cut: stamp_htm_news
+XCLEANFILES+=	news.cut
+X
+X.PATH: ${TOP}/src
+X
+X_htm_2xhtml=	(tr '\n' '﷐' | \
+X		sed 's^.*<html'${_xhtmlbeg:Q}'' | \
+X		tr '﷐' '\n')
+X_xhtmldtd=	${TOP}/mk/xhtml11.dtd
+X_xhtmlbeg=	<?xml version="1.0"?> \
+X		<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" \
+X		 "file://${_xhtmldtd}"> \
+X		<html
+X
+Xall:
+Xinstall: site.tgz.stamp
+X
+XSTRFTM_MAKE=	cd ${.CURDIR:Q} && ${MAKE} -f ${.SYSMK}/bsd.prog.mk NOMAN=Yes \
+X		    VPATH=${.CURDIR:Q}/mk PROG=strftm
+X
+XOBJS+=		${SRCS:M*.hts:S/hts$/htm~/}
+XVOBJS+=		${SRCS:M*.hts:S/hts$/val/}
+XCLEANFILES+=	${SRCS:M*.hts:S/hts$/htm~/}
+X
+XDEPSRCS+=	${SRCS:S,^,src/,}
+XINCSRCS+=	${WLOGS:S/^/wlog-/}
+XINCSRCS+=	${TAGCLOUD:S/^/tag_/}
+X
+X.for _i in ${INCSRCS}
+XDEPSRCS+=	data/${_i}.cfg
+XGENSRCS+=	stamp_htm_${_i} stamp_rss_${_i}
+XCLEANFILES+=	stamp_tag_${_i}
+X
+Xstamp_htm_${_i}: ${DEPS_mk_inc2htm} ${DEPS_data_${_i}_cfg}
+X	${U_ENV} ${MKSH} ${TOP}/mk/inc2htm ${_i} >$@ || (rm -f $@; exit 1)
+X
+Xstamp_rss_${_i}: ${DEPS_mk_inc2rss} strftm ${DEPS_data_${_i}_cfg}
+X	${U_ENV} PATH=.:$$PATH ${MKSH} ${TOP}/mk/inc2rss ${_i} >$@ || \
+X	    (rm -f $@; exit 1)
+X.endfor
+X
+XDEPSRCS+=	mk/inc2htm mk/inc2rss
+XOBJS+=		${GENSRCS}
+XCLEANFILES+=	${GENSRCS}
+X
+Xclean:
+X	-${STRFTM_MAKE} clean
+X.for _i in ${GENSRCS}
+X	-rm -rf $$(<${_i})
+X.endfor
+X	-rm -rf dst permalinks
+X	-rm -f ${CLEANFILES} site.tgz* *.tmp *~
+X
+Xcleandir: clean
+X	-rm -rf hashed
+X	-rm -f .depend ${CLEANFILES:M*~:S/~$//}
+X
+Xdeinstall:
+X	-rm -rf dst site.tgz*
+X
+Xreinstall: deinstall .WAIT install
+X
+Xall: ${OBJS}
+X
+Xstrftm: mk/strftm.c
+X	${STRFTM_MAKE} $@
+X
+Xsite.tgz.stamp: _reinstall
+X#	find dst | sort | sed -e '/^dst$$/d' -e 's,^dst/,,' | \
+X#	    (cd dst && cpio -voC512 -Hustar -Mdist) | gzip -n9 >site.tgz.tmp
+X#	mv site.tgz.tmp site.tgz
+X	:>$@
+X
+X.for _i in ${WLOGS}
+XWLOG_LATEST:=${_i}
+X.endfor
+X
+X_reinstall:
+X	-rm -rf dst
+X	mkdir dst dst/permalinks
+X	pax -rw -pe -v hashed dst/
+X	pax -rw -pe -dv ${OBJS:Nstamp_*:S/htm~$/htm/} dst/
+X.for _i in ${GENSRCS}
+X	pax -rw -pe -dv $$(<${_i}) dst/
+X.endfor
+X	cd ${TOP}/files && pax -rw -pe -v . ${DST}/dst/
+X	cd ${TOP} && pax -rw -pe -v pics ${DST}/dst/
+X	cd dst && \
+X	    ln -sf wlog-${WLOG_LATEST}.htm wlog.htm && \
+X	    ln -sf wlog-${WLOG_LATEST}.rss wlog.rss && \
+X	    rm -rf $$(find . -name CVS -o -name .cvsignore)
+X	chgrp -R miros-cvswww dst
+X	chmod -R ug=rwX,o=rX dst
+X	chmod a+x dst/cvs.cgi
+X
+X.SUFFIXES: .val .htm~ .hts
+X
+X.hts.htm~:
+X	@dstd='$@'; dstf=$${dstd%~}; rm -f $@; \
+X	 print -r "(. mk/htsconv; mws_basepath $$dstf; mws__do $<) >$$dstf"; \
+X	 export ${U_ENV}; if (cd ${DST}; . ${TOP}/mk/htsconv; \
+X	    mws_basepath $$dstf; mws__do $<) >$@; then \
+X		(. ${TOP}/mk/htsconv; mws_moveifchange -k $$dstd $$dstf); \
+X	 else \
+X		rm -f $@; \
+X		exit 1; \
+X	fi
+X
+X.htm~.val:
+X	@print -r Creating ${@:Q} from ${<:Q} ...
+X	@${_htm_2xhtml} <$< >$@
+X
+X.ifdef validate
+XVOBJS:=		${validate:=.val}
+X
+X.MAIN: validation
+X.endif
+X
+Xvalidation: .PHONY ${VOBJS}
+X	@print -r Validating ${.ALLSRC:Q} ...
+X	@xmlstarlet val -d ${_xhtmldtd} ${.ALLSRC}
+X	@print '\nValidation complete.'
+X
+X.PHONY: clean cleandir depend install deinstall reinstall _reinstall \
+X	cp-herc cp-heph rs-heph rs-eurynome
+X
+X#cp-herc: site.tgz.stamp
+X#	ssh hercs 'cd /var/www/oldsite; tar xzvf -' <site.tgz
+X#
+X#cp-heph: site.tgz.stamp
+X#	ssh hephaistos 'cd Web; tar xzvpf -' <site.tgz
+X
+Xrs-heph:
+X	rsync -rxlztpgavPHK dst/ hephaistos:Web/
+X
+Xrs-eurynome:
+X	rsync -rxlztpgavPHK --rsh='ssh -4' dst/ eurynome:/var/anoncvs/anoncvs/www/
+X
+Xdepend: .depend
+X
+X.depend: ${TOP}/mk/mkdepend ${DEPSRCS}
+X	-rm -f $@
+X	${STRFTM_MAKE} depend
+X	${U_ENV} ${MKSH} ${TOP}/mk/mkdepend ${DEPSRCS}
+X
+Xlazy: .PHONY
+X	cd ${.CURDIR} && make depend && make && \
+X	    make _reinstall && exec make rs-eurynome rs-heph tagslst
+X
+Xtagslst: .PHONY
+X	@(echo === TAGS USED/UNUSED/ACCOUNTED FOR ==; cat stamp_tag_* | \
+X	    sort -u | comm - tags.out) | tee tags.lst
+X
+X.include <bsd.obj.mk>
+END-of-Makefile
+echo x - mk/common
+sed 's/^X//' >mk/common << 'END-of-mk/common'
+Xrcsid_common='$MirOS: www/mk/common,v 1.3 2009/10/31 17:02:38 tg Exp $'
+X#-
+X# Copyright (c) 2007, 2008
+X#	Thorsten Glaser <tg@mirbsd.de>
+X#
+X# Provided that these terms and disclaimer and all copyright notices
+X# are retained or reproduced in an accompanying document, permission
+X# is granted to deal in this work without restriction, including un-
+X# limited rights to use, publicly perform, distribute, sell, modify,
+X# merge, give away, or sublicence.
+X#
+X# This work is provided "AS IS" and WITHOUT WARRANTY of any kind, to
+X# the utmost extent permitted by applicable law, neither express nor
+X# implied; without malicious intent or gross negligence. In no event
+X# may a licensor, author or contributor be held liable for indirect,
+X# direct, other damage, loss, or other issues arising in any way out
+X# of dealing in the work, even if advised of the possibility of such
+X# damage or existence of a defect, except proven that it results out
+X# of said person's immediate fault when using the work as intended.
+X
+X# RFC 2396 and some optional characters _plus_ apostrophe
+X# -> escapes all shell meta-characters as well
+Xfunction uri_escape {
+X	if (( $# )); then
+X		print -nr -- "$@"
+X	else
+X		cat
+X	fi | sed -e '
+X	    s.%.%25.g
+X	    s.;.%3B.g
+X	    s./.%2F.g
+X	    s.?.%3F.g
+X	    s.:.%3A.g
+X	    s.@.%40.g
+X	    s.&.%26.g
+X	    s.=.%3D.g
+X	    s.+.%2B.g
+X	    s.\$.%24.g
+X	    s.,.%2C.g
+X	    s.	.%09.g
+X	    s. .%20.g
+X	    s.<.%3C.g
+X	    s.>.%3E.g
+X	    s.#.%23.g
+X	    s.".%22.g
+X	    s.{.%7B.g
+X	    s.}.%7D.g
+X	    s.|.%7C.g
+X	    s.\\.%5C.g
+X	    s.\^.%5E.g
+X	    s.\[.%5B.g
+X	    s.\].%5D.g
+X	    s.`.%60.g
+X	    s.'\''.%27.g
+X	'
+X}
+X
+X# escape XHTML characters (three mandatory XML ones plus double quotes,
+X# the latter in an XML safe fashion numerically though)
+Xfunction xhtml_escape {
+X	if (( $# )); then
+X		print -nr -- "$@"
+X	else
+X		cat
+X	fi | sed \
+X	    -e 's&\&amp;g' \
+X	    -e 's<\&lt;g' \
+X	    -e 's>\&gt;g' \
+X	    -e 's"\&#34;g'
+X}
+X
+X# escape ampersands for sed (pipe only: post-processing)
+Xfunction sed_escape {
+X	sed -e 's&\\\&g'
+X}
+END-of-mk/common
+echo x - mk/htsconv
+sed 's/^X//' >mk/htsconv << 'END-of-mk/htsconv'
+Xrcsid_htsconv='$MirOS: www/mk/htsconv,v 1.58 2011/02/18 22:37:28 tg Exp $'
+X#-
+X# This file is part of the website of The MirOS Project, which is
+X# copyrighted material, please read the LICENCE file for details.
+X
+X#DEPEND mk/common
+X. "$TOP"/mk/common
+X
+Xmws__pagename=
+Xmws__header=
+Xmws__rss=
+Xmws__difftag=MBSD_HTSCONV_GENDATE_TAG_14701
+Xunset mws__srcfile
+Xunset mws__abspath
+Xunset mws__relpath
+Xunset mws__canonpath
+Xunset mws__headline
+Xunset mws__fontsize
+Xmws__canonsite=https://www.mirbsd.org
+Xnl='
+X'
+X
+Xfunction mws__do {
+X	mws__srcfile=$1
+X
+X	set +e
+X	. "$1"
+X}
+X
+Xfunction mws_setname {
+X	mws__pagename=$2
+X	# change index to mark $1
+X}
+X
+Xfunction mws_setheadline {
+X	mws__headline=$*
+X}
+X
+Xfunction mws_setheadsize {
+X	mws__fontsize=$1
+X	(( mws__fontsize > 2 && mws__fontsize < 255 )) || unset mws__fontsize
+X}
+X
+Xfunction mws_setrss {
+X	mws__rss="\\
+X <link rel=\"alternate\" type=\"application/rss+xml\" title=\"RSS\" href=\"$1\" />"
+X	# this is for not doing the newline when no RSS is applicable
+X}
+X
+Xfunction mws_subdir {
+X	if [[ $1 = - ]]; then
+X		mws__relpath=$mws__abspath/
+X		return
+X	fi
+X	integer i=$1
+X	mws__relpath=
+X	while (( i-- )); do
+X		mws__relpath=../$mws__relpath
+X	done
+X}
+X
+Xfunction mws_basepath {
+X	mws__canonpath=$mws__canonsite/$1
+X}
+X
+X# this only matches lines like this:
+X# ^<h[23456] id="…id…">…content…</h[23456]>$
+Xfunction mws_maketoc {
+X	local level=0 sps='       ' line lna llv lid
+X
+X	if [[ -z $mws__srcfile ]]; then
+X		print -u2 Internal error: not called via mws__do!
+X		exit 1
+X	fi
+X	(grep '^<h[2-6] id="[^">]*">.*</h[2-6]>$' "$mws__srcfile"
+X	 print '<h1') |&
+X	while IFS= read -pr line; do
+X		set -A lna -- $line
+X		(( llv = ${lna[0]#\<h} - 1 ))
+X		while (( level < llv )); do
+X			if (( level )); then
+X				print "${sps::level}<li><ul>"
+X			else
+X				print "<ul>"
+X			fi
+X			let ++level
+X		done
+X		while (( level > llv )); do
+X			let --level
+X			if (( level )); then
+X				print "${sps::level}</ul></li>"
+X			else
+X				print "</ul>"
+X			fi
+X		done
+X		(( level )) || break
+X		lid=${line#\<h? id=\"}
+X		lid=${lid%%\"*}
+X		line=${line#*\>}
+X		line=${line%\</h?\>}
+X		print "${sps::level}<li><a href=\"#$lid\">$line</a></li>"
+X	done
+X}
+X
+Xfunction mws_makepic {
+X	local hpic htit fsiz hmag
+X
+X	htit=$1
+X	fsiz=${2:-0}
+X	hmag=${3:-u}
+X
+X	(( fsiz > 2 && fsiz < 255 )) || unset fsiz
+X
+X	hpic=$(cksum -a oaat <<<"$hmag,$fsiz,$htit").png
+X	if [[ ! -s hashed/$hpic ]] && whence -p php >/dev/null; then
+X		mkdir -p hashed
+X		php "$TOP"/mk/ttf2png "$htit" $fsiz >hashed/$hpic
+X	fi
+X	print $hpic
+X}
+X
+Xfunction mws_makepiclink {
+X	local ptext pfile
+X
+X	pfile=$(mws_makepic "$@")
+X	ptext=$(xhtml_escape "$1")
+X
+X	print "<img src=\"@@RELPATH@@hashed/$pfile\" alt=\"$ptext\" />"
+X}
+X
+Xfunction mws_putheader {
+X	local rcsid=$1 hpic
+X
+X	if [[ -z $mws__canonpath ]]; then
+X		print -u2 Internal error: mws_basepath not called!
+X		exit 1
+X	fi
+X	[[ -n $mws__headline ]] && mws__headline="$nl<h1>$(mws_makepiclink \
+X	    "$mws__headline" "$mws__fontsize" s)</h1>"
+X	mws__content <<-EOF
+X		<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+X		 "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+X		<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en"><head>
+X		 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+X		 <meta http-equiv="Content-Style-Type" content="text/css" />
+X		 <meta name="MSSmartTagsPreventParsing" content="TRUE" />
+X		 <link rel="stylesheet" type="text/css" href="@@RELPATH@@vstyle.css" />
+X		 <link rel="apple-touch-icon" href="@@RELPATH@@pics/blumenkohl.png" />
+X		 <link rel="canonical" href="$mws__canonpath" />
+X		 <meta name="author" content="Thorsten Glaser" />
+X		 <meta name="copyright" content="All rights reserved. Redistribution except for scientific and educational uses strictly prohibited. Unmodified redistribution with no endorsement permitted." />
+X		 <meta name="owner" content="The MirOS Project and The MirPorts Framework" />
+X		 <meta name="licence" content="see the source files in CVSWEB for details" />
+X		 <title>MirOS: $mws__pagename</title>
+X		 <meta name="robots" content="index, follow" />@@RSS@@
+X		 <!--
+X		  This is copyrighted material. For the full licence text, see the file
+X		  LICENCE in the current directory. In no event may text from this page
+X		  be simply copied into another work covered by an unfree (or otherwise
+X		  mismatching) licence, such as the GNU Free Documentation License.
+X		 -->
+X		</head><body>$mws__headline
+X		<div class="trailing">
+X		<div class="index">
+X		 <ul class="lv1">
+X		<li><a href="@@RELPATH@@main.htm">Main</a><ul class="lv2">
+X		<li><a href="@@RELPATH@@wlog-10.htm">Weblog</a> for #10</li>
+X		<li><a href="@@RELPATH@@tags.htm">Tag Cloud</a></li>
+X		<li><a href="@@RELPATH@@news.htm">Old News</a> &amp;
+X		 <a href="@@RELPATH@@oldnews.htm#owlog">WLog</a></li>
+X		</ul></li>
+X		<li><a href="@@RELPATH@@about.htm">About</a></li>
+X		<!-- these are not in a usable state
+X		<li><a href="@@RELPATH@@docs.htm">Documentation</a></li>
+X		<li><a href="@@RELPATH@@faq.htm">FAQ</a></li>
+X		-->
+X		<li class="spacer"><a href="@@RELPATH@@getting.htm">Download</a></li>
+X		<li><a href="@@RELPATH@@rss.htm">RSS &amp; Mailing Lists</a></li>
+X		<li><a href="@@RELPATH@@irc.htm">IRC</a></li>
+X		<li><a href="@@RELPATH@@projects.htm">Project Ideas</a></li>
+X		<li><a href="@@RELPATH@@danke.htm">Donate</a></li>
+X		<li>Manpages<ul class="lv2">
+X		<li><a href="@@RELPATH@@htman/i386/">i386</a></li>
+X		<li><a href="@@RELPATH@@htman/sparc/">sparc</a></li>
+X		</ul></li>
+X		<li><a href="@@RELPATH@@ports.htm">MirPorts</a> Framework</li>
+X		<li><a href="@@RELPATH@@pkgsrc.htm">pkgsrc®</a> integration</li>
+X		<li>Subprojects<ul class="lv2">
+X		<li><a href="@@RELPATH@@jupp.htm">jupp</a> Editor</li>
+X		<li><a href="@@RELPATH@@kwalletcli.htm">KWalletCLI</a></li>
+X		<!-- li><a href="@@RELPATH@@makefs.htm">makefs</a></li -->
+X		<li><a href="@@RELPATH@@mksh.htm">mksh</a> Shell</li>
+X		</ul></li>
+X		 </ul>
+X		<div style="margin-top:18px; margin-left:6px;">Sponsored
+X		 by<br /><a href="http://www.speedpartner.de/"
+X		  style="border:none; text-decoration:none;"><img
+X		  style="border:none; text-decoration:none;"
+X		  src="@@RELPATH@@pics/speedpartner.png"
+X		  alt="SpeedPartner logo" width="130" height="31"
+X		  /></a>
+X		</div>
+X		</div>
+X		<div class="content">
+X	EOF
+X	mws__header="<p class=\"rcsdiv\">Generated <!-- $mws__difftag --> on"
+X	mws__header="$mws__header <span class=\"rcsid\">$(date +'%F %T')</span>"
+X	mws__header="$mws__header by <span class=\"rcsid\">$rcsid_htsconv</span>"
+X	for x in "$rcsid_parser" "$rcsid_inc2htm" "$rcsid_inc2rss"; do
+X		[[ -n $x ]] || continue
+X		mws__header="$mws__header and <span class=\"rcsid\">$x</span>"
+X	done
+X	for x in "$rcsid_cfg" "$rcsid"; do
+X		[[ -n $x ]] || continue
+X		mws__header="$mws__header from <span class=\"rcsid\">$x</span>"
+X	done
+X	for x in "${rcsid_db[@]}"; do
+X		[[ -n $x ]] || continue
+X		mws__header="$mws__header and <span class=\"rcsid\">$x</span>"
+X	done
+X	mws__header="$mws__header</p>"
+X}
+X
+Xfunction mws_moveifchange {
+X	if [[ $1 = -k ]]; then
+X		keep=1
+X		shift
+X	else
+X		keep=0
+X	fi
+X	[[ -e $1 && -e $2 ]] || ls -l "$1" "$2" 2>&1 | sed 's/^/！/' >&2
+X	[[ -e $1 ]] && if [[ -e $2 ]] && \
+X	    diff -waqI "$mws__difftag" "$1" "$2" >/dev/null 2>&1; then
+X		[[ $keep = 1 ]] || rm -f "$1"
+X	else
+X		if [[ $keep = 1 ]]; then
+X			cp -f "$1" "$2"
+X		else
+X			mv -f "$1" "$2"
+X		fi
+X	fi
+X	#touch "$2"
+X	return 0
+X}
+X
+Xfunction mws_putfooter {
+X	mws_content <<-'EOF'
+X		</div>
+X		<div class="footer">
+X		<p style="display: none;">Do <em>not</em> send any eMail to <a
+X		 href="mailto:junk@mirbsd.de">junk@mirbsd.de</a>, <a
+X		 href="mailto:junk@mirbsd.org">junk@mirbsd.org</a>, or <a
+X		 href="mailto:junk@mirsolutions.de">junk@mirsolutions.de</a> –
+X		 it won’t do any good to you.</p>
+X		<p>• <a
+X		 href="mailto:miros-discuss@mirbsd.org">eMail</a> contact to
+X		 The MirOS Project • This website is (supposed to be) <a
+X		 href="http://validator.w3.org/check/referer">Valid HTML</a>! •
+X		</p>
+X		@@HEADER@@
+X		</div></div>
+X		<div class="heading">
+X		 <img class="hdrlnks" alt="MirOS Logo"
+X		  src="@@RELPATH@@pics/logo-grey.png" />
+X		</div>
+X		</body></html>
+X	EOF
+X}
+X
+Xfunction mws_content {
+X	if [[ -z $mws__header ]]; then
+X		print -u2 Internal error: mws_putheader not called!
+X		exit 1
+X	fi
+X	mws__content "$@"
+X}
+X
+Xfunction mws__content {
+X	sed \
+X	    -e 's\([0-9A-z][-.,0-9A-z]*\)(\(DOCS\))<a href="@@RELPATH@@htman/i386/man\2/\1.htm" class="manlink">&</a>g' \
+X	    -e 's\([0-9A-z][-.,0-9A-z]*\)(\(PAPERS\))<a href="@@RELPATH@@htman/i386/man\2/\1.htm" class="manlink">&</a>g' \
+X	    -e 's\([0-9A-z][-.,0-9A-z]*\)(GNU)<a href="@@RELPATH@@htman/i386/manINFO/\1.html" class="manlink">&</a>g' \
+X	    -e 's\([0-9A-z][-.,0-9A-z]*\)(\([PSU][MS][DM]\))<a href="@@RELPATH@@htman/i386/man\2/\1.htm" class="manlink">&</a>g' \
+X	    -e 's\([0-9A-z][-.,0-9A-z]*\)(\([1-9]\)/[Ss][Pp][Aa][Rr][Cc])<a href="@@RELPATH@@htman/sparc/man\2/\1.htm" class="manlink">&</a>g' \
+X	    -e 's\([0-9A-z][-.,0-9A-z]*\)(\([1-9]\)/[Ii]386)<a href="@@RELPATH@@htman/i386/man\2/\1.htm" class="manlink">&</a>g' \
+X	    -e 's\([0-9A-z][-.,0-9A-z]*\)(\([1-9]\))<a href="@@RELPATH@@htman/i386/man\2/\1.htm" class="manlink">&</a>g' \
+X	    -e "s@@ABSPATH@@$mws__abspathg" \
+X	    -e "s@@RELPATH@@$mws__relpathg" \
+X	    -e "s@@HEADER@@$mws__headerg" \
+X	    -e "s@@RSS@@$mws__rssg"
+X}
+X
+Xfunction mws_push {
+X	for param in _pagename _relpath; do
+X		eval mws__push_$param=\$mws_$param
+X	done
+X}
+X
+Xfunction mws_pop {
+X	for param in _pagename _relpath; do
+X		eval mws_$param=\$mws__push_$param
+X	done
+X}
+END-of-mk/htsconv
+echo x - mk/inc2htm
+sed 's/^X//' >mk/inc2htm << 'END-of-mk/inc2htm'
+Xrcsid_inc2htm='$MirOS: www/mk/inc2htm,v 1.26 2009/10/31 17:02:39 tg Exp $'
+X#-
+X# This file is part of the website of The MirOS Project, which is
+X# copyrighted material, please read the LICENCE file for details.
+X
+Xinteger perpage=12
+Xname=$1
+X
+X. "$TOP/data/$name.cfg"
+X
+X#DEPEND mk/parser
+X. "$TOP"/mk/parser
+X
+X#DEPEND mk/htsconv
+X. "$TOP"/mk/htsconv
+X
+Xwd=$(pwd)
+Xcd "$TOP/data"
+Xfor x in *.cfg; do
+X	x=${x%.cfg}
+X	t=$(grep '^targets=' $x.cfg || :)
+X	typeset -l targets=
+X	[[ -z $t ]] || eval $t
+X	for t in $targets; do
+X		if [[ $t != +([0-9a-z_]) ]]; then
+X			print -u2 "Invalid tag '$t' in data/$x.cfg"
+X			continue
+X		fi
+X		eval linktarget_$t=$x
+X	done
+Xdone
+Xcd "$wd"
+X
+Xfunction output {
+X	local rcmd i j x
+X
+X	rpath=$1
+X	efe="${rpath}${ei_srcf[ent]}_${eid}.htm#${eid}_${ei_srcf[ent]}"
+X	title="${e_date[ent]}${e_author[ent]+ by }${e_author[ent]}"
+X	subtitle=
+X	if [[ ${e_language[ent]} = +([A-Za-z0-9-]) ]]; then
+X		xmllang=" xml:lang=\"${e_language[ent]}\""
+X	else
+X		xmllang=
+X	fi
+X	print "<div class=\"wlentry\"$xmllang>"
+X	if [[ -n ${e_title[ent]} ]]; then
+X		subtitle='<div class="wlsubtitle">'"${title}</div>$nl"
+X		title="${e_title[ent]}"
+X	fi
+X	if [[ -n ${e_tag[ent]} ]]; then
+X		subtitle=$subtitle'<div class="wltagtitle">Tags:'
+X		for x in ${e_tag[ent]}; do
+X			eval t=\$linktarget_$x
+X			[[ -z $t ]] || x="<a href=\"@@RELPATH@@${t}_all.htm#${eid}_${ei_srcf[ent]}\">$x</a>"
+X			subtitle="$subtitle $x"
+X		done
+X		subtitle="$subtitle</div>$nl"
+X	fi
+X	if [[ -n ${e_pictures[ent]} ]]; then
+X		set -A rcmd -- sed
+X		for i in ${e_pictures[ent]}; do
+X			case $i {
+X			(*:*)	j=${i#*:}; i=${i%%:*} ;;
+X			(*)	j= ;;
+X			}
+X			eval x='${e_picture'$i'[ent]}'
+X			rcmd[${#rcmd[*]}]=-e
+X			rcmd[${#rcmd[*]}]="s@!PICTURE${i}!@$(mws_makepiclink \
+X			    "$x" "$j" d | sed_escape)g"
+X		done
+X	else
+X		rcmd=cat
+X	fi
+X	cat <<-EOF
+X		<div class="wltitle">
+X		<h2 class="wlentry" id="${e_id[ent]}_${ei_srcf[ent]}"><a href="${efe}">${title}</a></h2>
+X		${subtitle}</div>
+X	EOF
+X	"${rcmd[@]}" <<-EOF
+X		${ei_body[ent]/'<!-- RSS stop -->'}
+X		</div>
+X	EOF
+X}
+X
+Xfunction mopen {
+X	integer number=$1
+X	if (( number == 1 )); then
+X		fn=$name.htm
+X	else
+X		fn=${name}_${number}.htm
+X	fi
+X	print -r -- "$fn"
+X	mws_setname $whoami "$pname – Page $number"
+X	mws_subdir 0
+X	mws_setheadline "$ptitle"
+X	mws_putheader >$fn~
+X	print -r -- "<p>${plinks}" >>$fn~
+X}
+X
+Xfunction mclose {
+X	mws_putfooter >>$1~
+X	mws_moveifchange $1~ $1
+X}
+X
+X
+X#rm -f ${name}.{cut,htm} ${name}_*.htm permalinks/${name}_*.htm
+X(( cutoff )) && cat >${name}.cut~ <<-EOF
+X	: ${mws__relpath=/}
+XEOF
+Xmws_basepath ${name}_all.htm
+Xprint -r -- ${name}_all.htm
+Xmws_setname $whoami "$pname – All in One Page"
+Xmws_setrss "${mws__relpath}${name}.rss"
+Xmws_subdir 0
+Xmws_setheadline "$ptitle"
+Xmws_putheader >${name}_all.htm~
+Xplinks="<a href=\"${name}_all.htm\">All</a> <a href=\"${name}.htm\">1</a>"
+Xplinksr="<a href=\"../${name}_all.htm\">All</a> <a href=\"../${name}.htm\">1</a>"
+Xinteger i=2
+Xwhile (( i <= ((entries - cutoff) / perpage + 1) )); do
+X	plinks="$plinks <a href=\"${name}_${i}.htm\">${i}</a>"
+X	plinksr="$plinksr <a href=\"../${name}_${i}.htm\">${i}</a>"
+X	let ++i
+Xdone
+Xplinks="${plinks}</p>"
+Xplinksr="${plinksr}</p>"
+Xprint -r -- "<p>${plinks}" >>${name}_all.htm~
+Xmopen 1
+Xmkdir -p permalinks
+Xinteger entryc=0
+Xinteger entryp='entries - 1'
+Xinteger ent
+Xwhile (( entryp >= 0 )); do
+X	ent=${ei_indir[entryp]}
+X	eid=$(uri_escape "${e_id[ent]}")
+X	do_permalink=1
+X	for f in "${nopermalinks[@]}"; do
+X		[[ $f = ${ei_srcf[ent]} ]] || continue
+X		do_permalink=0
+X		break
+X	done
+X	if (( do_permalink )); then
+X		fe=permalinks/${ei_srcf[ent]}_${eid}.htm
+X		print -r -- "$fe"
+X		mws_push
+X		mws_setname $whoami "$pname"
+X		mws_subdir 1
+X		mws_setheadline "$ptitle"
+X		mws_putheader >$fe~
+X		print -r -- "<p>${plinksr}" >>$fe~
+X		output | mws_content >>$fe~
+X		mclose $fe
+X		mws_pop
+X	fi
+X	if (( entryc < cutoff )); then
+X		print "mws_content <<'EOF_cutoff_$name'" >>${name}.cut~
+X		output @@RELPATH@@permalinks/ >>${name}.cut~
+X		print EOF_cutoff_$name >>${name}.cut~
+X	else
+X		output permalinks/ | mws_content >>$fn~
+X	fi
+X	output permalinks/ | mws_content >>${name}_all.htm~
+X	let entryp--
+X	let entryc++
+X	if (( ((entryc - cutoff) % perpage) == 0 )); then
+X		print -r -- "<p class=\"linkbot\">$plinks" >>$fn~
+X		mclose $fn
+X		mopen $(((entryc - cutoff) / perpage + 1))
+X	fi
+Xdone
+Xprint -r -- "<p class=\"linkbot\">$plinks" >>$fn~
+Xprint -r -- "<p class=\"linkbot\">$plinks" >>${name}_all.htm~
+Xmclose $fn
+Xmclose ${name}_all.htm
+X[[ -e ${name}.cut~ ]] && mws_moveifchange ${name}.cut~ ${name}.cut
+Xexit 0
+END-of-mk/inc2htm
+echo x - mk/inc2rss
+sed 's/^X//' >mk/inc2rss << 'END-of-mk/inc2rss'
+Xrcsid_inc2rss='$MirOS: www/mk/inc2rss,v 1.30 2009/10/31 17:02:39 tg Exp $'
+X#-
+X# This file is part of the website of The MirOS Project, which is
+X# copyrighted material, please read the LICENCE file for details.
+X
+Xinteger maxentries=25
+XDATE_RSS="%a, %d %b %Y %H:%M:%S %z"
+Xname=$1
+X
+X. "$TOP/data/$name.cfg"
+X
+X#DEPEND mk/parser
+X. "$TOP"/mk/parser
+X
+X#DEPEND mk/htsconv
+X. "$TOP"/mk/htsconv
+X
+Xmws__header="<!-- RSS mode -->"
+Xmws__abspath=$mws__canonsite
+X
+Xfunction rss_putheader {
+X	#lastchanged=$(date -r $(stat -f "%m" "$TOP/data/$name.inc") +"$DATE_RSS")
+X	lastchanged=$(date +"$DATE_RSS")
+X	cat <<-EOF
+X		<rss
+X		 xmlns:atom="http://www.w3.org/2005/Atom"
+X		 xmlns:dc="http://purl.org/dc/elements/1.1/"
+X		 version="2.0">
+X		<channel xml:lang="en">
+X		 <title>$ptitle</title>
+X		 <description>$pname - the MirOS Project</description>
+X		 <atom:link href="$mws__abspath/$1" rel="self" type="application/rss+xml" />
+X		 <lastBuildDate>$lastchanged</lastBuildDate>
+X		 <link>http://mirbsd.de/</link>
+X		 <managingEditor>tg@mirbsd.org (The MirOS Project)</managingEditor>
+X		 <webMaster>bsiegert@mirbsd.org (The MirOS Project)</webMaster>
+X		 <copyright>All content Copyright © by The MirOS Project or its respective
+X		  writers. Permission to reproduce wlog entries in unmodified form without
+X		  notice is granted provided they are not used to endorse or promote any
+X		  products or opinions. For everything else you need to obtain written
+X		  permission from the copyright owner.</copyright>
+X		 <dc:language>en</dc:language>
+X		 <ttl>${rssttl:-1440}</ttl>
+X		 <generator>MirOS Website, written in mksh; RCS IDs:
+X		    $rcsid_parser
+X		    $rcsid_common
+X		    $rcsid_htsconv
+X		    $rcsid_inc2rss
+X		  RCS IDs of the content database:
+X		    $rcsid_cfg
+X	EOF
+X	for x in "${rcsid_db[@]}"; do
+X		[[ -z $x ]] && continue
+X		print "    $x"
+X	done
+X	print " </generator>"
+X}
+X
+Xfunction rss_putfooter {
+X	print "</channel></rss>"
+X}
+X
+Xfunction rss_output {
+X	local rcmd i x
+X	integer ent=$1
+X	rpath=$2
+X	eid=$(uri_escape "${e_id[ent]}")
+X	efe="${mws__abspath}${rpath}${ei_srcf[ent]}_${eid}.htm#${eid}_${ei_srcf[ent]}"
+X	pubdate=$(strftm "$DATE_RSS" ${ei_time[ent]})
+X	if [[ -n ${e_title[ent]} ]]; then
+X		title="${e_title[ent]}"
+X	else
+X		title="${e_date[ent]}${e_author[ent]+ by }${e_author[ent]}"
+X	fi
+X	if [[ ${e_language[ent]} = +([A-Za-z0-9-]) ]]; then
+X		xmllang=" xml:lang=\"${e_language[ent]}\""
+X		rss3lang="<language>${e_language[ent]}</language>"
+X	else
+X		xmllang=
+X		rss3lang=
+X	fi
+X	# we use $xmllang: RSS 2.0 doesn’t allow the language tag inside
+X	# items, just as channel tag (and Benny’s template doesn’t even
+X	# use it but dc:language instead)
+X	cat <<-EOF
+X		<item$xmllang>
+X		<title>$title</title>
+X		<pubDate>$pubdate</pubDate>
+X		<link>$efe</link>
+X		<guid isPermaLink="true">$mws__canonsite/permalinks/${ei_srcf[ent]}_${eid}.htm</guid>
+X	EOF
+X	for x in ${e_tag[ent]}; do
+X		print "<category>$x</category>"
+X		print $x >>stamp_tag_$name
+X	done
+X	if [[ -n ${e_author[ent]} ]]; then
+X		eauthor=${e_author[ent]}
+X		mauthor=
+X		if [[ $eauthor = *@ ]]; then
+X			uauthor=" ${eauthor%%@*}"
+X			eauthor="${eauthor}mirbsd.org"
+X		fi
+X		[[ $eauthor = *\(*\)* ]] || eauthor="$eauthor (MirOS Developer$uauthor)"
+X		print "<author>${eauthor}</author>\n"
+X	fi
+X	print "<description>"
+X	if [[ -n ${e_pictures[ent]} ]]; then
+X		set -A rcmd -- sed
+X		for i in ${e_pictures[ent]}; do
+X			i=${i%%:*}
+X			eval x='${e_picture'$i'[ent]}'
+X			rcmd[${#rcmd[*]}]=-e
+X			rcmd[${#rcmd[*]}]="s@!PICTURE${i}!@$(xhtml_escape \
+X			    "$x" | sed_escape)g"
+X		done
+X	else
+X		rcmd=cat
+X	fi
+X	"${rcmd[@]}" <<<"${ei_body[ent]%%@(<!-- RSS stop -->)*}" | \
+X	    mws_content | xhtml_escape
+X	print "</description></item>"
+X}
+X
+Xrm -f stamp_tag_$name
+Xprint -r -- ${name}.rss
+Xmws_setname $whoami "$pname"
+Xmws_subdir -
+Xrss_putheader "${name}.rss" >${name}.rss~
+X
+Xinteger i='entries - 1'
+Xinteger last='entries < maxentries ? 0 : entries - maxentries'
+Xwhile (( i >= last )); do
+X	rss_output ${ei_indir[i]} "/permalinks/" >>${name}.rss~
+X	let i--
+Xdone
+X
+Xrss_putfooter >>${name}.rss~
+Xmws_moveifchange ${name}.rss~ ${name}.rss
+X[[ -e stamp_tag_$name ]] && sort -u -o stamp_tag_$name stamp_tag_$name
+Xexit 0
+END-of-mk/inc2rss
+echo x - mk/mkdepend
+sed 's/^X//' >mk/mkdepend << 'END-of-mk/mkdepend'
+X# $MirOS: www/mk/mkdepend,v 1.5 2008/12/04 20:03:27 tg Exp $
+X#-
+X# This file is part of the website of The MirOS Project, which is
+X# copyrighted material, please read the LICENCE file for details.
+X
+Xfunction tofn {
+X	print -nr -- "$*" | tr '/. ' ___
+X}
+X
+Xrm -rf "$DST"/{.depend.tmp{,2},.dep}
+Xd="$DST/.dep"
+Xmkdir "$d"
+Xcd "$TOP"
+X
+Xset -A files
+Xfor f in "$@"; do
+X	files[${#files[*]}]=$f
+X	print "\${TOP}/$f" >>"$d/$(tofn "$f")"
+X	if [[ $f = *.hts ]]; then
+X		g=${f##*/}
+X		print "${g%s}m~: .NOTMAIN \${DEPS_$(tofn "$f")}" >>"$DST/.depend.tmp2"
+X	fi
+X	[[ $debug = 1 ]] && print "D: input file $f"
+Xdone
+Xinteger p=0
+Xwhile (( p < ${#files[*]} )); do
+X	integer q=p
+X	integer r=${#files[*]}
+X	while (( q < r )); do
+X		[[ $debug = 1 ]] && print "D: depending ${files[q]}"
+X		(
+X			[[ ${files[q]} = *.hts ]] && print mk/htsconv
+X			grep -e '^#DEPEND ' -e '^//DEPEND ' ${files[q]}
+X		) |&
+X		dp=$d/$(tofn "${files[q]}")
+X		while IFS= read -pr line; do
+X			line=${line##*DEPEND }
+X			[[ $debug = 1 ]] && print "D:        on -> $line"
+X			if [[ $line = OBJ:* ]]; then
+X				print "${line#OBJ:}" >>"$dp"
+X				continue
+X			fi
+X			for tfn in $line; do
+X				print "\${TOP}/$tfn" >>"$d/$(tofn "$tfn")"
+X				files[${#files[*]}]=$tfn
+X				print "\${DEPS_$(tofn "$tfn")}" >>"$dp"
+X			done
+X		done
+X		let q++
+X	done
+X	let p=r
+Xdone
+X
+Xcd "$DST/.dep"
+Xfor file in *; do
+X	sort -u "$file" | while IFS= read -r name; do
+X		print "DEPS_$file+=\t$name"
+X	done
+Xdone >"$DST/.depend.tmp"
+Xcd "$DST"
+Xcat .depend.tmp2 >>.depend.tmp
+Xcat .depend.tmp >>.depend
+Xrm -rf .dep .depend.tmp{,2}
+Xexit 0
+END-of-mk/mkdepend
+echo x - mk/parser
+sed 's/^X//' >mk/parser << 'END-of-mk/parser'
+Xrcsid_parser='$MirOS: www/mk/parser,v 1.20 2008/12/04 20:55:12 tg Exp $'
+X#-
+X# This file is part of the website of The MirOS Project, which is
+X# copyrighted material, please read the LICENCE file for details.
+X
+Xset -A e_author
+Xset -A e_id
+Xset -A ei_body
+Xset -A ei_indir
+Xset -A ei_srcf
+Xset -A ei_skip
+Xset -A ei_time
+X
+Xnl='
+X'
+Xsave_IFS=$IFS
+Xinteger entry=0
+Xinteger guid
+Xinteger state
+Xtypeset -l parser_lctmp
+X
+Xfor srcf in $sources; do
+X	eval parser_lctmp=\$tags_${srcf//\-/_}
+X	tags=:
+X	for x in $parser_lctmp; do
+X		tags=$tags$x:
+X	done
+X	guid=10000
+X	ids=:
+X	state=1
+X	rcsid_parsed=
+X	while IFS= read -r line; do
+X		if [[ $line = RCSID:* && -z $rcsid_parsed ]]; then
+X			rcsid_parsed=${line##RCSID:*([	 ])}
+X		elif [[ $line = ---- ]]; then
+X			if [[ -z ${e_id[entry]} ]]; then
+X				if [[ -n ${e_date[entry]} ]]; then
+X					id=${e_date[entry]}
+X					id=e${id:6:4}${id:3:2}${id::2}
+X				else
+X					id=g$((guid++))
+X				fi
+X				if [[ -n ${e_author[entry]} ]]; then
+X					id=${id}-${e_author[entry]%%@(@)*}
+X				else
+X					id=${id}-nn
+X				fi
+X				e_id[entry]=$id
+X			fi
+X			while [[ :$ids = *:${e_id[entry]}:* ]]; do
+X				e_id[entry]=${e_id[entry]}-g$guid
+X				let guid++
+X			done
+X			ei_srcf[entry]=$srcf
+X			ids=$ids${e_id[entry]}:
+X			if [[ $tags != : ]]; then
+X				ei_skip[entry]=1
+X				for x in ${e_tag[entry]}; do
+X					[[ $tags = *:$x:* ]] || continue
+X					unset ei_skip[entry]
+X					break
+X				done
+X			fi
+X			let ++entry
+X			state=2
+X		elif (( state > 0 )); then
+X			if [[ $line = @([A-Za-z]*([A-Za-z0-9_]):\ *) ]]; then
+X				x=${line##+([A-Za-z0-9_]):+([	 ])}	# value
+X				parser_lctmp=${line/%:+([	 ])$x}	# key
+X				eval e_$parser_lctmp[entry]=\$x
+X			elif [[ -z $line ]]; then
+X				state=0
+X				continue
+X			elif [[ $line = \#* ]]; then
+X				continue	# ignore comment
+X			else
+X				print -u2 "Unknown header in data/$srcf.inc:" \
+X				    "$line"
+X				exit 1
+X			fi
+X			state=1
+X			if [[ $parser_lctmp = date ]]; then
+X				# split up german format (d.m.yyyy [H:M:S])
+X				# date, then pad to dd.mm.yyyy and store as
+X				# y m d H M S for strftm
+X				IFS=$IFS:.
+X				set -A e_tmp ${e_date[entry]}
+X				IFS=$save_IFS
+X				typeset -i -Z2 e_tmpd=10#0${e_tmp[0]}
+X				typeset -i -Z2 e_tmpm=10#0${e_tmp[1]}
+X				typeset -i -Z4 e_tmpy=10#0${e_tmp[2]}
+X				e_date[entry]=$e_tmpd.$e_tmpm.$e_tmpy
+X				# make sure there are no leading zeroes
+X				ei_time[entry]="$((e_tmpy)) $((e_tmpm)) $((e_tmpd)) $((10#0${e_tmp[3]})) $((10#0${e_tmp[4]})) $((10#0${e_tmp[5]}))"
+X			elif [[ $parser_lctmp = tag ]]; then
+X				parser_lctmp=${e_tag[entry]}
+X				unset e_tag[entry]
+X				for x in $parser_lctmp; do
+X					if [[ $x != +([0-9a-z_]) ]]; then
+X						print -u2 "Invalid tag '$x' in" \
+X						    "data/$srcf.inc: $line"
+X						continue
+X					fi
+X					e_tag[entry]=${e_tag[entry]}${e_tag[entry]+ }$x
+X				done
+X			fi
+X		else
+X			ei_body[entry]=${ei_body[entry]}${ei_body[entry]+$nl}$line
+X		fi
+X	done <"$TOP/data/$srcf.inc"
+X	if (( state != 2 )); then
+X		print -u2 "Last line of data/$srcf.inc not a separator!"
+X		exit 1
+X	fi
+X	[[ -z $rcsid_parsed ]] || rcsid_db[${#rcsid_db[*]}]=$rcsid_parsed
+Xdone
+Xinteger entries=entry
+Xif [[ -n $notimesort ]]; then
+X	entry=-1
+X	state=0
+X	while (( ++entry < entries )); do
+X		[[ ${ei_skip[entry]} = 1 ]] || ei_indir[state++]=$entry
+X	done
+Xelse
+X	( integer e=-1; while (( ++e < entries )); do
+X		[[ ${ei_skip[e]} = 1 ]] || print ${ei_time[e]} $e
+X	  done | sort -nbk1,1 -k2,2 -k3,3 -k4,4 -k5,5 -k6,6 ) |&
+X	state=0
+X	while read -p y m d H M S entry; do
+X		ei_indir[state++]=$entry
+X	done
+Xfi
+Xentries=$state
+Xreturn 0
+END-of-mk/parser
+echo x - mk/strftm.c
+sed 's/^X//' >mk/strftm.c << 'END-of-mk/strftm.c'
+X/*-
+X * Copyright (c) 2008
+X *	Thorsten Glaser <tg@mirbsd.org>
+X *
+X * Provided that these terms and disclaimer and all copyright notices
+X * are retained or reproduced in an accompanying document, permission
+X * is granted to deal in this work without restriction, including un-
+X * limited rights to use, publicly perform, distribute, sell, modify,
+X * merge, give away, or sublicence.
+X *
+X * This work is provided "AS IS" and WITHOUT WARRANTY of any kind, to
+X * the utmost extent permitted by applicable law, neither express nor
+X * implied; without malicious intent or gross negligence. In no event
+X * may a licensor, author or contributor be held liable for indirect,
+X * direct, other damage, loss, or other issues arising in any way out
+X * of dealing in the work, even if advised of the possibility of such
+X * damage or existence of a defect, except proven that it results out
+X * of said person's immediate fault when using the work as intended.
+X */
+X
+X#include <sys/param.h>
+X#include <err.h>
+X#include <errno.h>
+X#include <limits.h>
+X#include <stdio.h>
+X#include <stdlib.h>
+X#include <string.h>
+X#include <time.h>
+X
+X__RCSID("$MirOS: www/mk/strftm.c,v 1.2 2008/12/07 17:19:03 tg Exp $");
+X
+Xextern const char *__progname;
+X
+Xchar buf[4096];
+X
+X#define CONVERT(num, elem, name, minval, maxval) do {			\
+X	const char *e = NULL;						\
+X	char *ep;							\
+X	long long res;							\
+X									\
+X	tm.elem = res = strtoll(argv[num], &ep, 0);			\
+X	if (ep == argv[num] || *ep != '\0')				\
+X		e = "invalid";						\
+X	else if ((res == LLONG_MIN && errno == ERANGE) ||		\
+X	    res < (minval))						\
+X		e = "too small";					\
+X	else if ((res == LLONG_MAX && errno == ERANGE) ||		\
+X	    res > (maxval))						\
+X		e = "too large";					\
+X	if (e != NULL)							\
+X		errx(2, "%s value 「%s」 is %s", (name), argv[num], e);	\
+X} while (/* CONSTCOND */ 0)
+X
+Xint
+Xmain(int argc, char *argv[])
+X{
+X	struct tm tm;
+X	time_t t;
+X
+X	if (argc != 8)
+X		errx(1, "syntax: %s fmtstr y m d h m s\n", __progname);
+X
+X	memset(&tm, '\0', sizeof (struct tm));
+X
+X	CONVERT(2, tm_year, "year", LONG_MIN, LONG_MAX - 1900);
+X	CONVERT(3, tm_mon, "month", 1, 12);
+X	CONVERT(4, tm_mday, "day", 1, 31);
+X	CONVERT(5, tm_hour, "hour", 0, 23);
+X	CONVERT(6, tm_min, "minute", 0, 59);
+X	CONVERT(7, tm_sec, "second", 0, 60);
+X
+X	tm.tm_year -= 1900;
+X	--tm.tm_mon;
+X
+X	if ((t = mktime(&tm)) == (time_t)-1)
+X		errx(2, "invalid calendar time %04lld-%02d-%02d %02d:%02d:%02d",
+X		    (long long)tm.tm_year + 1900LL, tm.tm_mon + 1, tm.tm_mday,
+X		    tm.tm_hour, tm.tm_min, tm.tm_sec);
+X
+X	localtime_r(&t, &tm);
+X
+X	if (!strftime(buf, sizeof (buf), argv[1], &tm))
+X		errx(3, "format string 「%s」 too large", argv[1]);
+X
+X	puts(buf);
+X	return (0);
+X}
+END-of-mk/strftm.c
+echo x - mk/ttf2png
+sed 's/^X//' >mk/ttf2png << 'END-of-mk/ttf2png'
+X<?php
+X// $MirOS: www/mk/ttf2png,v 1.6 2009/09/25 19:10:45 tg Exp $
+X
+X/*-
+X * Copyright (c) 2009
+X *	Thorsten Glaser <tg@mirbsd.org>
+X *
+X * Provided that these terms and disclaimer and all copyright notices
+X * are retained or reproduced in an accompanying document, permission
+X * is granted to deal in this work without restriction, including un-
+X * limited rights to use, publicly perform, distribute, sell, modify,
+X * merge, give away, or sublicence.
+X *
+X * This work is provided "AS IS" and WITHOUT WARRANTY of any kind, to
+X * the utmost extent permitted by applicable law, neither express nor
+X * implied; without malicious intent or gross negligence. In no event
+X * may a licensor, author or contributor be held liable for indirect,
+X * direct, other damage, loss, or other issues arising in any way out
+X * of dealing in the work, even if advised of the possibility of such
+X * damage or existence of a defect, except proven that it results out
+X * of said person's immediate fault when using the work as intended.
+X *-
+X * Syntax:
+X *	php ttf2png [text [size [/path/to/font.ttf]]] >out.png
+X */
+X
+X
+X/* if 0
+Xif (!function_exists('gd_info'))
+X	die("Install php5-gd first.");
+X$gd = gd_info();
+Xif ($gd["FreeType Support"] == false)
+X	die("Compile php5-gd with FreeType 2 support.");
+X * endif */
+X
+X
+X$font = "/usr/src/www/files/FNT/GenI102.ttf";
+X$fontsize = 30;
+X$text = "EINVAL";
+X
+Xif (isset($argv[1]))
+X	$text = $argv[1];
+Xif (isset($argv[2]))
+X	$fontsize = $argv[2];
+Xif (isset($argv[3]))
+X	$font = $argv[3];
+X
+X
+X// Get bounding box
+X$bbox = imageftbbox($fontsize, 0, $font, $text);
+X// Transform coordinates into width+height and position
+X$size_w = abs($bbox[2] - $bbox[0]);	// right - left
+X$size_h = abs($bbox[7] - $bbox[1]);	// top - bottom
+X$x = -$bbox[0];				// left (offset)
+X$y = $size_h - abs($bbox[1]);		// lower
+X
+X// Create image
+X$im = imagecreatetruecolor($size_w, $size_h);
+X// Allocate colours
+X$bgcol = imagecolorallocate($im, 0x24, 0x24, 0x24);
+X$fgcol = imagecolorallocate($im, 0xFF, 0xFF, 0xFF);
+X
+X// Fill image with background colour
+Ximagefilledrectangle($im, 0, 0, $size_w - 1, $size_h - 1, $bgcol);
+X// Render text into image
+Ximagefttext($im, $fontsize, 0, $x, $y, $fgcol, $font, $text);
+X
+X// Convert true colour image (needed for above) to palette image
+Ximagetruecolortopalette($im, FALSE, 256);
+X
+X// Output created image
+Ximagepng($im, NULL, 9);
+Xexit;
+X?>
+END-of-mk/ttf2png
+exit
