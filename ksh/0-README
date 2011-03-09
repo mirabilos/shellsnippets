@@ -1,0 +1,3 @@
+Shell snippets that require a modern Korn Shell (AT&T ksh93, mksh).
+Some may work with pdksh.
+Even fewer may work with AT&T ksh88.
