@@ -1,0 +1,292 @@
+#!/usr/bin/env mksh
+id='$MirOS: contrib/hosted/tg/svn2cvs.sh,v 1.3 2009/05/17 13:10:42 tg Exp $'
+#-
+# Copyright (c) 2008
+#	Thorsten Glaser <tg@mirbsd.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un-
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided "AS IS" and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person's immediate fault when using the work as intended.
+
+export LC_ALL=C TZ=UTC RCSINIT='-x,v -z'
+unset LANGUAGE
+nl='
+'
+saveIFS=$IFS
+id=${id#\$}
+id=${id%\$}
+be='[1;31m'
+bm='[1;32m'
+bi='[1m'
+bo='[0m'
+
+print -n $bo\\r
+i=0
+if ! whence -p cmp >&-; then
+	print -u2 ${be}Error${bo}: you must install cmp to continue.
+	i=1
+fi
+if ! whence -p cvs >&-; then
+	print -u2 ${be}Error${bo}: you must install GNU CVS to continue.
+	i=1
+fi
+if ! whence -p rcs >&- || ! whence -p ci >&- || ! whence -p co >&-; then
+	print -u2 ${be}Error${bo}: you must install GNU RCS to continue.
+	i=1
+fi
+if ! whence -p svn >&-; then
+	print -u2 ${be}Error${bo}: you must install Subversion to continue.
+	i=1
+fi
+(( i )) && exit 1
+
+
+function die {
+	print -u2 -- "${be}$*${bo}"
+	exit 1
+}
+
+function usage {
+	print -u2 "${bi}Syntax${bo}:\tmksh svn2cvs.sh [-ht] [-B baserev] [-H headrev]"
+	print -u2 "\t[-m module] -r repo -s svnurl"
+	print -u2 "Normal conversion goes from baserev (1) to headrev (HEAD)"
+	print -u2 "WARNING: This script is not yet whitespace-in-pathname safe!"
+	print -u2 "\nExample:"
+	print -u2 \$ mksh svn2cvs -t -r /cvs -s \
+	    svn+ssh://www.FreeWRT.org/svn/trunk
+	print -u2 \$ mksh svn2cvs -B 10000 -r /cvs -m OpenWrt/packages/utils/mksh \\
+	print -u2 \\t-s https://svn.openwrt.org/openwrt/packages/utils/mksh
+	print -u2 \$ mksh svn2cvs -r /cvs -m BSDanywhere -s \
+	    svn://svn.startek.ch/BSDanywhere/trunk
+	exit ${1:-1}
+}
+
+
+flag_t=0
+baserev=1
+headrev=HEAD
+module=
+repo=
+url=
+
+while getopts "B:H:hm:r:s:t" ch; do
+	case $ch {
+	(B)	[[ $OPTARG = +([0-9]) ]] || die base revision "'$OPTARG'" \
+		    not numeric
+		baserev=$OPTARG
+		;;
+	(H)	[[ $OPTARG = +([0-9]) ]] || die head revision "'$OPTARG'" \
+		    not numeric
+		headrev=$OPTARG
+		;;
+	(h)	usage 0
+		;;
+	(m)	module=${OPTARG##*(/)}
+		;;
+	(r)	repo=${OPTARG%%*(/)}
+		;;
+	(s)	url=${OPTARG%%*(/)}
+		;;
+	(t)	flag_t=1
+		;;
+	(*)	usage
+		;;
+	}
+done
+shift $((OPTIND - 1))
+
+[[ -z $repo || -z $url ]] && usage
+
+[[ $repo = :* ]] && die remote repositories are not allowed
+[[ $repo = /* ]] || repo=$(pwd)/$repo
+
+if [[ ! -d $repo/CVSROOT/. ]]; then
+	print -u2 ${bi}=== Initialising CVS repository "'$repo'"${bo}
+	mkdir -p "$repo" || die cannot create CVS repository at "'$repo'"
+	cvs -d "$repo" init || die cannot initialise CVS repository \
+	    at "'$repo'"
+fi
+
+[[ -n $module ]] || module=${url##*/}
+R=$repo/$module
+[[ -d $R/. ]] || mkdir -p "$R" || die cannot create module "'$R'"
+rp=${R%/*}
+bp=${R##*/}
+
+[[ $url = -* ]] && die SVN repository URL cannot begin with a dash
+[[ $module = -* ]] && die CVS module cannot begin with a dash
+[[ $bp = -* ]] && die last component of CVS module cannot begin with a dash
+
+T=$(mktemp -d ${TMPDIR:-/tmp}/svn2cvs.XXXXXXXXXXXX) || die cannot create \
+    temporary directory
+trap "cd /; rm -rf $T; exit 0" 0
+trap "cd /; rm -rf $T; exit 1" 1 2 3 5 13 15
+
+cd "$T"
+mkdir c s
+
+print -u2 ${bi}=== Preparing CVS module "'$R'" for operation${bo}
+find "$R" -name '*,v' >f.rcs
+if [[ -s f.rcs ]]; then
+	xargs chmod ug=r,o-x <f.rcs
+	xargs rcs -kb <f.rcs
+fi
+
+print -u2 ${bi}=== Initial checkout of CVS "$R"${bo}
+(cd c; cvs -qd "$repo" co -PA -d "$bp" "$module") || die cannot checkout sources
+
+svn log -r $baserev:$headrev "$url" >log
+if [[ ! -s f.rcs && $(wc -l <log) -lt 2 ]]; then
+	i=$(svn info "$url" | sed -n 's/Last Changed Rev: //p')
+	if [[ $headrev = HEAD ]] || (( (i < headrev) && (i > baserev) )); then
+		print -u2 "${be}*** Fabricating commit for r$i as" \
+		    r${baserev}:${headrev} are empty and no ,v files$bo
+		baserev=$i
+	fi
+	svn log -r $baserev:$headrev "$url" >log
+fi
+
+cat log |&
+i=0
+while IFS= read -pr line; do
+	if [[ $i != 0 && $line = ------------------------------------------------------------------------ ]]; then
+		logmsg=${logmsg%%*($nl)}
+		print -u2 ${bi}=== Got log message for revision $i by $author \
+		    on $ymd $hms:${bo}
+		print -r -- "$logmsg" | sed "s/^/${bm}>>>${bo} /" >&2
+
+		if [[ -d s/$bp/. ]]; then
+			print -u2 ${bi}=== Updating SVN checkout to \
+			    revision $i${bo}
+			(cd "s/$bp"; svn up -r$i) || die cannot update sources
+		else
+			print -u2 ${bi}=== Initial checkout of SVN \
+			    "${url}@$baserev"${bo}
+			(cd s; svn co -r $i "$url" "$bp") || die cannot \
+			    checkout sources
+		fi
+
+		print -u2 ${bi}=== Generating list of files${bo}
+		rm -f f.*
+		for dir in c s; do
+			(cd $dir; find "$bp" -type f) | \
+			    fgrep -v -e /CVS/ -e /.svn/ | \
+			    sort >f.$dir
+		done
+
+		IFS=$nl
+		set -A cfiles -- $(<f.c)
+		set -A sfiles -- $(<f.s)
+		IFS=$saveIFS
+
+		ic=0; nc=${#cfiles[*]}
+		is=0; ns=${#sfiles[*]}
+		while (( (ic < nc) || (is < ns) )); do
+			if (( ic == nc )); then
+				print -r -- "${sfiles[is++]}" >>f.add
+			elif (( is == ns )); then
+				print -r -- "${cfiles[ic++]}" >>f.del
+			elif [[ ${cfiles[ic]} = ${sfiles[is]} ]]; then
+				cmp -s "c/${cfiles[ic]}" "s/${sfiles[is]}" || \
+				    print -r -- "${cfiles[ic]}" >>f.chg
+				let ++ic ++is
+			elif [[ ${cfiles[ic]} < ${sfiles[is]} ]]; then
+				print -r -- "${cfiles[ic++]}" >>f.del
+			else
+				print -r -- "${sfiles[is++]}" >>f.add
+			fi
+		done
+		# clear the possibly huge arrays
+		set -A cfiles
+		set -A sfiles
+
+		[[ -e f.del ]] && print -u2 ${bi}=== Handling file deletions${bo}
+		[[ -e f.del ]] && (cd "$rp"; while IFS= read -r fn; do
+			co -l "$fn"
+			ci -f -d"${ymd} ${hms}+00" -m"$logmsg" -T -w"$author" \
+			    -sdead "$fn"
+			[[ -d ${fn%/*}/Attic/. ]] || mkdir -p "${fn%/*}/Attic"
+			mv "${fn},v" "${fn%/*}/Attic/"
+		done) <f.del
+
+		[[ -e f.add ]] && print -u2 ${bi}=== Preparing file additions${bo}
+		[[ -e f.add ]] && (cd "$rp"; while IFS= read -r fn; do
+			if [[ -e ${fn%/*}/Attic/${fn##*/},v ]]; then
+				mv "${fn%/*}/Attic/${fn##*/},v" "${fn%/*}/"
+			else
+				[[ -d ${fn%/*}/. ]] || mkdir -p "${fn%/*}"
+				rcs -i -kb -L \
+				    -t-"autoconverted by $id from ${url}/${fn#$bp/}" \
+				    -T "$fn"
+			fi
+		done) <f.add
+
+		[[ -e f.add ]] && cat f.add >>f.chg
+		if [[ -e f.chg ]]; then
+			print -u2 ${bi}=== Handling content changes${bo}
+			(cd "$rp"; xargs co -l) <f.chg
+			while IFS= read -r fn; do
+				cat "s/$fn" >"$rp/$fn"
+			done <f.chg
+			(cd "$rp"; xargs ci -f -d"${ymd} ${hms}+00" \
+			    -m"$logmsg" -T -w"$author" -sr$i) <f.chg
+		fi
+
+		print -u2 ${bi}=== Updating CVS checkout to HEAD${bo}
+		(cd "c/$bp"; CVSREADONLYFS=1 cvs -q up -PAd) || die cannot \
+		    update sources
+
+		if (( flag_t )); then
+			print -u2 ${bi}=== Tagging deposited revision $i${bo}
+			(cd "c/$bp"; cvs -q tag -F From_SVN_r$i)
+		fi
+	fi
+
+	if [[ $line = ------------------------------------------------------------------------ ]]; then
+		read -pr i x author y ymd hms line || break
+		i=${i#r}
+		logmsg=
+		print -u2 ${bi}=== Begin parsing revision $i${bo}
+		read -pr line || break
+	else
+		logmsg=$logmsg${logmsg:+$nl}$line
+	fi
+done
+
+print -u2 ${bi}=== Fixing up properties${bo}
+if [[ -d s/$bp/. ]]; then
+	(cd "s/$bp"; svn proplist -v -R .; print Properties end) |&
+	rm -f binlist
+	while read -p x y z line; do
+		if [[ $x = Properties ]]; then
+			fn=${z#\'}
+			fn=${fn%\':}
+			[[ -f $R/${fn},v ]] || fn=
+		elif [[ -z $fn ]]; then
+			continue
+		elif [[ $x = svn:executable ]]; then
+			chmod +x "$R/${fn},v"
+		elif [[ $x = svn:mime-type && $z = application/* ]]; then
+			print -r -- "$bp/${fn},v" >>binlist
+		fi
+	done
+fi
+(cd "$rp"; find "$bp" -name '*,v') >f.rcs
+[[ -s f.rcs ]] && (cd "$rp"; xargs rcs -kkv) <f.rcs
+[[ -e binlist ]] && (cd "$rp"; xargs rcs -kb) <binlist
+
+print -u2 ${bm}=== All done.${bo}
+cd /
+rm -rf "$T"
+exit 0
