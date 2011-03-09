@@ -1,0 +1,221 @@
+# $MirOS: src/scripts/roff2htm,v 1.58 2009/02/17 12:55:22 tg Exp $
+# $ekkoBSD: catman2html.sh,v 1.2 2004/03/07 03:02:53 stephen Exp $
+#-
+# Copyright (c) 2004, 2005, 2006, 2007
+#	Thorsten ‚Äúmirabilos‚Äù Glaser <tg@mirbsd.de>
+# Original version for ekkoBSD by:
+# Copyright (c) 2004
+#	Stephen Paskaluk <sap@mirbsd.org>
+# Parts of the regular expression set below are based upon work by:
+# Copyright (c) 1995
+#	Panagiotis J. Christias <christia@theseas.ntua.gr>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un-
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# Advertising materials mentioning features or use of this work must
+# display the following acknowledgement:
+#	This product includes material provided by Thorsten Glaser.
+#
+# This work is provided ‚ÄúAS IS‚Äù and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person's immediate fault when using the work as intended.
+#-
+# Routines for converting catman pages and nrcon(1)d papers to HTML.
+# ATTENTION: this file contains embedded white-, backspace and high-
+#	     bit-on control characters! Use ‚Äújupp --asis $0‚Äù to edit
+# Note: this file contains magic and can‚Äôt be edited as UTF-8 either.
+# Note: this script assumes MirBSD filesystem interna: ino_t=uint32_t
+
+# check if mksh R31:2007/10/18 or up
+if [[ $KSH_VERSION = @(\@\(#\)MIRBSD KSH R)@(3[2-9]|[4-9][0-9]|[1-9][0-9][0-9])\ +([0-9])/+([0-9])/+([0-9])?(\ *) ]]; then
+	i=0
+elif [[ $KSH_VERSION = @(\@\(#\)MIRBSD KSH R31)* ]]; then
+	eval $(print "$KSH_VERSION" | sed 's#^.*R31 \([0-9]*\)/\([0-9]*\)/\([0-9]*\)\( .*\)*$#y=\1 m=\2 d=\3#')
+	(( i = y < 2007 ? 1 :
+	    y > 2007 ? 0 :
+	    m < 10 ? 1 :
+	    m > 10 ? 0 :
+	    d < 18 ? 1 : 0 ))
+	unset y m d
+else
+	i=1
+fi
+# we need an mksh version with uint32_t array indicƒìs
+if (( i )); then
+	print -u2 Error: your mksh is not recent enough.
+	print -u2 Please upgrade to at least mksh R32.
+	exit 1
+fi
+unset i
+
+# initialise globals
+roff2htm_gendate=$(date +"%F %T")		# current time
+set -A roff2htm_inodecache			# inode cache (empty)
+roff2htm_machine=$(uname -m)			# i386, sparc
+
+function do_convert {
+	typeset -i ws=0
+	sed -e 's/[	 ]*$//g'					\
+	    -e '/-$/N
+{
+s/\([0-9A-z][-.,0-9A-z]*\)-\n\(  *\)\([0-9A-z][-.,0-9A-z]*([1-9][A-z]*)\)\([^ ]*\) /\1\3\4\
+\2/
+}'									\
+	    -e '/-$/N
+{
+s/\([0-9A-z][-.,0-9A-z]*\)-\n\(  *\)\([0-9A-z][-.,0-9A-z]*([1-9][A-z]*)\)\([^ ]*\) /\1\3\4\
+\2/
+}'									\
+	    -e 'y#&<>#¡˛ˇ#'						\
+									\
+	    -e '/^[A-Z]/s#.##g'					\
+	    -e 's#^[A-Z][ ,A-Z0-9]*$#</pre><h2>&</h2><pre>#'		\
+	    -e 's#^  \([A-Z][ ,A-Z0-9]*\)$#</pre><h3>\1</h3><pre>#'	\
+									\
+	    -e 's#_\([^Ä-ø][Ä-ø]*\)#<i>\1</i>#g'			\
+	    -e 's#[^Ä-ø][Ä-ø]*\([^Ä-ø][Ä-ø]*\)#<b>\1</b>#g'		\
+									\
+	    -e 's#</\([bi]\)><\1>##g'					\
+	    -e 's#</b><b>[^Ä-ø][Ä-ø]*##g'				\
+	    -e 's#</b>[^Ä-ø][Ä-ø]*<b>##g'				\
+	    -e 's#[^Ä-ø][Ä-ø]*##g'					\
+	    -e 's#_</i<b><</b>i>##g'					\
+									\
+	    -e 's#^\( \{2,3\}\)\([A-Z][ ,0-9A-z]*\)$#\1<b>\2</b>#'	\
+									\
+	    -e '/^   /s#\(\([0-9A-z][-.,0-9A-z]*\)(\([1-9]\)[/0-9A-Za-z]*)\)#<a href=\"../man\3/\2.htm\">\1</a>#g' \
+	    -e '/^   /s#\(<i>\([0-9A-z][-.,0-9A-z]*\)</i>(\([1-9]\)[/0-9A-Za-z]*)\)#<a href=\"../man\3/\2.htm\">\1</a>#g' \
+	    -e '/^   /s#\(\([0-9A-z][-.,0-9A-z]*\)(\([PSU][MS][DM]\))\)#<a href=\"../man\3/\2.htm\">\1</a>#g' \
+	    -e '/^   /s#\(<i>\([0-9A-z][-.,0-9A-z]*\)</i>(\([PSU][MS][DM]\))\)#<a href=\"../man\3/\2.htm\">\1</a>#g' \
+	    -e '/^   /s#\(\([0-9A-z][-.,0-9A-z]*\)(\(PAPERS\))\)#<a href=\"../man\3/\2.htm\">\1</a>#g' \
+	    -e '/^   /s#\(<i>\([0-9A-z][-.,0-9A-z]*\)</i>(\(PAPERS\))\)#<a href=\"../man\3/\2.htm\">\1</a>#g' \
+	    -e '/^   /s#\(\([0-9A-z][-.,0-9A-z]*\)(GNU)\)#<a href=\"../manINFO/\2.htm\">\1</a>#g' \
+	    -e '/^   /s#\(<i>\([0-9A-z][-.,0-9A-z]*\)</i>(GNU)\)#<a href=\"../manINFO/\2.htm\">\1</a>#g' \
+									\
+	    -e 's#<b>+</b>\( *\)<b>o</b># \1‚Ä¢#'				\
+	    -e 's#<b>+</b>#‚Ä¢#'						\
+	    -e 's#</\([bi]\)><\1>##g'					\
+	    -e 's#</\([bi]\)>\([[:punct:][:space:]]*\)<\1>#\2#g'	\
+	    -e 's#\([^[:punct:]]\)\([-!"#$%&'\''()*+,./:;=?@[\]^_`{|}~]*\)\(<[bi]>\)#\1\3\2#g'	\
+	    -e 's#\(<i>[fh]t*p:[^<]*\)</i>/#\1/</i>#g'			\
+	    -e 's#\(<i>/[^<]*\)</i>/#\1/</i>#g'				\
+	    -e 's#<h3>*<b>*>#<h3>#g' -e 's#</b></h3>#</h3>#g'		\
+									\
+	    -e 's/¡/\&#38;/g'						\
+	    -e 's/˛/\&#60;/g'						\
+	    -e 's/ˇ/\&#62;/g'						\
+									\
+	    -e '1s#^#<pre>#'						\
+	    -e '$s#$#</pre>#'						\
+	    -e 's#<pre></pre>##g'					\
+	    -e 's#</pre><pre>##g'					\
+	    -e 's#<a href="../man'${1:-0}'/#<a href="#g'		\
+	| while IFS= read -r line; do
+		if [[ -n $line ]]; then
+			print -r -- "$line"
+			ws=0
+		else
+			(( !ws++ )) && print
+		fi
+	done
+}
+
+function output_header {
+	print '<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+ "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en"><head>
+ <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+ <title>RTFM '$1\($2')</title>
+ <meta name="robots" content="index, follow" />
+ <link rel="canonical" href="https://www.mirbsd.org/man'$roff2htm_machine/$1.$2'" />
+</head><body>
+<h1>MirOS Manual: <a href="../man'$2/$1'.htm">'$1\($2')</a></h1>'
+}
+
+function output_footer {
+	print '<hr /><p style="font-size:xx-small;">Generated on' \
+	    $roff2htm_gendate 'by
+ <tt>$MirOS: src/scripts/roff2htm,v 1.58 2009/02/17 12:55:22 tg Exp $</tt></p>
+<p>These manual pages are <a href="../man7/BSD-Licence.htm">copyrighted</a>
+ by their respective writers; their source is available at our <a
+ href="http://cvs.mirbsd.de/">CVSweb</a>, AnonCVS, and other mirrors.
+ The rest is Copyright ¬© 2002-2008 <a href="http://www.mirbsd.org/">The
+ MirOS Project</a>, Germany. <br /><i style="font-size:3pt;">
+ This product includes material provided by Thorsten Glaser.</i></p>
+<p style="font-size:x-small;">This manual page‚Äôs HTML representation
+ is supposed to be <a href="http://validator.w3.org/check/referer">valid
+ XHTML/1.1</a>; if not, please send a bug report ‚Äì diffs preferred.</p>
+</body></html>'
+}
+
+function do_conversion {
+	output_header ${1:-missing-pagename} ${2:-0}
+	do_convert ${2:-0}
+	output_footer
+}
+
+# do_conversion_verbose title section infile outfile
+function do_conversion_verbose {
+	print -nru2 -- $3 ‚Üí $4
+	do_conversion $1 $2 <$3 >$4
+	print -u2
+}
+
+# convert_page /path/to/man.cat1 /targetpath
+function convert_page {
+	typeset fn=$1 page sect tn
+	typeset -Uui ino=$(stat -Lf %i $fn 2>/dev/null)
+	page=${fn##*/}			# basename
+	page=${page%.0}			# manual page name
+	sect=${fn%/*}			# dirname
+	sect=${sect##*/cat}		# archsection
+	sect=${sect%%/*}		# section
+	tn=man${sect}/${page}.htm	# target file
+
+	if (( ino )) && [[ -n ${roff2htm_inodecache[ino]} ]]; then
+		# source file is linked to a file we know
+		print -ru2 -- $tn ‚Üê ${roff2htm_inodecache[ino]}
+		ln -f $2/${roff2htm_inodecache[ino]} $2/$tn
+		# patch in the additional name(s)
+		ed -s $2/$tn <<-EOF
+			/<title>/s#</title>#, $page($sect)&#
+			/<h1>/s#</h1>#, <a href="../$tn">$page($sect)</a>&#
+			wq
+		EOF
+	else
+		# store target filename in the inode cache
+		roff2htm_inodecache[ino]=$tn
+		do_conversion_verbose $page $sect $fn $2/$tn
+	fi
+}
+
+# output_htaccess >‚Ä¶/.htaccess
+function output_htaccess {
+	print DirectoryIndex /dev/null
+	print "AddType 'text/html; charset=utf-8' htm"
+}
+
+# convert_all /path/to/share/man /targetpath
+function convert_all {
+	typeset tp=${2:-$(pwd)/mbsdman}		# target basepath
+	typeset x f
+
+	(find ${1:-/usr/share/man}/cat{[1-9],3p} -name \*.0 2>&- | sort -f) |&
+	for x in 1 2 3 3p 4 5 6 7 8 9; do
+		mkdir -p $tp/man$x	# one per section
+		output_htaccess >$tp/man$x/.htaccess
+	done
+	while read -p f; do
+		convert_page $f $tp	# any subpages
+	done
+}
