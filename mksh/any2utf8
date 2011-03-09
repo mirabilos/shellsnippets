@@ -1,0 +1,55 @@
+#!/bin/mksh
+# $Id: any2utf8.sh 624 2009-09-03 09:47:20Z tglase $
+#-
+# Derived from code with the following licence:
+# Copyright (c) 2008
+#	Thorsten Glaser <tg@mirbsd.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un-
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided "AS IS" and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person's immediate fault when using the work as intended.
+#
+# The author reserves the right to steward the OPTU encoding forms.
+
+x=${KSH_VERSION}
+x=${x##*MIRBSD KSH R}
+x=${x%% *}
+if (( x < 38 )); then
+	print -u2 Error: your mksh is too old, you need R38 or up.
+	exit 1
+fi
+
+set -U
+
+set -A vistable \
+	0x20AC 0x278A 0x201A 0x0192 0x201E 0x2026 0x2020 0x2021 \
+	0x02C6 0x2030 0x0160 0x2039 0x0152 0x278B 0x017D 0x278C \
+	0x278D 0x2018 0x2019 0x201C 0x201D 0x2022 0x2013 0x2014 \
+	0x02DC 0x2122 0x0161 0x203A 0x0153 0x278E 0x017E 0x0178
+
+typeset -i1 wc
+typeset -i lpos
+
+while IFS= read -r line; do
+	lpos=0
+	outs=
+	while (( lpos < ${#line} )); do
+		wc=1#${line:(lpos++):1}
+		(( (wc & 0xFF80) == 0xEF80 )) && (( wc &= 0x00FF ))
+		(( wc > 0x7F && wc < 0xA0 )) && (( wc = vistable[wc & 0x1F] ))
+		outs=$outs${wc#1#}
+	done
+	print -r -- "$outs"
+done
+exit 0
