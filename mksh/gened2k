@@ -1,0 +1,116 @@
+#!/bin/mksh
+# $MirOS: contrib/code/Snippets/gened2k,v 1.4 2008/05/03 01:09:23 tg Exp $
+#-
+# Copyright (c) 2004
+#	Thorsten "mirabilos" Glaser <tg@mirbsd.de>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un-
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided "AS IS" and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person's immediate fault when using the work as intended.
+#-
+# This script produces an "ed2k" type URI for a given existing file.
+# It is by no means normative, but developed by reverse engineering.
+#
+# Structure of an "ed2k" type URI:
+#  ed2k://|file|<filename>|<size>|<hash>|[/]
+# where the trailing slash is optional, "filename" is posix, except
+# that no pipe sign can occur, size in octets (decimal) and hash...
+# well, that's the hard part below. It's hexadecimal lowercase.
+
+
+# Functions
+
+getsize() {
+	typeset o
+
+	set -A o -- $(/bin/ls -l "$1")
+	print ${o[4]}
+}
+
+constructuri() {
+	typeset name="${1##*/}"
+	typeset -i size=$2
+	# I can't use integer here because it's limited to 32 bit signed :(
+	typeset -l hash=$3
+
+	# This equals a s/\|//g regexp...
+	while [[ $name = *\|* ]]; do
+		name="${name##*\|}${name%\|*}"
+	done
+
+	# Now put it
+	print -r "ed2k://|file|${name}|${size}|${hash}|/"
+}
+
+getmd4() {
+	typeset o
+	typeset h=""
+
+	if [[ -z "$1" ]]; then
+		h=$(cksum -a md4)
+	else
+		for i in "$@"; do
+			set -A o -- $(cksum -a md4 "$i")
+			h="${h}${o[3]}"
+		done
+	fi
+	print -n $h
+}
+
+gethash() {
+	typeset fn="$1"
+	typeset -i sz=$(getsize "$fn")
+	typeset hash=""
+	typeset fullhash=""
+	typeset -i nr
+
+	if ((sz == 0)); then
+		hash=0
+	elif ((sz < 9728000)); then
+		hash=$(getmd4 "$fn")
+	else
+		let nr=0
+		while (((nr * 9728000) < sz)); do
+			hash=$(dd if="$fn" bs=9728000 count=1 skip=$nr \
+			    2>/dev/null | getmd4)
+			let nr+=1
+			fullhash="$fullhash$hash"
+		done
+		hash=$(printf "$(print $fullhash \
+		    | sed -e 's/\(..\)/\\x\1/g')" | getmd4)
+	fi
+	print $hash
+}
+
+# Main Programme
+
+if [[ $# -lt 1 || $1 == -@(h|H|?) ]]; then
+	print "Usage:"
+	print " $0 [-h | file ...]"
+	exit 1
+fi
+
+for fn in "$@"; do
+	test -r "$fn" && continue
+	print -r "Error: '$fn' not readable."
+	exit 1
+done
+
+for fn in "$@"; do
+	size=$(getsize "$fn")
+	hash=$(gethash "$fn")
+	constructuri "$fn" $size $hash
+done
+
+exit 0
