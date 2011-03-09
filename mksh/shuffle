@@ -65,7 +65,7 @@ done
 
 
 # arc4random(3) and arc4random_uniform(3) in Pure mksh™
-set -A seedbuf -- $(dd if=/dev/arandom bs=257 count=1 2>&- | \
+set -A seedbuf -- $(dd if=/dev/urandom bs=257 count=1 2>&- | \
     hexdump -ve '1/1 "0x%02X "')
 set -A rs_S
 typeset -i rs_S rs_i=-1 rs_j=0 n
