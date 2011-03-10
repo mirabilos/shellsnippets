@@ -1,0 +1,510 @@
+#!/bin/sh
+# $Id: genkey-firmengebrauch.sh 1641 2011-01-24 10:55:40Z tglase $
+#-
+# Copyright © 2010, 2011
+#	Thorsten Glaser <t.glaser@tarent.de>
+
+# check if we're called with mksh or bash; fix if not
+if test -z "$shell_tried"; then
+	if test -z "$KSH_VERSION"; then
+		if mksh -c true >/dev/null 2>&1; then
+			shell_tried=1
+			export shell_tried
+			exec mksh "$0" "$@"
+		fi
+		if test -z "$BASH_VERSION"; then
+			if bash -c true >/dev/null 2>&1; then
+				shell_tried=1
+				export shell_tried
+				exec bash "$0" "$@"
+			fi
+		fi
+	fi
+fi
+if test -z "$KSH_VERSION$BASH_VERSION"; then
+	echo >&2 "I've tried but couldn't find mksh or GNU bash."
+	echo >&2 "Please call me with one of these shells."
+	exit 1
+fi
+unset shell_tried
+
+# set up some basic environment
+export LC_ALL=C
+unset LANG LANGUAGE
+test -z "$BASH_VERSION" || shopt -s extglob
+# we can now use Korn Shell extensions common to mksh and GNU bash
+
+# initiate logging
+cd "$(dirname "$0")"
+log="$(basename "$0").log"
+cat >>"$log" <<-EOF
+
+	New key generation started (Firmengebrauch)
+	$(date)
+	===========================================
+EOF
+test -z "$KSH_VERSION" || echo ksh >>"$log"
+test -z "$BASH_VERSION" || echo bash >>"$log"
+
+# check for existence of prerequisite tools
+for tool in gpg wget; do
+	$tool --version >/dev/null 2>&1 && continue
+	echo >&2 You must install $tool to continue.
+	exit 1
+done
+
+# subroutine for converting a string into an array
+# taking into account Korn Shell vs GNU bash syntax
+str2arr() {
+	local _a _b _s _vn=$1
+
+	eval _s=\$$_vn
+	if [[ -n $KSH_VERSION ]]; then
+		_a="set -A $_vn -- "
+		_b=
+	else
+		_a="${_vn}=("
+		_b=")"
+	fi
+	eval $_a$_s$_b
+}
+
+# subroutines for converting array elements into hex,
+# printing with escapes honoured/ignored
+# taking into account Korn Shell vs GNU bash syntax
+if [[ -n $KSH_VERSION ]]; then
+	alias arr2hex='typeset -i16 '
+	alias eprint='print -n'
+	alias nprint='print -nr -- '
+else
+	arr2hex() {
+		local _vn=$1 _i _n _v
+
+		_i=0
+		eval _n='${#'$_vn'[*]}'
+		while (( _i < _n )); do
+			eval _v='${'$_vn'[_i]}'
+			_v=$(printf '16#%x' $_v)
+			eval $_vn'[_i++]=$_v'
+		done
+	}
+	eprint() {
+		printf "$@"
+	}
+	nprint() {
+		printf '%s' "$*"
+	}
+fi
+
+### BEGIN imported code {{{
+# Copyright (c) 2008
+#	Thorsten Glaser <tg@mirbsd.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un-
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided "AS IS" and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person's immediate fault when using the work as intended.
+
+# read a password without echoing
+askpass() {
+	set -o noglob
+	stty -echo
+	echo -n "$1 "
+	read resp
+	stty echo
+	set +o noglob
+	echo
+}
+
+# convert a string from UTF-8 or ISO-8859-1 to UTF-8
+str2utf8() {
+	local _s="$*" _z _c _i _hv _wc _n
+
+	_c=$(nprint "$_s" | hexdump -ve '1/1 "16#%x "')
+	_c="$_c 0"
+	str2arr _c
+	_s=
+	_z=0
+	_i=0
+	while (( _c[_i] )); do
+		(( _hv = _c[_i] ))
+		if (( (_hv < 16#C2) || (_hv >= 16#F0) )); then
+			_n=1
+		elif (( _hv < 16#E0 )); then
+			_n=2
+		else
+			_n=3
+		fi
+		if (( _n > 1 )); then
+			(( (_c[_i + 1] & 16#C0) == 16#80 )) || _n=1
+			(( _hv == 16#E0 )) && \
+			    (( _c[_i + 1] < 16#A0 )) && _n=1
+		fi
+		if (( _n > 2 )); then
+			(( (_c[_i + 2] & 16#C0) == 16#80 )) || _n=1
+			(( _hv == 16#EF && _c[_i + 1] == 16#EF && \
+			    _c[_i + 2] > 16#BD )) && _n=1
+		fi
+		case $_n in
+		(1)
+			if (( (_wc = _c[_i]) < 16#80 )); then
+				(( _s[_z++] = _wc ))
+			else
+				(( _s[_z++] = 16#C0 | (_wc >> 6) ))
+				(( _s[_z++] = 16#80 | (_wc & 16#3F) ))
+			fi
+			;;
+		(2)
+			(( _s[_z++] = _c[_i] ))
+			(( _s[_z++] = _c[_i + 1] ))
+			;;
+		(3)
+			(( _s[_z++] = _c[_i] ))
+			(( _s[_z++] = _c[_i + 1] ))
+			(( _s[_z++] = _c[_i + 2] ))
+			;;
+		esac
+		(( _i += _n ))
+	done
+	arr2hex _s
+	eprint "$(echo ${_s[*]} | sed -e 's/16#/\\x/g' -e 's/ //g')"
+}
+
+### END imported code }}}
+
+# create a temporary directory in /dev/shm (Linux tmpfs) or /tmp (otherwise)
+if [[ ! -d /dev/shm/. ]] || ! T=$(mktemp -d /dev/shm/genkey.XXXXXXXXXX); then
+	if ! T=$(mktemp -d /tmp/genkey.XXXXXXXXXX); then
+		echo >&2 Cannot create temporary directory.
+		exit 1
+	fi
+fi
+
+cleanup() {
+	trap - 0 1 2 3 13 15
+	# files to overwrite before removing
+	for wipefiles in resp wgetrc; do
+		for x in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16; do
+			echo xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+		done >"$T/$wipefiles"
+	done
+	sync
+	rm -rf "$T"
+	exit $1
+}
+
+# make sure the temporary files are removed if we are interrupted
+trap "cleanup 1" 1 2 3 13 15
+trap "cleanup 0" 0
+
+
+# import company key (delete first, just in case)
+ckid=3166EA4AF24EFF313803A739EEABC048D0620C0F
+gpg --batch --delete-key $ckid
+gpg --import --batch <<'EOF'
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+Version: GnuPG v1.4.9 (MirBSD)
+
+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
+4wBQF+0/W2exE5FX3pCwrYUmYe/ItsnAZKY5RA==
+=tDFz
+-----END PGP PUBLIC KEY BLOCK-----
+EOF
+
+
+# show introduction
+echo "
+tarent GmbH - PGP Key Generation
+================================
+
+[de] Ein PGP-Schlüsselpaar wird jetzt erstellt und der öffentliche Teil
+     an den tarent-Server übertragen, sodaß die Admins diesen signieren
+     und veröffentlichen können. Außerdem wird mit diesem Schlüssel der
+     Firmenschlüssel unterschrieben; diese Signatur wird ebenfalls ver-
+     öffentlicht. Dein Name und eMail-Adresse wird aus dem LDAP bezogen
+     und das LDAP-Paßwort auch für den privaten Schlüssel verwendet.
+
+[en] We will now generate a PGP keypair; the public key will be submit-
+     ted to the tarent server for being signed and published by the ad-
+     mins. The freshly generated key will also be used to sign and pub-
+     lish the company key. Your name and eMail address information will
+     be taken from the LDAP; the LDAP password will be used as password
+     for the secret key.
+"
+
+# request and record user/pass
+echo -n "LDAP login Username: "
+read un
+[[ -n $un ]] || cleanup 0
+askpass "LDAP login Password:"
+[[ -n $resp ]] || cleanup 0
+
+echo "login: $un" >>"$log"
+
+# create wgetrc(5) to use for HTTP Basic Authentication
+export WGETRC="$T/wgetrc"
+cat >"$WGETRC" <<EOF
+password = $resp
+user = $un
+EOF
+
+# get user information from LDAP
+x=$(wget -O "$T/ui" -S https://tarentpgp.tarent.de/ui.cgi 2>&1 | \
+    if md5sum --version >/dev/null 2>&1; then
+	md5sum | sed 's/ .*$//'
+else
+	md5
+fi | sed 's/../16#& /g')
+(echo "got user info {"; sed 's/^/	/' <"$T/ui"; echo "}") >>"$log"
+
+# add entropy from CGIs to that pool (magic code ;) {{{
+if [[ ! -s ~/.gnupg/random_seed ]]; then
+	# create and fill if it didn't exist
+	:>~/.gnupg/random_seed
+	chmod 0600 ~/.gnupg/random_seed
+	dd if=/dev/urandom of=~/.gnupg/random_seed bs=600 count=1
+fi
+entropy=$x\ $( (
+	wget -O - --no-check-certificate -T 10 \
+	    https://spamfilter2.tarent.de/lb.cgi?genkey.sh,1=$(hostname -f),seed=$RANDOM$RANDOM$RANDOM$RANDOM$RANDOM
+	wget -O - -T 10 http://mirror.bonn.tarent.de/cgi-bin/rb.cgi
+	wget -O - --no-check-certificate -T 10 \
+	    https://spamfilter2.tarent.de/lb.cgi?genkey.sh,2=$(hostname),seed=$RANDOM$RANDOM$RANDOM$RANDOM$RANDOM
+    ) 2>/dev/null | hexdump -ve '1/1 "16#%x "')
+poolfile=$(hexdump -ve '1/1 "16#%x "' <~/.gnupg/random_seed)
+str2arr entropy
+str2arr poolfile
+(( n = ${#poolfile[*]} < ${#entropy[*]} ? ${#entropy[*]} : ${#poolfile[*]} ))
+i=0
+# XOR poolfile with new entropy (from CGIs)
+while (( i < n )); do
+	(( poolfile[i % ${#poolfile[*]}] ^= entropy[i % ${#entropy[*]}] ))
+	let i++
+done
+# write back into the pool file
+arr2hex poolfile
+eprint "$(echo ${poolfile[*]} | sed -e 's/16#/\\x/g' -e 's/ //g')" | \
+    dd of=~/.gnupg/random_seed conv=notrunc 2>/dev/null
+# }}} end of magic code block ;)
+
+# check the user information
+status=bad
+i_name=
+i_mail=
+i_comm=
+while read key value; do
+	case x$key in
+	(xstatus)
+		[[ $value = ok ]] || break
+		[[ $status = bad ]] && status=good
+		;;
+	(xname|xmail|xcomm)
+		eval i_$key=\$value
+		;;
+	(x)
+		;;
+	(*)
+		echo >&2 "Invalid server response '$key $value'"
+		status=invalid
+		;;
+	esac
+done <"$T/ui"
+if [[ $status != good || -z $i_name || -z $i_mail ]]; then
+	echo >&2 "Cannot process further (status: $status)"
+	[[ $status = bad ]] && echo >&2 Maybe wrong password.
+	cleanup 1
+fi
+
+# create response file for gpg
+# NOTE:	Key-Length can go up to 8192 (not more!) but please no lower
+#	than 2048 (although more than 4096 may be incompatible *AND*
+#	TERRIBLY SLOW)
+cat >"$T/resp" <<-EOF
+	%echo Generating the key for $i_name ($i_mail) $i_comm
+	Key-Type: RSA
+	Key-Length: 3072
+	Key-Usage: auth,encrypt,sign
+	Passphrase: $(str2utf8 "$resp")
+	Name-Real: $(str2utf8 "$i_name")
+	${i_comm:+Name-Comment: $(str2utf8 "$i_comm")}
+	Name-Email: $(str2utf8 "$i_mail")
+	Expire-Date: 3y
+	Preferences: H8 H3 S8 S4 Z2 Z0 H9 H10 S9 S7
+	Revoker: 1:$ckid
+	Keyserver: hkp://tarentpgp.tarent.de
+	%commit
+	%echo done
+EOF
+
+# really generate the key
+echo
+(gpg --no-use-agent --batch --gen-key "$T/resp"; echo $? >"$T/rc") 2>&1 | \
+    tee "$T/gen.out"
+echo
+(echo "create key {"; sed 's/^/	/' <"$T/gen.out"; echo "}") >>"$log"
+# check for error exit
+if (( $(<"$T/rc") > 0 )); then
+	echo >&2 Key generation failed.
+	cleanup 1
+fi
+# scan the gpg log for keyid of keypair just created
+pkid=$(sed -n \
+    's/^gpg: key \([0-9A-F]*\) marked as ultimately trusted.*$/\1/p' \
+    "$T/gen.out")
+if [[ $pkid != +([0-9A-F]) ]] || ! gpg -K $pkid; then
+	echo >&2 '┌─────────────────────────────────────────────────────────┐'
+	echo >&2 '│ Finding the key failed. YOU CAN USE THE KEY, BUT YOU    │'
+	echo >&2 '│ *MUST* CONTACT THE ADMINS with this error message.      │'
+	echo >&2 '│ Kann den neuen Schlüssel nicht finden. DU KANNST DIESES │'
+	echo >&2 '│ SCHLÜSSELPAAR BENUTZEN, ABER DU *MUẞT* DIE ADMINS mit   │'
+	echo >&2 '│ dieser Fehlernachricht KONTAKTIEREN.                    │'
+	echo >&2 '└─────────────────────────────────────────────────────────┘'
+	echo
+	echo >&2 Cannot find the key just generated.
+	cleanup 1
+fi
+
+# apply preference settings to our newly generated key
+gpg --no-use-agent -q -u $pkid --command-fd 4 --edit-key $pkid \
+    >>"$T/edit.log" 2>&1 4<<-EOF
+	notation preferred-email-encoding@pgp.com=partitioned,pgpmime
+	$(str2utf8 "$resp")
+	trust
+	5
+	y
+	uid 1
+	primary
+	$(str2utf8 "$resp")
+	adduid
+	$(str2utf8 "$i_name")
+	$(str2utf8 "$un")@info.tarent.de
+	Jabber/XMPP
+	$(str2utf8 "$resp")
+	uid 1
+	uid 2
+	setpref H8 H3 S8 S4 Z2 Z0 Z1 H9 H10 S9 S7
+	y
+	$(str2utf8 "$resp")
+	keyserver hkp://tarentpgp.tarent.de
+	$(str2utf8 "$resp")
+	save
+EOF
+echo "=> $?" >>"$T/edit.log"
+
+# sign the company key with that key
+# XXX if the key has >1 UID, there must be an extra line
+#	y
+# after the line saying "tsign"!
+gpg --no-use-agent -q -u $pkid --command-fd 4 --edit-key $ckid \
+    >>"$T/edit.log" 2>&1 4<<-EOF
+	tsign
+	2
+	2
+
+	y
+	$(str2utf8 "$resp")
+	trust
+	4
+	save
+EOF
+echo "=> $?" >>"$T/edit.log"
+sed 's/^/│/' "$T/edit.log" >>"$log"
+
+# export our own public key and the signed company key into a keyring
+rc=0
+gpg --export-options no-export-attributes,export-clean \
+    --export $ckid >"$T/exp.c" 2>>"$log" || rc=$?
+gpg --export-options no-export-attributes,export-clean,export-minimal \
+    --export $pkid >"$T/exp.p" 2>>"$log" || rc=$?
+rm -f "$T/exp.kr"
+GNUPGHOME="$T/.gnupg" gpg --no-default-keyring --primary-keyring "$T/exp.kr" \
+    --import "$T/exp.c" 2>>"$log" || rc=$?
+GNUPGHOME="$T/.gnupg" gpg --no-default-keyring --primary-keyring "$T/exp.kr" \
+    --import "$T/exp.p" 2>>"$log" || rc=$?
+echo >>"$log"
+if (( rc )); then
+	(echo "export error $rc"; gpg -k $pkid; echo "=> $?") >>"$log"
+	echo >&2 '┌────────────────────────────────────────────────────────┐'
+	echo >&2 '│ Exporting the key failed. YOU CAN USE THE KEY, BUT YOU │'
+	echo >&2 '│ *MUST* CONTACT THE ADMINS with this error message.     │'
+	echo >&2 '│ Export des Schlüssels fehlgeschlagen. DU KANNST DIESES │'
+	echo >&2 '│ SCHLÜSSELPAAR BENUTZEN, ABER DU *MUẞT* DIE ADMINS mit  │'
+	echo >&2 '│ dieser Fehlernachricht KONTAKTIEREN.                   │'
+	echo >&2 '└────────────────────────────────────────────────────────┘'
+	echo
+	gpg -k $pkid || echo gpg ERROR -k: $?
+	cleanup 0
+fi
+echo "export ok" >>"$log"
+GNUPGHOME="$T/.gnupg" gpg --no-default-keyring --primary-keyring "$T/exp.kr" \
+    --list-sigs >>"$log" 2>&1
+
+# upload the exported keyring
+wget -O "$T/upload" \
+    --header="Content-type: application/octet-stream" \
+    --post-file="$T/exp.kr" \
+    https://tarentpgp.tarent.de/fu.cgi >"$T/upload.log" 2>&1
+(echo "upload keyring {"; sed 's/^/[	/' <"$T/upload.log"; \
+    sed 's/^/]	/' <"$T/upload"; echo "}") >>"$log"
+echo
+if [[ $(head -1 "$T/upload") != "upload ok" ]]; then
+	echo >&2 '┌────────────────────────────────────────────────────────┐'
+	echo >&2 '│ Uploading the key failed. YOU CAN USE THE KEY, BUT YOU │'
+	echo >&2 '│ *MUST* CONTACT THE ADMINS with this error message.     │'
+	echo >&2 '│ Upload des Schlüssels fehlgeschlagen. DU KANNST DIESES │'
+	echo >&2 '│ SCHLÜSSELPAAR BENUTZEN, ABER DU *MUẞT* DIE ADMINS mit  │'
+	echo >&2 '│ dieser Fehlernachricht KONTAKTIEREN.                   │'
+	echo >&2 '└────────────────────────────────────────────────────────┘'
+else
+	echo >&2 '┌─────────────────────────────────────────┐'
+	echo >&2 '│ Key generation finished with no errors. │'
+	echo >&2 '│ Schlüsselerzeugung fehlerfrei erledigt. │'
+	echo >&2 '└─────────────────────────────────────────┘'
+fi
+(echo "finished:"; gpg -k $pkid | sed 's/^/|	/'; echo) >>"$log"
+echo >&2
+gpg -k $pkid || echo gpg ERROR -k: $?
+cleanup 0
