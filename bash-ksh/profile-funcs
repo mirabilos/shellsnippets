@@ -1,5 +1,8 @@
 # Not complicated enough for copyright.
 
+# RFC2822
+alias dateR='date +"%a, %d %b %Y %H:%M:%S %z"'
+
 # clear screen
 alias cls='echo -ne \\033c'
 # clear screen, kill ssh-agent, and out
@@ -21,6 +24,9 @@ ggr() {			# Google GRoups
 
 ge() {			# German English
 	${BROWSER:-lynx} "http://dict.leo.org/?search=$*"
+}
+gfr() {			# German Frensch
+	${BROWSER:-lynx} "http://dict.leo.org/frde?search=$*"
 }
 ges() {			# German Spanish
 	${BROWSER:-lynx} "http://dict.leo.org/esde?search=$*"
