@@ -1,0 +1,77 @@
+# $Id: svg-path-abs2rel 874 2010-02-24 15:58:34Z tglase $
+#-
+# Copyright © 2010
+#	Thorsten Glaser <t.glaser@tarent.de>
+# Licenced under the AGPLv3
+
+eval $(cat)
+set -A in -- $d
+out=
+i=0
+
+function iscoor {
+	[[ $1 = @([1-9])*([0-9])?(.+([0-9])),@([1-9])*([0-9])?(.+([0-9])) ]]
+}
+curx=0
+cury=0
+basex=-245.93941
+basey=-435.44425
+function fixbc {
+	local x=$(bc)
+	if [[ $x = .* ]]; then
+		print 0$x
+	elif [[ $x = -.* ]]; then
+		print -- -0${x#-}
+	else
+		print -- $x
+	fi
+}
+function trans {
+	local px py
+
+	nx=${1%,*}
+	ny=${1#*,}
+	px=$(print -- "$nx+$basex-$curx" | fixbc)
+	py=$(print -- "$ny+$basey-$cury" | fixbc)
+	pos=$px,$py
+}
+function transet {
+	trans "$1"
+	curx=$(print -- "$nx+$basex" | fixbc)
+	cury=$(print -- "$ny+$basey" | fixbc)
+}
+
+while (( i < ${#in[*]} )); do
+	if (( !i )); then
+		[[ ${in[0]} = M ]] || exit 1
+		iscoor "${in[1]}" || exit 1
+		transet "${in[1]}"
+		out="M $pos"
+		i=2
+		continue
+	fi
+	case ${in[i]} {
+	([Zz])	out="$out ${in[i++]}" ;;
+	(M)	iscoor "${in[i+1]}" || exit 1
+		transet "${in[i+1]}"
+		out="$out m $pos"
+		let i+=2 ;;
+	(L)	iscoor "${in[i+1]}" || exit 1
+		transet "${in[i+1]}"
+		out="$out l $pos"
+		let i+=2 ;;
+	(C)	out="$out c"
+		iscoor "${in[i+1]}" || exit 1
+		iscoor "${in[i+2]}" || exit 1
+		iscoor "${in[i+3]}" || exit 1
+		trans "${in[i+1]}"
+		out="$out $pos"
+		trans "${in[i+2]}"
+		out="$out $pos"
+		transet "${in[i+3]}"
+		out="$out $pos"
+		let i+=4 ;;
+	(*)	exit 1 ;;
+	}
+done
+print "       d=\"$out\""
