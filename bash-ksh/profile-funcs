@@ -15,6 +15,12 @@ bye() {			# cu ;-)
 	logout
 }
 
+# print disc free stats in a more handy format
+# for wider terminals than 80c, but deals well with LVM
+df() {
+	command df -P "$@" | sed 's/Mounted on/Mountpoint/' | column -t
+}
+
 ggs() {			# Google Search
 	${BROWSER:-lynx} "http://www.google.com/search?hl=la&num=100&safe=off&q=$*"
 }
