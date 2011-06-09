@@ -1,5 +1,6 @@
 #!/bin/mksh
-# $Id: agus 1563 2010-11-12 16:27:24Z tglase $
+# $MirOS: contrib/hosted/tg/deb/aguspeed.sh,v 1.2 2011/06/09 20:30:24 tg Exp $
+# $Id: agus 2082 2011-06-09 20:31:34Z tglase $
 #-
 # From Planet Debian. Not complicated enough for copyright.
 
@@ -16,8 +17,10 @@ rv=
 set -x
 apt-get update || rv=$?
 dpkg --clear-avail || rv=${rv:-$?}
+# this emits a harmless warning on squeeze
 dpkg --forget-old-unavail || rv=${rv:-$?}
 if sa=$(whence -p sync-available); then
+	# call with mksh due to *buntu bug
 	mksh "$sa" || rv=${rv:-$?}
 fi
 exit $rv

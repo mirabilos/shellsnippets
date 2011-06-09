@@ -1,20 +1,20 @@
 #!/bin/mksh
-# DEB $Id: mkhosts 1671 2011-02-11 13:16:02Z tglase $
-# RPM $Id: mkhosts 1687 2011-02-14 13:37:38Z tglase $
+# $Id: mkhosts 2083 2011-06-09 20:48:55Z tglase $
 #-
 # Copyright © 2010, 2011
 #	Thorsten Glaser <t.glaser@tarent.de>
 # Licenced under the AGPLv3
 
-rpm=0
-
 [[ $1 = really && $USER_ID = 0 ]] || exec sudo mksh "$0" really "$@"
 shift
 
 myipsx=
-while getopts "i:" ch; do
+target=
+while getopts "h:i:" ch; do
 	case $ch {
+	(h) target=$OPTARG ;;
 	(i) myipsx=$OPTARG ;;
+	(*) print -u2 "Usage: $0 [-h new.fqdn] [-i ip]"; exit 1 ;;
 	}
 done
 shift $((OPTIND - 1))
@@ -52,50 +52,47 @@ done
 printf '%s\n' "Old Hostname: $(hostname -f) ($(hostname))"
 while :; do
 	printf "New Hostname: "
-	read hn
+	if [[ -n $target ]]; then
+		hn=$target
+		print -r -- "$hn"
+	else
+		read hn
+	fi
 	[[ $hn = [a-zA-Z0-9]?(*([a-zA-Z0-9-])[a-zA-Z0-9])+(.[a-zA-Z0-9]?(*([a-zA-Z0-9-])[a-zA-Z0-9])) ]] && break
+	if [[ -n $target ]]; then
+		print -u2 Invalid hostname.
+		exit 1
+	fi
 done
 
 if (( noips )); then
-	if (( rpm )); then
-		is="127.0.0.1	$hn ${hn%%.*} localhost localhost.localdomain"
-	else
-		is="127.0.0.1	$hn ${hn%%.*} localhost"
-	fi
+	is="127.0.0.1	$hn ${hn%%.*} localhost localhost.localdomain"
 else
-	if (( rpm )); then
-		is="127.0.0.1	localhost localhost.localdomain"
-	else
-		is="127.0.0.1	localhost"
-	fi
+	is="127.0.0.1	localhost localhost.localdomain"
 	for ip in "${myips[@]}"; do
 		is="$is${nl}$ip	$hn ${hn%%.*}"
 	done
 fi
 
-if (( rpm )); then
+[[ -d /etc/sysconfig/. ]] && \
+    if [[ -e /etc/sysconfig/network || ! -e /etc/hostname ]]; then
 	grep -vi '^HOSTNAME=' /etc/sysconfig/network >/etc/sysconfig/network~
 	echo "HOSTNAME=$hn" >>/etc/sysconfig/network~
 	cat /etc/sysconfig/network~ >/etc/sysconfig/network
 	rm -f /etc/sysconfig/network~
-	cat >/etc/hosts <<-EOF
-		$is
-
-		::1		localhost6 localhost6.localdomain6
-EOF
-else
-	echo $hn >/etc/hostname
-	cat >/etc/hosts <<-EOF
-		$is
-
-		::1     ip6-localhost ip6-loopback
-		fe00::0 ip6-localnet
-		ff00::0 ip6-mcastprefix
-		ff02::1 ip6-allnodes
-		ff02::2 ip6-allrouters
-		ff02::3 ip6-allhosts
-EOF
 fi
+[[ -e /etc/hostname || ! -d /etc/sysconfig/. ]] && \
+    echo $hn >/etc/hostname
+cat >/etc/hosts <<-EOF
+	$is
+
+	::1     ip6-localhost ip6-loopback localhost6 localhost6.localdomain6
+	fe00::0 ip6-localnet
+	ff00::0 ip6-mcastprefix
+	ff02::1 ip6-allnodes
+	ff02::2 ip6-allrouters
+	ff02::3 ip6-allhosts
+EOF
 echo $hn >/proc/sys/kernel/hostname
 hostname $hn
 test x"$(hostname -f)" = x"$hn" && exit 0

@@ -1,4 +1,4 @@
-# $MirOS: src/bin/mksh/check.t,v 1.464 2011/06/09 21:26:21 tg Exp $
+# $MirOS: src/bin/mksh/check.t,v 1.465 2011/06/09 21:53:12 tg Exp $
 #-
 # Copyright © 2008, 2009, 2011
 #	Thorsten Glaser <tg@mirbsd.org>
@@ -18,15 +18,14 @@
 # damage or existence of a defect, except proven that it results out
 # of said person’s immediate fault when using the work as intended.
 #-
-# hexdump, not NUL byte safe, Unicode (UCS-2, OPTU-16) output
-# needs input terminated with a trailing newline, as per POSIX files
+# hexdump, NUL byte and binary safe, Unicode (UCS-2, OPTU-16) output
 
+# integer-base-one-3Wr
 typeset -Uui16 -Z11 pos=0
 typeset -Uui16 -Z7 hv=2147483647
 dasc=
-while read -ar line; do
+if read -arN -1 line; then
 	typeset -i1 line
-	line[${#line[*]}]=10
 	i=0
 	while (( i < ${#line[*]} )); do
 		hv=${line[i++]}
@@ -51,7 +50,7 @@ while read -ar line; do
 		    print -n -- '- '
 		dasc=$dasc$dch
 	done
-done
+fi
 while (( pos & 7 )); do
 	print -n '     '
 	(( (pos++ & 7) == 3 )) && print -n -- '- '

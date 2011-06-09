@@ -18,20 +18,20 @@
 #
 echo x - LICENCE
 sed 's/^X//' >LICENCE << 'END-of-LICENCE'
-X$MirOS: www/LICENCE,v 1.20 2011/02/18 22:37:29 tg Exp $
+X$MirOS: www/LICENCE,v 1.21 2011/03/11 17:57:42 bsiegert Exp $
 X
 X[…]
 XThe MirOS Project web site source code is
 XCopyright © 2007, 2008, 2009, 2011
 X	Thorsten “mirabilos” Glaser <tg@mirbsd.de>
-XCopyright © 2006, 2008
+XCopyright © 2006, 2008, 2011
 X	Benny Siegert <bsiegert@mirbsd.org>
 XThis source code is available under the terms of the stan-
 Xdard MirOS licence, see […] mk/common
 END-of-LICENCE
 echo x - Makefile
 sed 's/^X//' >Makefile << 'END-of-Makefile'
-X# $MirOS: www/Makefile,v 1.73 2011/02/12 23:00:00 bsiegert Exp $
+X# $MirOS: www/Makefile,v 1.76 2011/06/06 22:05:48 tg Exp $
 X#-
 X# This file is part of the website of The MirOS Project, which is
 X# copyrighted material, please read the LICENCE file for details.
@@ -78,8 +78,8 @@ XSRCS+=		rss.hts
 XSRCS+=		tags.hts
 XCLEANFILES+=	tags.lst tags.out
 XTAGCLOUD+=	debian
-XTAGCLOUD+=	event
 XTAGCLOUD+=	mksh
+XTAGCLOUD+=	pcli
 XWLOGS=		9 10
 X
 X# legacy content
@@ -217,7 +217,7 @@ X	@xmlstarlet val -d ${_xhtmldtd} ${.ALLSRC}
 X	@print '\nValidation complete.'
 X
 X.PHONY: clean cleandir depend install deinstall reinstall _reinstall \
-X	cp-herc cp-heph rs-heph rs-eurynome
+X	cp-herc cp-heph rs-heph rs-eurynome rs-pfau
 X
 X#cp-herc: site.tgz.stamp
 X#	ssh hercs 'cd /var/www/oldsite; tar xzvf -' <site.tgz
@@ -231,6 +231,9 @@ X
 Xrs-eurynome:
 X	rsync -rxlztpgavPHK --rsh='ssh -4' dst/ eurynome:/var/anoncvs/anoncvs/www/
 X
+Xrs-pfau:
+X	rsync -rxlztpgavPHK --rsh='ssh -4' dst/ pfau:/Web/
+X
 Xdepend: .depend
 X
 X.depend: ${TOP}/mk/mkdepend ${DEPSRCS}
@@ -240,7 +243,7 @@ X	${U_ENV} ${MKSH} ${TOP}/mk/mkdepend ${DEPSRCS}
 X
 Xlazy: .PHONY
 X	cd ${.CURDIR} && make depend && make && \
-X	    make _reinstall && exec make rs-eurynome rs-heph tagslst
+X	    make _reinstall && exec make rs-eurynome rs-heph rs-pfau tagslst
 X
 Xtagslst: .PHONY
 X	@(echo === TAGS USED/UNUSED/ACCOUNTED FOR ==; cat stamp_tag_* | \
@@ -328,7 +331,7 @@ X}
 END-of-mk/common
 echo x - mk/htsconv
 sed 's/^X//' >mk/htsconv << 'END-of-mk/htsconv'
-Xrcsid_htsconv='$MirOS: www/mk/htsconv,v 1.58 2011/02/18 22:37:28 tg Exp $'
+Xrcsid_htsconv='$MirOS: www/mk/htsconv,v 1.59 2011/03/21 16:18:48 tg Exp $'
 X#-
 X# This file is part of the website of The MirOS Project, which is
 X# copyrighted material, please read the LICENCE file for details.
@@ -339,7 +342,7 @@ X
 Xmws__pagename=
 Xmws__header=
 Xmws__rss=
-Xmws__difftag=MBSD_HTSCONV_GENDATE_TAG_14701
+Xmws__difftag=MBSD_HTSCONV_GENDATE_TAG_11353
 Xunset mws__srcfile
 Xunset mws__abspath
 Xunset mws__relpath
@@ -459,7 +462,7 @@ X	print "<img src=\"@@RELPATH@@hashed/$pfile\" alt=\"$ptext\" />"
 X}
 X
 Xfunction mws_putheader {
-X	local rcsid=$1 hpic
+X	local rcsid=$1
 X
 X	if [[ -z $mws__canonpath ]]; then
 X		print -u2 Internal error: mws_basepath not called!
@@ -574,7 +577,7 @@ X	return 0
 X}
 X
 Xfunction mws_putfooter {
-X	mws_content <<-'EOF'
+X	mws_content_keeptabs <<-'EOF'
 X		</div>
 X		<div class="footer">
 X		<p style="display: none;">Do <em>not</em> send any eMail to <a
@@ -605,7 +608,31 @@ X	fi
 X	mws__content "$@"
 X}
 X
+Xfunction mws_content_keeptabs {
+X	if [[ -z $mws__header ]]; then
+X		print -u2 Internal error: mws_putheader not called!
+X		exit 1
+X	fi
+X	mws__content_keeptabs "$@"
+X}
+X
 Xfunction mws__content {
+X	sed \
+X	    -e 's\([0-9A-z][-.,0-9A-z]*\)(\(DOCS\))<a href="@@RELPATH@@htman/i386/man\2/\1.htm" class="manlink">&</a>g' \
+X	    -e 's\([0-9A-z][-.,0-9A-z]*\)(\(PAPERS\))<a href="@@RELPATH@@htman/i386/man\2/\1.htm" class="manlink">&</a>g' \
+X	    -e 's\([0-9A-z][-.,0-9A-z]*\)(GNU)<a href="@@RELPATH@@htman/i386/manINFO/\1.html" class="manlink">&</a>g' \
+X	    -e 's\([0-9A-z][-.,0-9A-z]*\)(\([PSU][MS][DM]\))<a href="@@RELPATH@@htman/i386/man\2/\1.htm" class="manlink">&</a>g' \
+X	    -e 's\([0-9A-z][-.,0-9A-z]*\)(\([1-9]\)/[Ss][Pp][Aa][Rr][Cc])<a href="@@RELPATH@@htman/sparc/man\2/\1.htm" class="manlink">&</a>g' \
+X	    -e 's\([0-9A-z][-.,0-9A-z]*\)(\([1-9]\)/[Ii]386)<a href="@@RELPATH@@htman/i386/man\2/\1.htm" class="manlink">&</a>g' \
+X	    -e 's\([0-9A-z][-.,0-9A-z]*\)(\([1-9]\))<a href="@@RELPATH@@htman/i386/man\2/\1.htm" class="manlink">&</a>g' \
+X	    -e 's^	<span style="display:none;">	</span>' \
+X	    -e "s@@ABSPATH@@$mws__abspathg" \
+X	    -e "s@@RELPATH@@$mws__relpathg" \
+X	    -e "s@@HEADER@@$mws__headerg" \
+X	    -e "s@@RSS@@$mws__rssg"
+X}
+X
+Xfunction mws__content_keeptabs {
 X	sed \
 X	    -e 's\([0-9A-z][-.,0-9A-z]*\)(\(DOCS\))<a href="@@RELPATH@@htman/i386/man\2/\1.htm" class="manlink">&</a>g' \
 X	    -e 's\([0-9A-z][-.,0-9A-z]*\)(\(PAPERS\))<a href="@@RELPATH@@htman/i386/man\2/\1.htm" class="manlink">&</a>g' \

@@ -1,4 +1,4 @@
-# $MirOS: src/bin/mksh/dot.mkshrc,v 1.59 2011/02/09 19:32:35 tg Exp $
+# $MirOS: src/bin/mksh/dot.mkshrc,v 1.60 2011/05/29 02:18:49 tg Exp $
 #-
 # Copyright (c) 2002, 2003, 2004, 2006, 2007, 2008, 2009, 2010, 2011
 #	Thorsten Glaser <tg@mirbsd.org>
@@ -20,6 +20,8 @@
 
 # Jenkins one-at-a-time hash (not via stdio, for speed)
 typeset -Z11 -Uui16 Loaathash_result
+if true; then
+# not NUL safe
 function Loaathash_add {
 	[[ -o utf8-mode ]]; typeset u=$?
 	set +U
@@ -35,6 +37,29 @@ function Loaathash_add {
 
 	(( u )) || set -U
 }
+else
+# NUL safe; needs mksh R40
+function Loaathash_add {
+	[[ -o utf8-mode ]]; typeset u=$?
+	set +U
+	typeset s
+	if (( $# )); then
+		read -raN-1 s <<<"$*"
+		unset s[${#s[*]}-1]
+	else
+		read -raN-1 s
+	fi
+	typeset -i i=0 n=${#s[*]}
+
+	while (( i < n )); do
+		((# Loaathash_result = (Loaathash_result + s[i++]) *
+		    1025 ))
+		((# Loaathash_result ^= Loaathash_result >> 6 ))
+	done
+
+	(( u )) || set -U
+}
+fi
 function Loaathash_do {
 	Loaathash_add "$@"
 	((# Loaathash_result += Loaathash_result << 3 ))

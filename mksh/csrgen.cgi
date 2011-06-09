@@ -1,5 +1,5 @@
 #!/bin/mksh
-# $Id: csrgen 1637 2011-01-17 15:00:59Z tglase $
+# $Id: csrgen 2084 2011-06-09 20:54:16Z tglase $
 #-
 # Copyright © 2010, 2011
 #	Thorsten Glaser <t.glaser@tarent.de>

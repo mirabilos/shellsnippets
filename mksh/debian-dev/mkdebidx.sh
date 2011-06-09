@@ -1,5 +1,5 @@
 #!/bin/mksh
-rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.46 2011/03/04 14:24:32 tg Exp $'
+rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.51 2011/05/13 20:53:29 tg Exp $'
 #-
 # Copyright (c) 2008, 2009, 2010, 2011
 #	Thorsten Glaser <tg@mirbsd.org>
@@ -100,6 +100,7 @@ for suite in dists/*; do
 	allsuites="$allsuites${allsuites:+ }${suite##*/}"
 	[[ $suites = : || $suites = *:"$suite":* ]] || continue
 	archs=
+	distribution=
 	. $suite/distinfo.sh
 	suitearchs=${archs:-${normarchs[*]}}
 	components=Components:
@@ -115,7 +116,11 @@ for suite in dists/*; do
 		[[ -s $dist/distinfo.sh ]] && . $dist/distinfo.sh
 		set -A distarchs -- $(sortlist -u all ${archs:-$suitearchs})
 		IFS=:; distarchl=:"${distarchs[*]}":; IFS=$saveIFS
-		for arch in $(sortlist -u ${distarchs[*]} ${dpkgarchs[*]}); do
+		for arch in $(sortlist -u ${distarchs[*]} ${dpkgarchs[*]}) /; do
+			# put "all" last
+			[[ $arch = all ]] && continue
+			[[ $arch = / ]] && arch=all
+			# create index
 			if [[ $dpkgarchl != *:"$arch":* ]]; then
 				print -u2 "Invalid arch '$arch' in $dist"
 				exit 1
@@ -147,7 +152,7 @@ for suite in dists/*; do
 	(cat <<-EOF
 		Origin: ${repo_origin}
 		Label: ${repo_label}
-		Suite: ${suite##*/}
+		Suite: ${distribution:-${suite##*/}}
 		Codename: ${suite##*/}
 		Date: $(date -u)
 		Architectures: all ${dpkgarchs[*]} source
@@ -155,9 +160,15 @@ for suite in dists/*; do
 		Description: $(repo_description "$nick")
 		MD5Sum:
 	EOF
+	exec 4>$suite/Release-sha1
+	exec 5>$suite/Release-sha2
+	print -u4 SHA1:
+	print -u5 SHA256:
 	cd $suite
 	set -A cache_fn
 	set -A cache_md5
+	set -A cache_sha1
+	set -A cache_sha2
 	set -A cache_size
 	for n in Contents-* */{binary-*,source}/{Packag,Sourc}es*; do
 		[[ -f $n ]] || continue
@@ -174,16 +185,29 @@ for suite in dists/*; do
 		if [[ $nc = "$nn" ]]; then
 			nm=${cache_md5[Lcdbhash_result]}
 			ns=${cache_size[Lcdbhash_result]}
+			nsha1=${cache_sha1[Lcdbhash_result]}
+			nsha2=${cache_sha2[Lcdbhash_result]}
 		else
+			# GNU *sum tools are horridly inefficient
 			set -A x -- $(md5sum "$nn")
 			nm=${x[0]}
+			set -A x -- $(sha1sum "$nn")
+			nsha1=${x[0]}
+			set -A x -- $(sha256sum "$nn")
+			nsha2=${x[0]}
 			ns=$(stat -c '%s' "$nn")
 			cache_md5[Lcdbhash_result]=$nm
 			cache_size[Lcdbhash_result]=$ns
 			cache_fn[Lcdbhash_result]=$nn
+			cache_sha1[Lcdbhash_result]=$nsha1
+			cache_sha2[Lcdbhash_result]=$nsha2
 		fi
 		print " $nm $ns $n"
+		print -u4 " $nsha1 $ns $n"
+		print -u5 " $nsha2 $ns $n"
 	done) >$suite/Release
+	cat $suite/Release-sha1 $suite/Release-sha2 >>$suite/Release
+	rm $suite/Release-sha1 $suite/Release-sha2
 	$gpg_remote gpg -u $repo_keyid -sb <$suite/Release >$suite/Release.gpg
 done
 
@@ -223,24 +247,35 @@ for suite in dists/*; do
 			continue
 		fi
 
-		pn=; pv=; pd=; pp=; pN=; pf=
-
 		gzip -dc $dist/source/Sources.gz |&
+		pn=; pv=; pd=; pp=; Lf=
 		while IFS= read -pr line; do
 			case $line {
+			(" "*)
+				if [[ -n $Lf ]]; then
+					eval x=\$$Lf
+					x=$x$line
+					eval $Lf=\$x
+				fi
+				;;
 			("Package: "*)
 				pn=${line##Package:*([	 ])}
+				Lf=pn
 				;;
 			("Version: "*)
 				pv=${line##Version:*([	 ])}
+				Lf=pv
 				;;
 			("Binary: "*)
 				pd=${line##Binary:*([	 ])}
+				Lf=pd
 				;;
 			("Directory: "*)
 				pp=${line##Directory:*([	 ])}
+				Lf=pp
 				;;
 			(?*)	# anything else
+				Lf=
 				;;
 			(*)	# empty line
 				if [[ -n $pn && -n $pv && -n $pd && -n $pp ]]; then
@@ -274,7 +309,7 @@ for suite in dists/*; do
 					eval sp_dir_${suitename}[i]='${ppo:+$ppo,}$pp/'
 					sp_desc[i]=${sp_desc[i]},$pd
 				fi
-				pn=; pv=; pd=; pp=
+				pn=; pv=; pd=; pp=; Lf=
 				;;
 			}
 		done
@@ -283,28 +318,42 @@ for suite in dists/*; do
 			[[ -e $f ]] || continue
 			realpath "$f"
 		done | sort -u) |&
+		pn=; pv=; pd=; pp=; pN=; pf=; Lf=
 		while IFS= read -pr line; do
 			case $line {
+			(" "*)
+				if [[ -n $Lf ]]; then
+					eval x=\$$Lf
+					x=$x$line
+					eval $Lf=\$x
+				fi
+				;;
 			("Package: "*)
 				pN=${line##Package:*([	 ])}
+				Lf=pN
 				;;
 			("Source: "*)
 				pn=${line##Source:*([	 ])}
 				pn=${pn%% *}
+				Lf=pn
 				;;
 			("Version: "*)
 				pv=${line##Version:*([	 ])}
+				Lf=pv
 				;;
 			("Description: "*)
 				pd=${line##Description:*([	 ])}
 				;;
 			("Architecture: "*)
 				pp=${line##Architecture:*([	 ])}
+				Lf=pp
 				;;
 			("Filename: "*)
 				pf=${line##Filename:*([	 ])}
+				Lf=pf
 				;;
 			(?*)	# anything else
+				Lf=
 				;;
 			(*)	# empty line
 				if [[ $pf = *:* || $pf = *'%'* ]]; then
@@ -341,7 +390,7 @@ for suite in dists/*; do
 					eval bp_ver_${suitename}[i]=\$x
 					bp_desc[i]=$pd
 				fi
-				pn=; pv=; pd=; pp=; pN=
+				pn=; pv=; pd=; pp=; pN=; pf=; Lf=
 				;;
 			}
 		done
@@ -358,7 +407,7 @@ done
 EOF
 print -r -- " <title>${repo_title} Index</title>"
 cat <<'EOF'
- <meta name="generator" content="$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.46 2011/03/04 14:24:32 tg Exp $" />
+ <meta name="generator" content="$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.51 2011/05/13 20:53:29 tg Exp $" />
  <style type="text/css">
   table {
    border: 1px solid black;
@@ -409,7 +458,7 @@ EOF
 [[ -s 0-NOTE.txt ]] && print ' Also read my <a href="0-NOTE.txt">notes</a>.'
 cat <<EOF
  This repository uses <a
-  href="http://pgpkeys.pca.dfn.de/pks/lookup?search=${repo_keyid}&amp;op=vindex">${repo_keyid}</a>
+  href="http://pgp.uni-mainz.de:11371/pks/lookup?search=${repo_keyid}&amp;op=vindex">${repo_keyid}</a>
  as signing key.
 </p>
 <h2>Suites</h2>

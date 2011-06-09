@@ -1,8 +1,8 @@
-# $MirOS: src/scripts/roff2htm,v 1.58 2009/02/17 12:55:22 tg Exp $
+# $MirOS: src/scripts/roff2htm,v 1.59 2011/02/18 22:37:28 tg Exp $
 # $ekkoBSD: catman2html.sh,v 1.2 2004/03/07 03:02:53 stephen Exp $
 #-
-# Copyright (c) 2004, 2005, 2006, 2007
-#	Thorsten “mirabilos” Glaser <tg@mirbsd.de>
+# Copyright (c) 2004, 2005, 2006, 2007, 2011
+#	Thorsten “mirabilos” Glaser <tg@mirbsd.org>
 # Original version for ekkoBSD by:
 # Copyright (c) 2004
 #	Stephen Paskaluk <sap@mirbsd.org>
@@ -92,14 +92,14 @@ s/\([0-9A-z][-.,0-9A-z]*\)-\n\(  *\)\([0-9A-z][-.,0-9A-z]*([1-9][A-z]*)\)\([^ ]*
 									\
 	    -e 's#^\( \{2,3\}\)\([A-Z][ ,0-9A-z]*\)$#\1<b>\2</b>#'	\
 									\
-	    -e '/^   /s#\(\([0-9A-z][-.,0-9A-z]*\)(\([1-9]\)[/0-9A-Za-z]*)\)#<a href=\"../man\3/\2.htm\">\1</a>#g' \
-	    -e '/^   /s#\(<i>\([0-9A-z][-.,0-9A-z]*\)</i>(\([1-9]\)[/0-9A-Za-z]*)\)#<a href=\"../man\3/\2.htm\">\1</a>#g' \
-	    -e '/^   /s#\(\([0-9A-z][-.,0-9A-z]*\)(\([PSU][MS][DM]\))\)#<a href=\"../man\3/\2.htm\">\1</a>#g' \
-	    -e '/^   /s#\(<i>\([0-9A-z][-.,0-9A-z]*\)</i>(\([PSU][MS][DM]\))\)#<a href=\"../man\3/\2.htm\">\1</a>#g' \
-	    -e '/^   /s#\(\([0-9A-z][-.,0-9A-z]*\)(\(PAPERS\))\)#<a href=\"../man\3/\2.htm\">\1</a>#g' \
-	    -e '/^   /s#\(<i>\([0-9A-z][-.,0-9A-z]*\)</i>(\(PAPERS\))\)#<a href=\"../man\3/\2.htm\">\1</a>#g' \
-	    -e '/^   /s#\(\([0-9A-z][-.,0-9A-z]*\)(GNU)\)#<a href=\"../manINFO/\2.htm\">\1</a>#g' \
-	    -e '/^   /s#\(<i>\([0-9A-z][-.,0-9A-z]*\)</i>(GNU)\)#<a href=\"../manINFO/\2.htm\">\1</a>#g' \
+	    -e '/^   /s#\(\([0-9A-z][-.,0-9A-z]*\)(\([1-9]\)[/0-9A-Za-z]*)\)#<a href=\"../man\3/\2.htm\" class=\"manlink\">\1</a>#g' \
+	    -e '/^   /s#\(<i>\([0-9A-z][-.,0-9A-z]*\)</i>(\([1-9]\)[/0-9A-Za-z]*)\)#<a href=\"../man\3/\2.htm\" class=\"manlink\">\1</a>#g' \
+	    -e '/^   /s#\(\([0-9A-z][-.,0-9A-z]*\)(\([PSU][MS][DM]\))\)#<a href=\"../man\3/\2.htm\" class=\"manlink\">\1</a>#g' \
+	    -e '/^   /s#\(<i>\([0-9A-z][-.,0-9A-z]*\)</i>(\([PSU][MS][DM]\))\)#<a href=\"../man\3/\2.htm\" class=\"manlink\">\1</a>#g' \
+	    -e '/^   /s#\(\([0-9A-z][-.,0-9A-z]*\)(\(PAPERS\))\)#<a href=\"../man\3/\2.htm\" class=\"manlink\">\1</a>#g' \
+	    -e '/^   /s#\(<i>\([0-9A-z][-.,0-9A-z]*\)</i>(\(PAPERS\))\)#<a href=\"../man\3/\2.htm\" class=\"manlink\">\1</a>#g' \
+	    -e '/^   /s#\(\([0-9A-z][-.,0-9A-z]*\)(GNU)\)#<a href=\"../manINFO/\2.htm\" class=\"manlink\">\1</a>#g' \
+	    -e '/^   /s#\(<i>\([0-9A-z][-.,0-9A-z]*\)</i>(GNU)\)#<a href=\"../manINFO/\2.htm\" class=\"manlink\">\1</a>#g' \
 									\
 	    -e 's#<b>+</b>\( *\)<b>o</b># \1•#'				\
 	    -e 's#<b>+</b>#•#'						\
@@ -139,19 +139,20 @@ function output_header {
  <meta name="robots" content="index, follow" />
  <link rel="canonical" href="https://www.mirbsd.org/man'$roff2htm_machine/$1.$2'" />
 </head><body>
-<h1>MirOS Manual: <a href="../man'$2/$1'.htm">'$1\($2')</a></h1>'
+<h1>MirOS Manual: <a href="../man'$2/$1'.htm" class="manlink">'$1\($2')</a></h1>'
 }
 
 function output_footer {
 	print '<hr /><p style="font-size:xx-small;">Generated on' \
 	    $roff2htm_gendate 'by
- <tt>$MirOS: src/scripts/roff2htm,v 1.58 2009/02/17 12:55:22 tg Exp $</tt></p>
-<p>These manual pages are <a href="../man7/BSD-Licence.htm">copyrighted</a>
- by their respective writers; their source is available at our <a
- href="http://cvs.mirbsd.de/">CVSweb</a>, AnonCVS, and other mirrors.
- The rest is Copyright © 2002-2008 <a href="http://www.mirbsd.org/">The
- MirOS Project</a>, Germany. <br /><i style="font-size:3pt;">
- This product includes material provided by Thorsten Glaser.</i></p>
+ <tt>$MirOS: src/scripts/roff2htm,v 1.59 2011/02/18 22:37:28 tg Exp $</tt></p>
+<p>These manual pages and other documentation are <a class="manlink"
+ href="../man7/BSD-Licence.htm">copyrighted</a> by their respective writers;
+ their source is available at our <a href="http://cvs.mirbsd.de/">CVSweb</a>,
+ AnonCVS, and other mirrors. The rest is Copyright © 2002‒2011 <a
+ href="https://www.mirbsd.org/">The MirOS Project</a>, Germany.<br /><i
+ style="font-size:3pt;"> This product includes material provided by Thorsten
+ Glaser.</i></p>
 <p style="font-size:x-small;">This manual page’s HTML representation
  is supposed to be <a href="http://validator.w3.org/check/referer">valid
  XHTML/1.1</a>; if not, please send a bug report – diffs preferred.</p>
@@ -189,7 +190,7 @@ function convert_page {
 		# patch in the additional name(s)
 		ed -s $2/$tn <<-EOF
 			/<title>/s#</title>#, $page($sect)&#
-			/<h1>/s#</h1>#, <a href="../$tn">$page($sect)</a>&#
+			/<h1>/s#</h1>#, <a href="../$tn" class="manlink">$page($sect)</a>&#
 			wq
 		EOF
 	else
