@@ -19,6 +19,7 @@
 # of said person’s immediate fault when using the work as intended.
 #-
 # hexdump, not NUL byte safe, Unicode (UCS-2, OPTU-16) output
+# needs input terminated with a trailing newline, as per POSIX files
 
 typeset -Uui16 -Z11 pos=0
 typeset -Uui16 -Z7 hv

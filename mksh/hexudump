@@ -19,25 +19,24 @@
 # of said person’s immediate fault when using the work as intended.
 #-
 # hexdump, not NUL byte safe, Unicode (UCS-2, OPTU-16) output
+# needs input terminated with a trailing newline, as per POSIX files
 
 typeset -Uui16 -Z11 pos=0
 typeset -Uui16 -Z7 hv
-typeset -i1 wc=0x0A
-typeset -i lpos
 dasc=
-nl=${wc#1#}
-while IFS= read -r line; do
-	line=$line$nl
-	lpos=0
-	while (( lpos < ${#line} )); do
-		wc=1#${line:(lpos++):1}
-		if (( (wc < 32) || \
-		    ((wc > 126) && (wc < 160)) )); then
+while read -ar line; do
+	typeset -i1 line
+	line[${#line[*]}]=10
+	i=0
+	while (( i < ${#line[*]} )); do
+		hv=${line[i++]}
+		if (( (hv < 32) || \
+		    ((hv > 126) && (hv < 160)) )); then
 			dch=.
-		elif (( (wc & 0xFF80) == 0xEF80 )); then
+		elif (( (hv & 0xFF80) == 0xEF80 )); then
 			dch=�
 		else
-			dch=${wc#1#}
+			dch=${line[i-1]#1#}
 		fi
 		if (( (pos & 7) == 7 )); then
 			dasc=$dasc$dch
@@ -47,7 +46,6 @@ while IFS= read -r line; do
 			print -n "${pos#16#}  "
 			dasc=' |'
 		fi
-		let hv=wc
 		print -n "${hv#16#} "
 		(( (pos++ & 7) == 3 )) && \
 		    print -n -- '- '
