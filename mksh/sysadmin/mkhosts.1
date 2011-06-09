@@ -1,0 +1,44 @@
+.\" $Id: mkhosts.1 1814 2011-03-22 13:28:38Z tglase $
+.Dd March 22, 2011
+.Dt MKHOSTS 1
+.Os
+.Sh NAME
+.Nm mkhosts
+.Nd rename this computer
+.Sh SYNOPSIS
+.Nm
+.Op Fl h Ar newname
+.Op Fl i Ar ips
+.Sh DESCRIPTION
+The
+.Nm
+utility interactively asks for a new hostname
+and installs it into the usual places, such as
+.Pa /etc/hosts ,
+.Pa /etc/hostname
+or
+.Pa /etc/sysconfig/network ,
+and the kernel.
+The
+.Fl h
+option uses
+.Ar newname
+as new hostname instead of asking interactively,
+and aborts on error instead of repeatedly asking.
+The
+.Fl i
+option with the
+.Ar ips
+argument, which contains comma-separated IPv4- and/or IPv6-addresses,
+changes slightly the output format of
+.Pa /etc/hosts
+in that the
+.Ar ips
+given are mapped to the own hostname, and the loopback IP only to localhost.
+Normally, the loopback IP maps to both the hostname and localhost, which is
+desired in case the own IPs are unknown, for example retrieved via DHCP.
+.Sh SEE ALSO
+.Xr hostname 1 ,
+.Xr hosts 5
+.Sh AUTHORS
+.An Thorsten Glaser Aq t.glaser@tarent.de

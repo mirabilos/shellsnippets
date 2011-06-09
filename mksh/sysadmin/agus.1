@@ -1,0 +1,32 @@
+.\" $Id: agus.1 1563 2010-11-12 16:27:24Z tglase $
+.Dd June 14, 2010
+.Dt AGUS 1
+.Os
+.Sh NAME
+.Nm agus
+.Nd call apt\-get update
+.Sh SYNOPSIS
+.Nm agus
+.Op Ar slext
+.Sh DESCRIPTION
+The
+.Nm
+utility copies
+.Pa /etc/apt/sources.list. Ns Ar slext
+to
+.Pa /etc/apt/sources.list
+if
+.Ar slext
+is given, then calls
+.Nm apt\-get
+.Ar update ,
+then optimises the
+.Nm dpkg
+database.
+.Sh SEE ALSO
+.Xr dpkg 1 ,
+.Xr apt\-get 8
+.Sh AUTHORS
+.An Thorsten Glaser Aq t.glaser@tarent.de
+wrote this script.
+The optimisation techniques were provided by Planet Debian posts.
