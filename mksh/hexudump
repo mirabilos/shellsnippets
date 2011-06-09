@@ -22,7 +22,7 @@
 # needs input terminated with a trailing newline, as per POSIX files
 
 typeset -Uui16 -Z11 pos=0
-typeset -Uui16 -Z7 hv
+typeset -Uui16 -Z7 hv=2147483647
 dasc=
 while read -ar line; do
 	typeset -i1 line
@@ -56,4 +56,4 @@ while (( pos & 7 )); do
 	print -n '     '
 	(( (pos++ & 7) == 3 )) && print -n -- '- '
 done
-print "$dasc|"
+(( hv == 2147483647 )) || print "$dasc|"

@@ -22,7 +22,7 @@
 # needs input terminated with a trailing newline, as per POSIX files
 
 typeset -Uui16 -Z11 pos=0
-typeset -Uui16 -Z5 hv
+typeset -Uui16 -Z5 hv=2147483647
 typeset -i1 wc=0x0A
 dasc=
 nl=${wc#1#}
@@ -49,4 +49,4 @@ while (( pos & 15 )); do
 	print -n '   '
 	(( (pos++ & 15) == 7 )) && print -n -- '- '
 done
-print "$dasc|"
+(( hv == 2147483647 )) || print "$dasc|"

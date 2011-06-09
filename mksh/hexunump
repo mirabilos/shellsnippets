@@ -59,4 +59,4 @@ while (( pos & 7 )); do
 	print -n '     '
 	(( (pos++ & 7) == 3 )) && print -n -- '- '
 done
-print "$dasc|"
+(( hv == 2147483647 )) || print "$dasc|"
