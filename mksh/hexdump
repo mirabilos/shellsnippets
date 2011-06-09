@@ -1,6 +1,6 @@
-# $MirOS: src/bin/mksh/check.t,v 1.418 2011/03/08 18:49:48 tg Exp $
+# $MirOS: src/bin/mksh/check.t,v 1.464 2011/06/09 21:26:21 tg Exp $
 #-
-# Copyright © 2008, 2009
+# Copyright © 2008, 2009, 2011
 #	Thorsten Glaser <tg@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -44,10 +44,8 @@ while IFS= read -r line; do
 		line=${line:1}
 	done
 done
-if (( (pos & 15) != 1 )); then
-	while (( pos & 15 )); do
-		print -n '   '
-		(( (pos++ & 15) == 7 )) && print -n -- '- '
-	done
-	print "$dasc|"
-fi
+while (( pos & 15 )); do
+	print -n '   '
+	(( (pos++ & 15) == 7 )) && print -n -- '- '
+done
+print "$dasc|"
