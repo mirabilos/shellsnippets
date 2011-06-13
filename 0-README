@@ -1,7 +1,11 @@
-Shell snippets of random value.
+Shell snippets of random value. Not intended to be packaged,
+more like aid to developers, training purposes or a code library.
 Each of the snippets is separate and may have separate authors.
 Some are private, some company-provided.
 
 All of them MUST have an OSI approved licence, if copyright
 law applies. (Otherwise, they’re obviously Public Domain.)
 For licencing conditions, look into each file separately.
+
+Group home: https://evolvis.org/projects/shellsnippets/
+gitweb:     https://evolvis.org/plugins/scmgit/cgi-bin/gitweb.cgi?p=shellsnippets/shellsnippets.git
