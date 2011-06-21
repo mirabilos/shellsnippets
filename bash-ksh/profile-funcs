@@ -41,7 +41,7 @@ gfr() {			# German Frensch
 ges() {			# German Spanish
 	${BROWSER:-lynx} "http://dict.leo.org/esde?search=$*"
 }
-espanol() {		# explica en español
+espanol() {		# explica en espaÃ±ol
 	lynx -dump --nolist "http://buscon.rae.es/draeI/SrvltGUIBusUsual?TIPO_HTML=2&LEMA=$*"
 }
 
