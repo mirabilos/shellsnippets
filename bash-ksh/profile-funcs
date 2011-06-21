@@ -21,6 +21,10 @@ df() {
 	command df -P "$@" | sed 's/Mounted on/Mountpoint/' | column -t
 }
 
+ddg() {			# DuckDuckGo Search
+	${BROWSER:-lynx} "https://duckduckgo.com/?kp=-1&kl=wt-wt&kb=t&kh=1&kj=g2&km=l&ka=monospace&ku=1&ko=s&k1=-1&kv=1&q=$*"
+}
+
 ggs() {			# Google Search
 	${BROWSER:-lynx} "http://www.google.com/search?hl=la&num=100&safe=off&q=$*"
 }
