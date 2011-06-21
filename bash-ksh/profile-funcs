@@ -26,10 +26,10 @@ ddg() {			# DuckDuckGo Search
 }
 
 ggs() {			# Google Search
-	${BROWSER:-lynx} "http://www.google.com/search?hl=la&num=100&safe=off&q=$*"
+	${BROWSER:-lynx} "http://www.google.com/search?hl=la&pws=0&num=100&safe=off&q=$*"
 }
 ggr() {			# Google GRoups
-	${BROWSER:-lynx} "http://groups.google.com/groups?hl=la&num=100&safe=off&as_umsgid=$*"
+	${BROWSER:-lynx} "http://groups.google.com/groups?hl=la&pws=0&num=100&safe=off&as_umsgid=$*"
 }
 
 ge() {			# German English
