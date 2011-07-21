@@ -18,11 +18,11 @@
 # damage or existence of a defect, except proven that it results out
 # of said person's immediate fault when using the work as intended.
 
-# Jenkins one-at-a-time hash (not via stdio, for speed)
-typeset -Z11 -Uui16 Loaathash_result
+# mksh NUL counting, never zero hash
+typeset -Z11 -Uui16 Lnzathash_v
 if true; then
 # not NUL safe
-function Loaathash_add {
+function Lnzathash_add {
 	[[ -o utf8-mode ]]; local u=$?
 	set +U
 	local s="$*"
@@ -30,16 +30,15 @@ function Loaathash_add {
 	local -i i=0 n=${#s}
 
 	while (( i < n )); do
-		((# Loaathash_result = (Loaathash_result + 1#${s:(i++):1}) *
-		    1025 ))
-		((# Loaathash_result ^= Loaathash_result >> 6 ))
+		((# Lnzathash_v = (Lnzathash_v + 1#${s:(i++):1} + 1) * 1025 ))
+		((# Lnzathash_v ^= Lnzathash_v >> 6 ))
 	done
 
 	(( u )) || set -U
 }
 else
 # NUL safe; needs mksh R40
-function Loaathash_add {
+function Lnzathash_add {
 	[[ -o utf8-mode ]]; local u=$?
 	set +U
 	local s
@@ -52,26 +51,33 @@ function Loaathash_add {
 	local -i i=0 n=${#s[*]}
 
 	while (( i < n )); do
-		((# Loaathash_result = (Loaathash_result + s[i++]) *
-		    1025 ))
-		((# Loaathash_result ^= Loaathash_result >> 6 ))
+		((# Lnzathash_v = (Lnzathash_v + s[i++] + 1) * 1025 ))
+		((# Lnzathash_v ^= Lnzathash_v >> 6 ))
 	done
 
 	(( u )) || set -U
 }
 fi
-function Loaathash_do {
-	Loaathash_add "$@"
-	((# Loaathash_result += Loaathash_result << 3 ))
-	((# Loaathash_result = (Loaathash_result ^
-	    (Loaathash_result >> 11)) * 32769 ))
-	print ${Loaathash_result#16#}
+function Lnzaathash_end {
+	((# Lnzathash_v *= 1025 ))
+	((# Lnzathash_v ^= Lnzathash_v >> 6 ))
+	((# Lnzathash_v += Lnzathash_v << 3 ))
+	((# Lnzathash_v = (Lnzathash_v ^
+	    (Lnzathash_v >> 11)) * 32769 ))
+	print ${Lnzathash_v#16#}
 }
-function Loaathash {
-	Loaathash_result=0
-	Loaathash_do "$@"
+function Lnzaathash {
+	Lnzathash_v=0
+	Lnzathash_add "$@"
+	Lnzaathash_end
 }
-function Loaathash1 {
-	Loaathash_result=0x100
-	Loaathash_do "$@"
+function Lnzathash {
+	Lnzathash_v=0
+	Lnzathash_add "$@"
+	if (( Lnzathash_v )); then
+		Lnzaathash_end
+	else
+		Lnzathash_v=1
+		print ${Lnzathash_v#16#}
+	fi
 }

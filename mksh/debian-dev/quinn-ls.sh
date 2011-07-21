@@ -1,5 +1,5 @@
 #!/bin/mksh
-rcsid='$MirOS: contrib/hosted/tg/deb/quinn-ls.sh,v 1.3 2011/05/25 17:40:51 tg Exp $'
+rcsid='$MirOS: contrib/hosted/tg/deb/quinn-ls.sh,v 1.5 2011/06/25 14:28:31 tg Exp $'
 #-
 # Copyright © 2011
 #	Thorsten Glaser <tg@debian.org>
@@ -21,6 +21,7 @@ rcsid='$MirOS: contrib/hosted/tg/deb/quinn-ls.sh,v 1.3 2011/05/25 17:40:51 tg Ex
 
 gather=cwd
 mydir=$(realpath "$(dirname "$0")")
+PATH="$mydir:$mydir/..:$PATH" . assockit.ksh
 
 while getopts "l" ch; do
 	case $ch {
@@ -63,9 +64,6 @@ function isdebver {
 	eval [[ \$1 = $epochglob$uvglob$dvglob ]]
 }
 
-set -A pkgs
-set -A lver
-set -A uver
 i=0
 function do_gather {
 	if ! isdebpkg "$Source"; then
@@ -76,29 +74,27 @@ function do_gather {
 		print -ru2 "skipping invalid Version '$Version', file $name"
 		return 2
 	fi
-	j=-1
-	while (( ++j < i )); do
-		[[ ${pkgs[j]} = "$Source" ]] && break
-	done
-	if (( j == i )); then
+	lver=$(asso_getv pkgs "$Source" lver)
+	if [[ -z $lver ]]; then
 		print -ru2 "local $Source $Version"
-		pkgs[i]=$Source
-		lver[i++]=$Version
+		asso_sets "$Version" pkgs "$Source" lver
 		return 0
 	fi
-	for x in ${lver[j]}; do
+	lver=$(asso_getv pkgs "$Source" lver)
+	for x in $lver; do
 		# skip dups (from .changes = .dsc probably) silently
 		[[ $x = "$Version" ]] && return 1
 	done
 	# put the newest local version leftmost
-	set -A xa -- ${lver[j]}
+	set -A xa -- $lver
 	if dpkg --compare-versions "$Version" gt "${xa[0]}"; then
 		print -ru2 "newer $Source $Version"
-		lver[j]="$Version ${lver[j]}"
+		lver="$Version $lver"
 	else
 		print -ru2 "older $Source $Version"
-		lver[j]="${lver[j]} $Version"
+		lver="$lver $Version"
 	fi
+	asso_sets "$lver" pkgs "$Source" lver
 	return 0
 }
 
@@ -134,28 +130,25 @@ else
 fi
 
 print -u2 '\nrunning rmadison…'
-rmadison -s sid "${pkgs[@]}" |&
+asso_loadk pkgs
+rmadison -s sid "${asso_y[@]}" |&
 while read -pr pkg pipe vsn pipe sid pipe arches; do
 	#print -u2 "D: pkg<$pkg> vsn<$vsn> sid<$sid> arches<$arches>"
 	arches=${arches//,/ }
 	[[ " $arches " = *' source '* ]] || continue
-	j=-1
-	while (( ++j < i )); do
-		[[ ${pkgs[j]} = "$pkg" ]] && break
-	done
-	if (( j == i )); then
+	if ! asso_isset pkgs "$pkg" lver; then
 		print -ru2 "bogus $pkg $vsn ignored"
 		continue
 	fi
-	x=${uver[j]}
+	x=$(asso_getv pkgs "$pkg" uver)
 	if [[ -z $x ]]; then
 		print -ru2 "found $pkg $vsn"
-		uver[j]=$vsn
+		asso_sets "$vsn" pkgs "$pkg" uver
 	elif [[ $x = "$vsn" ]]; then
 		print -ru2 "equal $pkg $vsn ignored"
 	elif dpkg --compare-versions "$x" lt "$vsn"; then
 		print -ru2 "newer $pkg $vsn (dropping $x)"
-		uver[j]=$vsn
+		asso_sets "$vsn" pkgs "$pkg" uver
 	else
 		print -ru2 "older $pkg $vsn ignored"
 	fi
@@ -168,6 +161,7 @@ print -u2 '\nreading override files [bad bld ign]…'
 for type in bad bld ign; do
 	[[ -s $mydir/quinn-ls.$type ]] || continue
 	while read pkg vsn; do
+		[[ $pkg = '#'* ]] && continue
 		if ! isdebpkg "$pkg"; then
 			print -ru2 "skipping invalid package '$pkg'," \
 			    override $type
@@ -179,10 +173,7 @@ for type in bad bld ign; do
 			continue
 		fi
 		print -ru2 "o:$type $pkg $vsn"
-		epkg=${pkg//'+'/_p}
-		epkg=${epkg//'.'/_d}
-		epkg=${epkg//'-'/_u}
-		eval over_${type}_${epkg}=\$vsn
+		asso_sets "$vsn" over "$type" "$pkg"
 	done <$mydir/quinn-ls.$type
 done
 
@@ -196,12 +187,11 @@ c6=$'\033[1;36m'
 print -ru2 "$c0"
 print -ru2
 
-j=-1
-while (( ++j < i )); do
-	pkg=${pkgs[j]}
-	lvs=${lver[j]}
+asso_loadk pkgs
+for pkg in "${asso_y[@]}"; do
+	lvs=$(asso_getv pkgs "$pkg" lver)
 	lv=${lvs%% *}
-	uv=${uver[j]}
+	uv=$(asso_getv pkgs "$pkg" uver)
 
 	if [[ -z $uv ]]; then
 		uv=0~RM
@@ -218,12 +208,9 @@ while (( ++j < i )); do
 		uc=$c4
 	fi
 
-	epkg=${pkg//'+'/_p}
-	epkg=${epkg//'.'/_d}
-	epkg=${epkg//'-'/_u}
-	for type in bad bld ign; do
-		eval over_$type=\$over_${type}_${epkg}
-	done
+	over_bad=$(asso_getv over bad "$pkg")
+	over_bld=$(asso_getv over bld "$pkg")
+	over_ign=$(asso_getv over ign "$pkg")
 	if [[ -n $over_ign && $lv = "$over_ign" ]]; then
 		lc=$c6
 		[[ $uv = '0~RM' ]] && uc=$c6
