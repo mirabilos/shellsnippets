@@ -1,0 +1,21 @@
+#!/bin/mksh
+# $Id: ldapshow 2260 2011-08-25 13:05:53Z tglase $
+#-
+# Copyright © 2011
+#	Thorsten Glaser <t.glaser@tarent.de>
+# Licenced under the AGPLv3
+#-
+# Call ldapsearch, output onelined, empty line after every block
+
+# check for new enough mksh version
+set -A PIPESTATUS -- 23 42
+false | true | true
+set -A rv -- "${PIPESTATUS[@]}"
+if [[ ${#rv[*]} != 3 || ${rv[0]} != 1 || ${rv[1]} != 0 || ${rv[2]} != 0 ]]; then
+	print -u2 need mksh R40
+	exit 255
+fi
+
+ldapsearch -xLLL "$@" | tr '\n' $'\a' | sed -e $'s/\a //g' | tr $'\a' '\n'
+set -A rv -- "${PIPESTATUS[@]}"
+exit ${rv[0]}
