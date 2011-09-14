@@ -1,4 +1,4 @@
-# $MirOS: src/scripts/roff2htm,v 1.59 2011/02/18 22:37:28 tg Exp $
+# $MirOS: src/scripts/roff2htm,v 1.67 2011/09/14 21:08:34 tg Exp $
 # $ekkoBSD: catman2html.sh,v 1.2 2004/03/07 03:02:53 stephen Exp $
 #-
 # Copyright (c) 2004, 2005, 2006, 2007, 2011
@@ -63,13 +63,8 @@ set -A roff2htm_inodecache			# inode cache (empty)
 roff2htm_machine=$(uname -m)			# i386, sparc
 
 function do_convert {
-	typeset -i ws=0
-	sed -e 's/[	 ]*$//g'					\
-	    -e '/-$/N
-{
-s/\([0-9A-z][-.,0-9A-z]*\)-\n\(  *\)\([0-9A-z][-.,0-9A-z]*([1-9][A-z]*)\)\([^ ]*\) /\1\3\4\
-\2/
-}'									\
+	local -i _nl=0
+	col -x | sed							\
 	    -e '/-$/N
 {
 s/\([0-9A-z][-.,0-9A-z]*\)-\n\(  *\)\([0-9A-z][-.,0-9A-z]*([1-9][A-z]*)\)\([^ ]*\) /\1\3\4\
@@ -77,38 +72,27 @@ s/\([0-9A-z][-.,0-9A-z]*\)-\n\(  *\)\([0-9A-z][-.,0-9A-z]*([1-9][A-z]*)\)\([^ ]*
 }'									\
 	    -e 'y#&<>#Áþÿ#'						\
 									\
-	    -e '/^[A-Z]/s#.##g'					\
-	    -e 's#^[A-Z][ ,A-Z0-9]*$#</pre><h2>&</h2><pre>#'		\
-	    -e 's#^  \([A-Z][ ,A-Z0-9]*\)$#</pre><h3>\1</h3><pre>#'	\
+	    -e 's#oo++#â€¢#'						\
 									\
-	    -e 's#_\([^€-¿][€-¿]*\)#<i>\1</i>#g'			\
-	    -e 's#[^€-¿][€-¿]*\([^€-¿][€-¿]*\)#<b>\1</b>#g'		\
+	    -e 's#^[A-z][ 0-9A-z]*$#</pre><h2>&</h2><pre>#'		\
+	    -e 's#^  \([A-z][ ,0-9A-z]*\)$#</pre><h3>\1</h3><pre>#'	\
 									\
+	    -e 's#\([^<>€-¿]\)[€-¿]*\([^<>€-¿][€-¿]*\)#<\1<\2>#g'	\
+	    -e 's#<_<\([^>_]*\)>#<i>\1</i>#g'				\
+	    -e 's#<.<\([^>]*\)>#<b>\1</b>#g'				\
+									\
+	    -e '/<h[23]/s#</*[bi]>##g'					\
 	    -e 's#</\([bi]\)><\1>##g'					\
-	    -e 's#</b><b>[^€-¿][€-¿]*##g'				\
-	    -e 's#</b>[^€-¿][€-¿]*<b>##g'				\
-	    -e 's#[^€-¿][€-¿]*##g'					\
-	    -e 's#_</i<b><</b>i>##g'					\
+	    -e 's#</\([bi]\)>\([- -*./:;?@^_~]*\)<\1>#\2#g'		\
+	    -e 's#\([- 0-9A-z]\)\([$/_-]*\)\(<[bi]>\)#\1\3\2#g'	\
+	    -e 's#\(</[bi]>\)\([)$/_-]*\)\([- 0-9A-z]\)#\2\1\3#g'	\
 									\
-	    -e 's#^\( \{2,3\}\)\([A-Z][ ,0-9A-z]*\)$#\1<b>\2</b>#'	\
-									\
-	    -e '/^   /s#\(\([0-9A-z][-.,0-9A-z]*\)(\([1-9]\)[/0-9A-Za-z]*)\)#<a href=\"../man\3/\2.htm\" class=\"manlink\">\1</a>#g' \
-	    -e '/^   /s#\(<i>\([0-9A-z][-.,0-9A-z]*\)</i>(\([1-9]\)[/0-9A-Za-z]*)\)#<a href=\"../man\3/\2.htm\" class=\"manlink\">\1</a>#g' \
-	    -e '/^   /s#\(\([0-9A-z][-.,0-9A-z]*\)(\([PSU][MS][DM]\))\)#<a href=\"../man\3/\2.htm\" class=\"manlink\">\1</a>#g' \
-	    -e '/^   /s#\(<i>\([0-9A-z][-.,0-9A-z]*\)</i>(\([PSU][MS][DM]\))\)#<a href=\"../man\3/\2.htm\" class=\"manlink\">\1</a>#g' \
-	    -e '/^   /s#\(\([0-9A-z][-.,0-9A-z]*\)(\(PAPERS\))\)#<a href=\"../man\3/\2.htm\" class=\"manlink\">\1</a>#g' \
-	    -e '/^   /s#\(<i>\([0-9A-z][-.,0-9A-z]*\)</i>(\(PAPERS\))\)#<a href=\"../man\3/\2.htm\" class=\"manlink\">\1</a>#g' \
-	    -e '/^   /s#\(\([0-9A-z][-.,0-9A-z]*\)(GNU)\)#<a href=\"../manINFO/\2.htm\" class=\"manlink\">\1</a>#g' \
-	    -e '/^   /s#\(<i>\([0-9A-z][-.,0-9A-z]*\)</i>(GNU)\)#<a href=\"../manINFO/\2.htm\" class=\"manlink\">\1</a>#g' \
-									\
-	    -e 's#<b>+</b>\( *\)<b>o</b># \1â€¢#'				\
-	    -e 's#<b>+</b>#â€¢#'						\
-	    -e 's#</\([bi]\)><\1>##g'					\
-	    -e 's#</\([bi]\)>\([[:punct:][:space:]]*\)<\1>#\2#g'	\
-	    -e 's#\([^[:punct:]]\)\([-!"#$%&'\''()*+,./:;=?@[\]^_`{|}~]*\)\(<[bi]>\)#\1\3\2#g'	\
-	    -e 's#\(<i>[fh]t*p:[^<]*\)</i>/#\1/</i>#g'			\
-	    -e 's#\(<i>/[^<]*\)</i>/#\1/</i>#g'				\
-	    -e 's#<h3>*<b>*>#<h3>#g' -e 's#</b></h3>#</h3>#g'		\
+	    -e '/^ /s#\([0-9A-z][-.,0-9A-z]*\)(\([1-9]\)[/0-9A-Za-z]*)#<a href="../man\2/\1.htm">&</a>#g' \
+	    -e '/^ /s#\([0-9A-z][-.,0-9A-z]*\)(\([PSU][MS][DM]\))#<a href="../man\2/\1.htm">&</a>#g' \
+	    -e '/^ /s#\([0-9A-z][-.,0-9A-z]*\)(\(PAPERS\))#<a href="../man\2/\1.htm">&</a>#g' \
+	    -e '/^ /s#\([0-9A-z][-.,0-9A-z]*\)(GNU)#<a href="../manINFO/\1.htm">&</a>#g' \
+	    -e 's#)\(</[bi]>\)\([- 0-9A-z]\)#\1)\2#g'			\
+	    -e 's#<a href="../man'${1:-0}'/#<a href="#g'		\
 									\
 	    -e 's/Á/\&#38;/g'						\
 	    -e 's/þ/\&#60;/g'						\
@@ -118,13 +102,13 @@ s/\([0-9A-z][-.,0-9A-z]*\)-\n\(  *\)\([0-9A-z][-.,0-9A-z]*([1-9][A-z]*)\)\([^ ]*
 	    -e '$s#$#</pre>#'						\
 	    -e 's#<pre></pre>##g'					\
 	    -e 's#</pre><pre>##g'					\
-	    -e 's#<a href="../man'${1:-0}'/#<a href="#g'		\
 	| while IFS= read -r line; do
 		if [[ -n $line ]]; then
+			(( _nl )) && [[ $line != '</pre>'* ]] && print
 			print -r -- "$line"
-			ws=0
+			_nl=0
 		else
-			(( !ws++ )) && print
+			_nl=1
 		fi
 	done
 }
@@ -138,21 +122,76 @@ function output_header {
  <title>RTFM '$1\($2')</title>
  <meta name="robots" content="index, follow" />
  <link rel="canonical" href="https://www.mirbsd.org/man'$roff2htm_machine/$1.$2'" />
+ <style type="text/css">
+	/* <![CDATA[ */
+	body {
+		background-color:#000000;
+		color:#666666;
+		font-family:serif;
+	}
+	a {
+		color:inherit;
+		text-decoration:none;
+		border-bottom:1px dashed;
+	}
+	a:visited {
+		text-decoration:none;
+		border-bottom:1px dotted;
+	}
+	a:hover {
+		text-decoration:none;
+		border-bottom:1px double;
+	}
+	pre {
+		line-height:112%;
+		color:#FFBF00;
+	}
+	b {
+		color:#FFEF00;
+		font-weight:normal;
+	}
+	i {
+		font-style:normal;
+		border-bottom:1px solid #FFBF00;
+	}
+	b i,i b {
+		color:#FFEF00;
+		font-weight:normal;
+		font-style:normal;
+		border-bottom:1px solid #FFEF00;
+	}
+	h1 {
+		color:#FFEF00;
+		font-size:xx-large;
+		font-family:serif;
+	}
+	h2 {
+		color:#FFFFFF;
+		font-size:x-large;
+		font-family:sans-serif;
+	}
+	h3 {
+		color:#CCCCCC;
+		font-size:large;
+		font-family:sans-serif;
+	}
+	/* ]]> */
+ </style>
 </head><body>
-<h1>MirOS Manual: <a href="../man'$2/$1'.htm" class="manlink">'$1\($2')</a></h1>'
+<h1>MirOS Manual: <a href="../man'$2/$1'.htm">'$1\($2')</a></h1>'
 }
 
 function output_footer {
-	print '<hr /><p style="font-size:xx-small;">Generated on' \
-	    $roff2htm_gendate 'by
- <tt>$MirOS: src/scripts/roff2htm,v 1.59 2011/02/18 22:37:28 tg Exp $</tt></p>
-<p>These manual pages and other documentation are <a class="manlink"
+	print '
+<hr /><p style="font-size:xx-small;">Generated on' $roff2htm_gendate 'by
+ <tt>$MirOS: src/scripts/roff2htm,v 1.67 2011/09/14 21:08:34 tg Exp $</tt></p>
+<p>These manual pages and other documentation are <a
  href="../man7/BSD-Licence.htm">copyrighted</a> by their respective writers;
  their source is available at our <a href="http://cvs.mirbsd.de/">CVSweb</a>,
  AnonCVS, and other mirrors. The rest is Copyright Â© 2002â€’2011 <a
- href="https://www.mirbsd.org/">The MirOS Project</a>, Germany.<br /><i
- style="font-size:3pt;"> This product includes material provided by Thorsten
- Glaser.</i></p>
+ href="https://www.mirbsd.org/">The MirOS Project</a>, Germany.<br /><span
+ style="font-size:3pt; font-style:italic;">This product includes material
+ provided by Thorsten Glaser.</span></p>
 <p style="font-size:x-small;">This manual pageâ€™s HTML representation
  is supposed to be <a href="http://validator.w3.org/check/referer">valid
  XHTML/1.1</a>; if not, please send a bug report â€“ diffs preferred.</p>
@@ -174,8 +213,8 @@ function do_conversion_verbose {
 
 # convert_page /path/to/man.cat1 /targetpath
 function convert_page {
-	typeset fn=$1 page sect tn
-	typeset -Uui ino=$(stat -Lf %i $fn 2>/dev/null)
+	local fn=$1 page sect tn
+	local -Uui ino=$(stat -Lf %i $fn 2>/dev/null)
 	page=${fn##*/}			# basename
 	page=${page%.0}			# manual page name
 	sect=${fn%/*}			# dirname
@@ -190,7 +229,7 @@ function convert_page {
 		# patch in the additional name(s)
 		ed -s $2/$tn <<-EOF
 			/<title>/s#</title>#, $page($sect)&#
-			/<h1>/s#</h1>#, <a href="../$tn" class="manlink">$page($sect)</a>&#
+			/<h1>/s#</h1>#, <a href="../$tn">$page($sect)</a>&#
 			wq
 		EOF
 	else
@@ -208,8 +247,8 @@ function output_htaccess {
 
 # convert_all /path/to/share/man /targetpath
 function convert_all {
-	typeset tp=${2:-$(pwd)/mbsdman}		# target basepath
-	typeset x f
+	local tp=${2:-$(pwd)/mbsdman}		# target basepath
+	local x f
 
 	(find ${1:-/usr/share/man}/cat{[1-9],3p} -name \*.0 2>&- | sort -f) |&
 	for x in 1 2 3 3p 4 5 6 7 8 9; do
