@@ -338,6 +338,7 @@ rm -f ${pkgstem}_${version}_source.changes
 
 # * kuhbauer [-r {r*}] {b} *.dsc [{o*}]
 set -A cmd -- sudo /usr/local/bin/kuhbauer
+(( snap )) && cmd[${#cmd[*]}]=-S
 if [[ -n $xrepo ]]; then
 	cmd[${#cmd[*]}]=-r
 	cmd[${#cmd[*]}]=${xrepo#'|'}

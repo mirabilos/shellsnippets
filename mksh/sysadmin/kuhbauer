@@ -14,11 +14,15 @@ unset LANG LANGUAGE LC_ADDRESS LC_COLLATE LC_CTYPE LC_IDENTIFICATION \
 export LC_ALL=C
 
 xrepos=
-if [[ $1 = -r && -n $2 ]]; then
-	xrepos=$2
-	shift
-	shift
-fi
+issnapshot=0
+while getopts 'r:S' ch; do
+	case $ch {
+	(r)	xrepos=$OPTARG ;;
+	# passed from vcs2deb, do not pass manually
+	(S)	issnapshot=1 ;;
+	}
+done
+shift $((OPTIND - 1))
 
 if [[ $1 != @(sarge|etch|lenny|squeeze|wheezy|sid|dapper|hardy|karmic|lucid|maverick|natty|oneiric|precise)?(-backports?(-sloppy))?(/i386) || \
     $2 != *.dsc || ! -s $2 || $SUDO_UID != +([0-9]) || $SUDO_GID != +([0-9]) ]]; then
@@ -95,7 +99,12 @@ if [[ -n $xrepos ]]; then
 	IFS=$saveIFS
 fi >>"$T/hooks/D00repos"
 print 'apt-get update' >>"$T/hooks/D00repos"
-cat >"$T/hooks/B00lintian" <<-'EOF'
+if (( issnapshot )); then
+	extraargs='-X nmu'
+else
+	extraargs=
+fi
+cat >"$T/hooks/B00lintian" <<-EOF
 	#!/bin/sh
 	LC_ALL=C; export LC_ALL
 	apt-get --purge -y install --install-recommends lintian
@@ -111,7 +120,7 @@ cat >"$T/hooks/B00lintian" <<-'EOF'
 	echo ==================================================================
 	echo Running lintian...
 	echo
-	lintian -vIi $argE $argP --allow-root /tmp/buildd/*.changes 2>&1
+	lintian -vIi \$argE \$argP $extraargs --allow-root /tmp/buildd/*.changes 2>&1
 	echo
 	echo ==================================================================
 	echo
