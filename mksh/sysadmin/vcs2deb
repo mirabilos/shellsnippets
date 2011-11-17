@@ -1,6 +1,6 @@
 #!/bin/mksh
-# $Id: vcs2deb 2502 2011-11-17 15:20:07Z tglase $
-# $MirOS: contrib/hosted/tg/deb/BuildDSC.sh,v 1.12 2011/10/20 16:38:08 tg Exp $
+# $Id: vcs2deb 2504 2011-11-17 15:30:10Z tglase $
+# $MirOS: contrib/hosted/tg/deb/BuildDSC.sh,v 1.14 2011/11/17 15:27:53 tg Exp $
 #-
 # Copyright (c) 2010, 2011
 #	Thorsten Glaser <t.glaser@tarent.de>
@@ -289,7 +289,7 @@ if (( snap )); then
 	updir=$(cd ..; pwd)
 	dist=$(dpkg-parsechangelog -n1 | sed -n '/^Distribution: /s///p')
 	ssuf=snapshot.$stime_vsn
-	if [[ $dist = @(xunstable|UNRELEASED) ]]; then
+	if [[ $dist = UNRELEASED || $dist = x* ]]; then
 		# we’re at “current” already, reduce
 		version=$version'~'$ssuf
 	else

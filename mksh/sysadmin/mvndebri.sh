@@ -1,6 +1,6 @@
 #!/bin/mksh
 rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.51 2011/05/13 20:53:29 tg Exp $'
-rcsid='$Id: mvndebri.sh 2080 2011-06-09 13:21:50Z tglase $'
+rcsid='$Id: mvndebri.sh 2503 2011-11-17 15:28:58Z tglase $'
 #-
 # Copyright (c) 2008, 2009, 2010, 2011
 #	Thorsten Glaser <tg@mirbsd.org>
@@ -30,6 +30,10 @@ jobname=$2
 
 hn=$(hostname)
 case $hn {
+(hudson.evolvis.org)
+	hn=evolvis-hudson
+	repo_keyid=0x16B5D1B2
+	;;
 (dev-hudson?(.*))
 	hn=dev-hudson
 	repo_keyid=0x199D2F3B
@@ -46,6 +50,14 @@ case $hn {
 (*)
 	print -u2 "Cannot determine hostname from '$hn'"
 	exit 1
+	;;
+}
+case $hn {
+(evolvis-hudson)
+	dhn=jenkins-debs.evolvis.org
+	;;
+(*)
+	dhn=${hn}-debs.bonn.tarent.de
 	;;
 }
 repo_origin='tarent solutions GmbH'
@@ -326,7 +338,7 @@ done
 EOF
 print -r -- " <title>${repo_title} Index</title>"
 cat <<'EOF'
- <meta name="generator" content="$Id: mvndebri.sh 2080 2011-06-09 13:21:50Z tglase $ based on $MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.51 2011/05/13 20:53:29 tg Exp $" />
+ <meta name="generator" content="$Id: mvndebri.sh 2503 2011-11-17 15:28:58Z tglase $ based on $MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.51 2011/05/13 20:53:29 tg Exp $" />
  <style type="text/css">
   table {
    border: 1px solid black;
@@ -395,7 +407,7 @@ for suitename in $allsuites; do
 		print -n " <a href=\"$suite/$distname/\">$distname</a>"
 	done
 	print ")<br />"
-	print " <tt>deb http://${hn}-debs.bonn.tarent.de/$jobname $suitename$vdists</tt>"
+	print " <tt>deb http://${dhn}/$jobname $suitename$vdists</tt>"
 	print "</li>"
 done
 print "</ul>"
