@@ -1,0 +1,121 @@
+#!/bin/mksh
+# $Id: kuhbauer 2496 2011-11-17 08:38:32Z tglase $
+#-
+# Copyright © 2011
+#	Thorsten Glaser <t.glaser@tarent.de>
+# Licenced under the AGPLv3
+#-
+# root@dev-hudson:/usr/local/bin/kuhbauer via sudoers
+# ALL     ALL=(ALL) NOPASSWD: /usr/local/bin/kuhbauer
+
+unset LANG LANGUAGE LC_ADDRESS LC_COLLATE LC_CTYPE LC_IDENTIFICATION \
+    LC_MEASUREMENT LC_MESSAGES LC_MONETARY LC_NAME LC_NUMERIC LC_PAPER \
+    LC_TELEPHONE LC_TIME
+export LC_ALL=C
+
+xrepos=
+if [[ $1 = -r && -n $2 ]]; then
+	xrepos=$2
+	shift
+	shift
+fi
+
+if [[ $1 != @(sarge|etch|lenny|squeeze|wheezy|sid|dapper|hardy|karmic|lucid|maverick|natty|oneiric|precise)?(-backports?(-sloppy))?(/i386) || \
+    $2 != *.dsc || ! -s $2 || $SUDO_UID != +([0-9]) || $SUDO_GID != +([0-9]) ]]; then
+	print -u2 "Syntax: sudo $0 [-r xr] lenny-backports file.dsc [-B -m...]"
+	print -u2 "The third argument onwards are dpkg-buildpackage options."
+	print -u2 "The second argument is the target distribution and can be"
+	print -u2 "something like etch/i386 as well; appropriate chroots for"
+	print -u2 "that must be created by the admins."
+	print -u2 "The -r argument allows to pass extra APT repositories, as"
+	print -u2 "complete sources.list(5) 'deb' or 'deb-src' lines, with a"
+	print -u2 "pipe sign '|' as separator."
+	exit 255
+fi
+
+if ! now=$(date +%s) || [[ $now != +([0-9]) ]]; then
+	print -u2 Cannot determine current time.
+	exit 255
+fi
+typeset -Uui16 -Z11 now
+if ! wd=$(realpath .) || [[ -z $wd ]]; then
+	print -u2 Cannot determine current working directory.
+	exit 255
+fi
+if ! T=$(mktemp -d /tmp/kuhbauer.XXXXXXXXXX); then
+	print -u2 Cannot create temporary directory.
+	exit 255
+fi
+
+export DIST=$1
+shift
+fn=$1
+shift
+dbargs=
+binarch=0
+
+for arg in "$@"; do
+	case $arg {
+	(-B)	binarch=1 ;;
+	}
+	dbargs="$dbargs '${arg//\'/\'\\\'\'}'"
+done
+
+set -A cbargs
+[[ $DIST = */i386 ]] && cbargs[${#cbargs[*]}]=linux32
+cbargs[${#cbargs[*]}]=cowbuilder
+(( binarch )) && cbargs[${#cbargs[*]}]=--binary-arch
+[[ -n $dbargs ]] && cbargs[${#cbargs[*]}]=--debbuildopts
+[[ -n $dbargs ]] && cbargs[${#cbargs[*]}]=${dbargs# }
+cbargs[${#cbargs[*]}]=--configfile
+cbargs[${#cbargs[*]}]=$T/config
+cbargs[${#cbargs[*]}]=--hookdir
+cbargs[${#cbargs[*]}]=$T/hooks
+cbargs[${#cbargs[*]}]=--build
+cbargs[${#cbargs[*]}]=$fn
+
+cat >"$T/config" <<-EOF
+	export BUILDRESULT='${T//\'/\'\\\'\'}/res'
+	export BUILDRESULTUID=0
+	export BUILDRESULTGID=0
+	export PKGNAME_LOGFILE_EXTENTION=_\${ARCHITECTURE}.${now#16#}.${DIST//'/'/!}.holzscheit
+EOF
+
+mkdir "$T/hooks" "$T/res"
+print '#!/bin/sh' >"$T/hooks/D00repos"
+print 'dpkg -i /tmp/tarent-keyring*.deb' >>"$T/hooks/D00repos"
+if [[ -n $xrepos ]]; then
+	saveIFS=$IFS
+	IFS='|'
+	print -r -- 'cat >>/etc/apt/sources.list <<"EOD"'
+	for repo in $xrepos; do
+		print -r -- "$repo"
+	done
+	print EOD
+	IFS=$saveIFS
+fi >>"$T/hooks/D00repos"
+print 'apt-get update' >>"$T/hooks/D00repos"
+chmod +x "$T/hooks/D00repos"
+
+print -nr -- "=== running"
+for arg in "${cbargs[@]}"; do
+	print -nr -- " '${arg//\'/\'\\\'\'}'"
+done
+print
+"${cbargs[@]}"
+rv=$?
+print "=== errorlevel: $rv"
+
+cd "$T/res"
+ls -l
+(( rv )) || for f in *; do
+	[[ -s $f ]] || continue
+	print -r "=== moving build result to: $wd"
+	chown $SUDO_UID:$SUDO_GID *
+	mv * "$wd/"
+	break
+done
+
+cd "$wd"
+rm -rf "$T"
+exit $rv

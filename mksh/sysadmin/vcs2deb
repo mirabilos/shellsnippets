@@ -1,0 +1,395 @@
+#!/bin/mksh
+# $Id: vcs2deb 2498 2011-11-17 11:20:24Z tglase $
+# $MirOS: contrib/hosted/tg/deb/BuildDSC.sh,v 1.12 2011/10/20 16:38:08 tg Exp $
+#-
+# Copyright (c) 2010, 2011
+#	Thorsten Glaser <t.glaser@tarent.de>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un-
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided "AS IS" and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person's immediate fault when using the work as intended.
+#-
+# root@dev-hudson:/usr/local/bin/vcs2deb
+#
+# This wants two checkboxen ENABLE_UPLOAD and VERSION_AS_SNAPSHOT in
+# Jenkins ("parametrized build"). Example usage:
+# vcs2deb -b lenny-backports -r 'deb foo main' -r 'deb bar tarent' \
+#     -o -sa -o -m'Dev Jenkins <buildd@domain.de>' -j portal-setup \
+#     -d squeeze -s main -O [http:/]/path/to/foo-1.2.3.orig.tar.xz \
+#     -T HEAD :ext:anoncvs@server.com:/cvs src/modulename
+# These arguments are passed to the scripts as follows:
+# * kuhbauer [-r {r*}] {b} *.dsc [{o*}]
+# * mvndput {j} {d} {s} *.changes (if ENABLE_UPLOAD)
+
+# sanitise environment
+unset LANGUAGE
+export LC_ALL=C
+wd=$(realpath .)
+cd "$wd"
+
+usage() { cat <<EOF
+Syntax: $0 -b DIST [-r aptrepo [-r ...]] [-o debbuiltopt [-o ...]]
+	-j jobname -d targetdistribution -s targetsuite
+	[-O [http:/]/path/to/origtgz] [-T tag] scmpath
+Tags: cvs (tag/branch[:date]), git (branch), bzr (revisionspec), hg (idem)
+Knobs: ENABLE_UPLOAD, VERSION_AS_SNAPSHOT
+Environment: DEBEMAIL (for snapshots)
+EOF
+	exit ${1:-1}
+}
+
+# preload
+sync
+date >/dev/null
+stime_rfc=$(date +"%a, %d %b %Y %H:%M:%S %z")
+stime_vsn=$(date -u +"%Y%m%d.%H%M%S")
+
+[[ $VERSION_AS_SNAPSHOT != true ]]; snap=$?
+[[ $ENABLE_UPLOAD != true ]]; dodput=$?
+
+if (( snap )) && [[ -z $DEBEMAIL ]]; then
+	print -u2 'Please set $DEBEMAIL to "First M. Last <email@domain.com>"'
+	usage
+fi
+
+DIST=
+targdist=
+jobname=
+origtgz=
+set -A dbo
+xrepo=
+targsuite=
+scmtag=
+while getopts 'b:d:hj:O:o:r:s:T:' ch; do
+	case $ch {
+	(b)	DIST=$OPTARG ;;
+	(d)	targdist=$OPTARG ;;
+	(h)	usage 0 ;;
+	(j)	jobname=$OPTARG ;;
+	(O)	origtgz=$OPTARG ;;
+	(o)	dbo[${#dbo[*]}]=$OPTARG ;;
+	(r)	xrepo="${xrepo}|$OPTARG" ;;
+	(s)	targsuite=$OPTARG ;;
+	(T)	scmtag=$OPTARG ;;
+	(*)	usage ;;
+	}
+done
+shift $((OPTIND - 1))
+
+[[ -n $1 ]] || usage
+scmrepo=$1
+shift
+case $scmrepo {
+(:ext:*|:extssh:*|:pserver:*)
+	scmtype=cvs
+	;;
+(svn://*|svn+ssh://*)
+	scmtype=svn
+	;;
+(git://*)
+	scmtype=git
+	;;
+(@(cvs|svn|git|bzr|hg),*)
+	scmtype=${scmrepo%%,*}
+	scmrepo=${scmrepo#*,}
+	;;
+(*)
+	print -u2 "Invalid SCM repository '$scmrepo'"
+	print -u2 "Valid are CVS (ext/pserver), Subversion (svn, svn+ssh), git,"
+	print -u2 "or specifying the name of the SCM (cvs, svn, git, bzr, hg)"
+	print -u2 "followed by a comma before the repository identifier."
+	usage
+	;;
+}
+case $scmtype {
+(cvs)
+	scmmodule=$1
+	i=1
+	;;
+(svn)
+	i=0
+	if [[ -n $scmtag ]]; then
+		print -u2 "Subversion does not support tags or branches."
+		usage
+	fi
+	;;
+(git|bzr|hg)
+	i=0
+	;;
+}
+if (( $# != i )); then
+	print -u2 "Invalid syntax. The first non-option argument must be the"
+	print -u2 "SCM repository identifier. For CVS, another argument must"
+	print -u2 "be passed to specify the module. No further arguments are"
+	print -u2 "permitted."
+	usage
+fi
+
+if [[ $DIST != @(sarge|etch|lenny|squeeze|wheezy|sid|dapper|hardy|karmic|lucid|maverick|natty|oneiric|precise)?(-backports?(-sloppy))?(/i386) ]]; then
+	print -u2 "Missing -b option, which is mandatory, or invalid value '$DIST'"
+	usage
+fi
+if [[ -z $targdist ]]; then
+	print -u2 "Missing -d option, which is mandatory"
+	usage
+fi
+if [[ -z $jobname ]]; then
+	print -u2 "Missing -j option, which is mandatory"
+	usage
+fi
+if [[ -z $targsuite ]]; then
+	print -u2 "Missing -s option, which is mandatory"
+	usage
+fi
+
+if [[ $DIST = */i386 && $(uname -m) != x86_64 ]]; then
+	print -ru2 "The -b option indicates using an i386 chroot on an amd64"
+	print -ru2 "system, but this is a '$(uname -m)' system."
+	exit 1
+fi
+
+if ! T=$(mktemp -d "$wd/vcs2deb.XXXXXXXXXX"); then
+	print -u2 Cannot create temporary directory.
+	exit 255
+fi
+
+cd "$T"
+
+haspipe=0
+hascmd2=0
+case $scmtype {
+(cvs)
+	export CVS_RSH=ssh
+	[[ -n $scmtag ]] || scmtag=HEAD
+	set -A cmd -- cvs -qz3 -d "$scmrepo" export -r"$scmtag" -dwc \
+	    "$scmmodule"
+	;;
+(svn)
+	set -A cmd -- svn export "$scmrepo" wc
+	;;
+(git)
+	set -A cmd -- git archive --format=tar --prefix=wc/ \
+	    --remote="$scmrepo" "${scmtag:-master}"
+	set -A cmdpipe -- tar -xvf -
+	# I hate git.
+	haspipe=1
+	# I hate GNU.
+	set -A cmd2 -- rm -f wc/pax_global_header
+	hascmd2=1
+	;;
+(bzr)
+	set -A cmd -- bzr export --format=dir
+	if [[ -n $scmtag ]]; then
+		cmd[${#cmd[*]}]=-r
+		cmd[${#cmd[*]}]=$scmtag
+	fi
+	cmd[${#cmd[*]}]=wc
+	cmd[${#cmd[*]}]=$scmrepo
+	;;
+(hg)
+	# Oh, now this is just too funny. NOT.
+	set -A cmd -- hg clone
+	if [[ -n $scmtag ]]; then
+		cmd[${#cmd[*]}]=-r
+		cmd[${#cmd[*]}]=$scmtag
+	fi
+	cmd[${#cmd[*]}]=wc
+	cmd[${#cmd[*]}]=$scmrepo
+	set -A cmd2 -- rm -rf wc/.hg
+	hascmd2=1
+	;;
+}
+
+print -n +
+for arg in "${cmd[@]}"; do
+	print -nr -- " '${arg//\'/\'\\\'\'}'"
+done
+if (( haspipe )); then
+	print -n " |"
+	for arg in "${cmdpipe[@]}"; do
+		print -nr -- " '${arg//\'/\'\\\'\'}'"
+	done
+	print
+	"${cmd[@]}" | "${cmdpipe[@]}"
+else
+	print
+	"${cmd[@]}"
+fi
+if (( hascmd2 )); then
+	print -n +
+	for arg in "${cmd2[@]}"; do
+		print -nr -- " '${arg//\'/\'\\\'\'}'"
+	done
+	print
+	"${cmd2[@]}"
+fi
+# instead of an errorlevel check…
+if [[ ! -d wc/debian/. ]]; then
+	print -u2 Checkout failed.
+	cd "$wd"
+	rm -rf "$T"
+	exit 1
+fi
+
+if [[ -n $origtgz ]]; then
+	if [[ $origtgz = /* ]]; then
+		cp "$origtgz" .
+	else
+		wget -qO "${origtgz##*/}" "$origtgz"
+	fi
+	origtgz=${origtgz##*/}
+	if [[ ! -s $origtgz ]]; then
+		print -u2 Download of .orig.tar.gz failed.
+		cd "$wd"
+		rm -rf "$T"
+		exit 1
+	fi
+fi
+
+cd wc
+
+rmc=0
+while :; do
+	dh_testdir >/dev/null 2>&1 && break
+	if [[ -s debian/control.in && -s debian/rules && \
+	    -x debian/rules && ! -e debian/control ]]; then
+		rmc=1
+		debian/rules debian/control
+	fi
+	dh_testdir >/dev/null 2>&1 && break
+	ls -l
+	ls -l debian/
+	print -u2 Checkout is not a Debian source package.
+	cd "$wd"
+	rm -rf "$T"
+	exit 1
+done
+pkgstem=$(dpkg-parsechangelog -n1 | sed -n '/^Source: /s///p')
+version=$(dpkg-parsechangelog -n1 | sed -n '/^Version: /s///p')
+if [[ -z $origtgz && $version = *-* ]]; then
+	# Policy v3.9.2.0 §5.6.12
+	print -u2 "Debian native packages MUST NOT contain a dash in their"
+	print -u2 "version number ($version)."
+	cd "$wd"
+	rm -rf "$T"
+	exit 1
+fi
+if (( snap )); then
+	updir=$(cd ..; pwd)
+	dist=$(dpkg-parsechangelog -n1 | sed -n '/^Distribution: /s///p')
+	ssuf=snapshot.$stime_vsn
+	if [[ $dist = @(xunstable|UNRELEASED) ]]; then
+		# we’re at “current” already, reduce
+		version=$version'~'$ssuf
+	else
+		# we’re at an uploaded version, raise
+		version=$version'+'$ssuf
+	fi
+	print "$pkgstem ($version) UNRELEASED; urgency=low\n\n  *" \
+	    "Automatically built snapshot package.\n\n --" \
+	    "$DEBEMAIL  $stime_rfc\n" >debian/changelog~
+	cat debian/changelog >>debian/changelog~
+	mv -f debian/changelog~ debian/changelog
+	if (( rmc )); then
+		rm -f debian/control
+		debian/rules debian/control
+	fi
+fi
+upstreamversion=${version%%-*([!-])}
+upstreamversion=${upstreamversion#+([0-9]):}
+
+cd ..
+
+[[ -n $origtgz ]] && \
+    if [[ $origtgz != ${pkgstem}_$upstreamversion.orig.tar.@(gz|bz2|lzma|xz) ]]; then
+	print -u2 "Invalid name: $origtgz"
+	print -u2 "Expecting: ${pkgstem}_$upstreamversion.orig.tar.*"
+	cd "$wd"
+	rm -rf "$T"
+	exit 1
+fi
+
+newname=$pkgstem-$upstreamversion
+mv wc "$newname"
+cd "$newname"
+dpkg-buildpackage -d -rfakeroot -S -us -uc
+rv=$?
+cd ..
+if (( rv )) || [[ ! -s ${pkgstem}_${version}.dsc || \
+    ! -s ${pkgstem}_${version}_source.changes ]]; then
+	ls -l
+	print -u2 "Error $rv creating the .dsc"
+	cd "$wd"
+	rm -rf "$T"
+	exit 1
+fi
+rm -f ${pkgstem}_${version}_source.changes
+
+# * kuhbauer [-r {r*}] {b} *.dsc [{o*}]
+set -A cmd -- sudo /usr/local/bin/kuhbauer
+if [[ -n $xrepo ]]; then
+	cmd[${#cmd[*]}]=-r
+	cmd[${#cmd[*]}]=${xrepo#'|'}
+fi
+cmd[${#cmd[*]}]=$DIST
+cmd[${#cmd[*]}]=${pkgstem}_${version}.dsc
+print -n +
+for arg in "${cmd[@]}" "${dbo[@]}"; do
+	print -nr -- " '${arg//\'/\'\\\'\'}'"
+done
+print
+"${cmd[@]}" "${dbo[@]}"
+rv=$?
+cp *.holzscheit "$wd/"
+found=
+for f in ${pkgstem}_${version}_*.changes; do
+	[[ -s $f ]] && found=$f
+	break
+done
+if (( rv )) || [[ -z $found ]]; then
+	ls -l
+	print -u2 "Error $rv during build"
+	cd "$wd"
+	rm -rf "$T"
+	exit 1
+fi
+
+if (( dodput )); then
+	/opt/mvn-debs/mvndput.sh "$jobname" "$targdist" "$targsuite" "$found"
+	rv=$?
+	if (( rv )); then
+		print -u2 "Error $rv during repository upload"
+		cd "$wd"
+		rm -rf "$T"
+		exit 1
+	fi
+fi
+
+cat >tmpcf <<-EOF
+	[tmpdp]
+	method = local
+	allow_unsigned_uploads = 1
+	incoming = $wd
+EOF
+rm -f *.upload
+dput -c tmpcf tmpdp $found
+rv=$?
+if (( rv )); then
+	print -u2 "Error during result move, NOT cleaning up: $T"
+	exit 1
+fi
+print -u2 Cleaning up...
+cd "$wd"
+rm -rf "$T"
+exit 0
