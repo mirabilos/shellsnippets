@@ -1,5 +1,5 @@
 #!/bin/mksh
-# $Id: vcs2deb 2498 2011-11-17 11:20:24Z tglase $
+# $Id: vcs2deb 2501 2011-11-17 14:34:41Z tglase $
 # $MirOS: contrib/hosted/tg/deb/BuildDSC.sh,v 1.12 2011/10/20 16:38:08 tg Exp $
 #-
 # Copyright (c) 2010, 2011
