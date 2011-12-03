@@ -1,4 +1,4 @@
-# $MirOS: src/scripts/roff2htm,v 1.67 2011/09/14 21:08:34 tg Exp $
+# $MirOS: src/scripts/roff2htm,v 1.68 2011/09/15 16:13:59 tg Exp $
 # $ekkoBSD: catman2html.sh,v 1.2 2004/03/07 03:02:53 stephen Exp $
 #-
 # Copyright (c) 2004, 2005, 2006, 2007, 2011
@@ -114,8 +114,7 @@ s/\([0-9A-z][-.,0-9A-z]*\)-\n\(  *\)\([0-9A-z][-.,0-9A-z]*([1-9][A-z]*)\)\([^ ]*
 }
 
 function output_header {
-	print '<?xml version="1.0" encoding="utf-8" ?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+	print '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en"><head>
  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
@@ -184,7 +183,7 @@ function output_header {
 function output_footer {
 	print '
 <hr /><p style="font-size:xx-small;">Generated on' $roff2htm_gendate 'by
- <tt>$MirOS: src/scripts/roff2htm,v 1.67 2011/09/14 21:08:34 tg Exp $</tt></p>
+ <tt>$MirOS: src/scripts/roff2htm,v 1.68 2011/09/15 16:13:59 tg Exp $</tt></p>
 <p>These manual pages and other documentation are <a
  href="../man7/BSD-Licence.htm">copyrighted</a> by their respective writers;
  their source is available at our <a href="http://cvs.mirbsd.de/">CVSweb</a>,
