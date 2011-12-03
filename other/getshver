@@ -1,6 +1,6 @@
-# $MirOS: contrib/code/Snippets/getshver,v 1.10 2010/09/27 21:13:18 tg Exp $
+# $MirOS: contrib/code/Snippets/getshver,v 1.11 2011/11/02 21:48:05 tg Exp $
 #-
-# Copyright (c) 2009, 2010
+# Copyright (c) 2009, 2010, 2011
 #	Thorsten Glaser <tg@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -23,11 +23,46 @@ set x = 1
 # escape this from tclsh \
 test 1 = "$x" && goto CSH
 
+# BEGIN of Tcl section (((
 # escape this from tclsh \
-if false; then
-	puts tclsh
-	exit 0
-fi
+x='
+if {[info exists ::jim_argv0]} {set v "jimsh"} elseif {[info commands tk] != ""} {set v "wish"} {set v "tclsh"}
+if {[info exists ::tcl_version]} {
+	append v " " $::tcl_version
+	if {[info exists ::tcl_patchLevel]} {append v " (" $::tcl_patchLevel ")"}
+} elseif {[info exists ::tcl_patchLevel]} {append v " " $::tcl_patchLevel}
+set u 0
+set w " on"
+if {[info exists ::tcl_platform(machine)]} {set u 1; append w " " $::tcl_platform(machine)}
+if {[info exists ::tcl_platform(byteOrder)]} {set u 1; append w " (" $::tcl_platform(byteOrder) ")"}
+if {[info exists ::tcl_platform(os)]} {
+	set u 1
+	append w " " $::tcl_platform(os)
+	if {[info exists ::tcl_platform(osVersion)]} {append w " " $::tcl_platform(osVersion)}
+} else {append w " unknown"}
+if {[info exists ::tcl_platform(platform)]} {set u 1; append w " (" $::tcl_platform(platform) ")"}
+if {$u == 1} {append v $w}
+set w ","
+if {[info exists ::tcl_platform(threaded)]} {
+	append w " "
+	if {$::tcl_platform(threaded) != 1} {append w "non"}
+	append w "threaded"
+}
+if {[info exists ::tcl_platform(debug)]} {
+	append w " "
+	if {$::tcl_platform(debug) != 1} {append w "non"}
+	append w "debug"
+}
+if {[info exists ::tcl_interactive]} {
+	append w " "
+	if {$::tcl_interactive != 1} {append w "non"}
+	append w "interactive"
+}
+if {[string equal $w ","] == 0} {append v $w}
+puts $v
+exit 0
+'
+# ))) END of Tcl section
 
 if test x"`echo u ^ echo x`" = x"x"; then
 	# Bourne shell, maybe Heirloom sh (tested)
