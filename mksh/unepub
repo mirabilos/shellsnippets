@@ -1,0 +1,88 @@
+#!/bin/mksh
+# $MirOS: contrib/hosted/tg/unepub,v 1.1 2011/11/13 19:58:18 tg Exp $
+#-
+# Copyright (c) 2011
+#	Thorsten Glaser <tg@mirbsd.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un-
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided "AS IS" and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person's immediate fault when using the work as intended.
+#-
+# Convert args foo.epub, bar.epub, ... to {foo,bar...}/{*,index.htm}
+# using perl (easy U+00A0 fixup), unzip and xmlstarlet from ports.
+
+function ncx2html {
+	local state texts links docTitle=""
+
+	# I would use xmlstarlet sel, but it seems to be broken, or,
+	# XPath is not obvious to learn
+	<"$1" tr '\n\t' ' ' | sed -e 's/> *</></g' | xmlstarlet pyx |&
+	state=0
+	set -A texts
+	set -A links
+	while IFS= read -pr line; do
+		case $state {
+		(0)
+			[[ $line = '(docTitle' ]] && state=1
+			continue ;;
+		(1)
+			[[ $line = ')'* ]] && state=2
+			[[ $line = '-'* ]] || continue
+			docTitle+=${line#-}
+			;;
+		(2)
+			[[ $line = 'AplayOrder '+([0-9]) ]] || continue
+			idx=${line#* }
+			state=3 ;;
+		(3)
+			[[ $line = ')'* ]] && state=4
+			[[ $line = '-'* ]] || continue
+			texts[idx]+=${line#-}
+			;;
+		(4)
+			[[ $line = 'Asrc '* ]] || continue
+			links[idx]=${line#* }
+			state=2 ;;
+		}
+	done
+	: ${docTitle:=unknown title}
+
+	print -r '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+	 "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+	<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en"><head>
+	 <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+	 <title>'"$docTitle"'</title>
+	</head><body>
+	<h1>'"$docTitle</h1>
+	<ul>"
+	for idx in ${!links[*]}; do
+		print -r " <li>$idx. <a href=\"${links[idx]}\">${texts[idx]:-〈${links[idx]}〉}</a></li>"
+	done
+	print '</ul>
+	</body></html>'
+}
+
+for fn in "$@"; do
+	dn=${fn%.epub}
+	[[ $dn = "$fn" ]] && dn=$dn.extracted
+	mkdir -p "$dn/tmp"
+	cd "$dn/tmp"
+	unzip "../../$fn"
+	mv content/* ..
+	cd ..
+	rm -rf tmp
+	perl -pi -e 's/ / /g' toc.ncx *.htm*
+	ncx2html toc.ncx >index.htm
+	cd ..
+done
