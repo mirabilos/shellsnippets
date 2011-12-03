@@ -1,0 +1,11 @@
+#!/bin/sh
+dispnr=${1:-1}
+hostname=$(hostname)
+COOKIE=$(/usr/sbin/openssl rand -hex 16)
+
+xauth add $hostname/unix:$dispnr . $COOKIE
+xauth add localhost/unix:$dispnr . $COOKIE
+Xnest :$dispnr
+rv=$?
+xauth remove $hostname/unix:$dispnr localhost/unix:$dispnr
+exit $rv
