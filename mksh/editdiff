@@ -1,0 +1,81 @@
+#!/bin/mksh
+# $MirOS: src/scripts/editdiff,v 1.12 2009/03/29 13:04:20 tg Exp $
+#-
+# Copyright (c) 2004, 2006, 2007, 2008
+#	Thorsten Glaser <tg@mirbsd.de>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un-
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided "AS IS" and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person's immediate fault when using the work as intended.
+
+unset CVSREADONLYFS
+
+f=$1; shift
+rev=$1
+if [[ $rev = ask ]]; then
+	read rev?'Revision: '
+	[[ -z $rev ]] && exit 0
+	shift
+elif [[ -n $rev ]]; then
+	shift
+fi
+if [[ $rev = +(-) ]]; then
+	rev=
+elif [[ -n $rev && $rev != -* ]]; then
+	rev=-r$rev
+fi
+cp=
+dp=
+x=cp
+while [[ $# -gt 0 ]]; do
+	if [[ $1 = -- ]]; then
+		x=dp
+	elif [[ $x = cp ]]; then
+		cp="$cp $1"
+	else
+		dp="$dp $1"
+	fi
+	shift
+done
+
+T=$(mktemp /tmp/editdiff.XXXXXXXXXX) || exit 1
+trap 'rm -f $T ${T}.{lock,orig} ; exit 0' 0
+trap 'rm -f $T ${T}.{lock,orig} ; exit 1' 1 2 3 5 13 15
+
+# heuristics for finding out if CVSREADONLYFS is supposedly supported:
+# we assume it is on local access or if :ext: is skipped but it is not
+# if :ext: or :pserver: are used
+[[ -s CVS/Root && "$(<CVS/Root)" != :* ]] && export CVSREADONLYFS=1
+
+eval cvs -q $cp diff -upa $EXTRA_DIFF $rev $dp "$f" >$T 2>&1
+touch ${T}.lock
+
+if ! patch -Rlt -o ${T}.orig "$f" $T; then
+	print continue?
+	read
+fi
+${EDITOR:-ed} $T
+
+if [[ $T -nt ${T}.lock ]]; then
+	mv "$f" "$f".orig
+	patch -l -o "$f" ${T}.orig $T
+	rv=$?
+	if [[ ! -f $f ]]; then
+		cp ${T}.orig "$f"
+	fi
+	exit $rv
+fi
+
+print Ignoring patch.
+exit 0
