@@ -1,4 +1,4 @@
-# $MirOS: src/scripts/roff2htm,v 1.68 2011/09/15 16:13:59 tg Exp $
+# $MirOS: src/scripts/roff2htm,v 1.70 2011/12/03 18:21:12 tg Exp $
 # $ekkoBSD: catman2html.sh,v 1.2 2004/03/07 03:02:53 stephen Exp $
 #-
 # Copyright (c) 2004, 2005, 2006, 2007, 2011
@@ -62,7 +62,19 @@ roff2htm_gendate=$(date +"%F %T")		# current time
 set -A roff2htm_inodecache			# inode cache (empty)
 roff2htm_machine=$(uname -m)			# i386, sparc
 
-function do_convert {
+function set_conversion_man {
+	function do_convert {
+		do_convert_man "$@"
+	}
+}
+function set_conversion_paper {
+	function do_convert {
+		do_convert_paper "$@"
+	}
+}
+set_conversion_man
+
+function do_convert_man {
 	local -i _nl=0
 	col -x | sed							\
 	    -e '/-$/N
@@ -70,33 +82,102 @@ function do_convert {
 s/\([0-9A-z][-.,0-9A-z]*\)-\n\(  *\)\([0-9A-z][-.,0-9A-z]*([1-9][A-z]*)\)\([^ ]*\) /\1\3\4\
 \2/
 }'									\
+	    -e 's#<_#â‰¤#g' -e 's#>_#â‰¥#g'				\
 	    -e 'y#&<>#Áþÿ#'						\
 									\
-	    -e 's#oo++#â€¢#'						\
+	    -e 's#[Oo][Oo]++#â€¢#g'					\
+	    -e 's#_||#_|_|#g'					\
+	    -e 's#+_#Â±#g'						\
 									\
 	    -e 's#^[A-z][ 0-9A-z]*$#</pre><h2>&</h2><pre>#'		\
 	    -e 's#^  \([A-z][ ,0-9A-z]*\)$#</pre><h3>\1</h3><pre>#'	\
 									\
-	    -e 's#\([^<>€-¿]\)[€-¿]*\([^<>€-¿][€-¿]*\)#<\1<\2>#g'	\
+	    -e 's#\([^~<>€-¿][€-¿]*\)~#\1Ì…#g'				\
+	    -e 's#\([^]\)~_#\1_Ì… #g'					\
+	    -e 's#\([^]\)\([^<>_€-¿][€-¿]*\)\([Ì…]*\)_#\1_\2\3#g'	\
+	    -e 's#\([^<>€-¿]\)[€-¿]*\([Ì…]*\)\([^<>€-¿][€-¿]*\)#<\1<\3\2>#g'	\
+	    -e 's#\(<_<\([^>_]*\)>\)\1#<G>\2</G>#g'			\
 	    -e 's#<_<\([^>_]*\)>#<i>\1</i>#g'				\
 	    -e 's#<.<\([^>]*\)>#<b>\1</b>#g'				\
+	    -e 's###g'							\
 									\
-	    -e '/<h[23]/s#</*[bi]>##g'					\
-	    -e 's#</\([bi]\)><\1>##g'					\
-	    -e 's#</\([bi]\)>\([- -*./:;?@^_~]*\)<\1>#\2#g'		\
-	    -e 's#\([- 0-9A-z]\)\([$/_-]*\)\(<[bi]>\)#\1\3\2#g'	\
-	    -e 's#\(</[bi]>\)\([)$/_-]*\)\([- 0-9A-z]\)#\2\1\3#g'	\
+	    -e '/<h[23]/s#</*[biG]>##g'					\
+	    -e 's#</\([biG]\)><\1>##g'					\
+	    -e 's#</\([biG]\)>\([- -*./:;?@^_~]*\)<\1>#\2#g'		\
+	    -e 's#\([- 0-9A-z]\)\([$/_-]*\)\(<[biG]>\)#\1\3\2#g'	\
+	    -e 's#\(</[biG]>\)\([)$/_-]*\)\([- 0-9A-z]\)#\2\1\3#g'	\
 									\
 	    -e '/^ /s#\([0-9A-z][-.,0-9A-z]*\)(\([1-9]\)[/0-9A-Za-z]*)#<a href="../man\2/\1.htm">&</a>#g' \
 	    -e '/^ /s#\([0-9A-z][-.,0-9A-z]*\)(\([PSU][MS][DM]\))#<a href="../man\2/\1.htm">&</a>#g' \
 	    -e '/^ /s#\([0-9A-z][-.,0-9A-z]*\)(\(PAPERS\))#<a href="../man\2/\1.htm">&</a>#g' \
 	    -e '/^ /s#\([0-9A-z][-.,0-9A-z]*\)(GNU)#<a href="../manINFO/\1.htm">&</a>#g' \
-	    -e 's#)\(</[bi]>\)\([- 0-9A-z]\)#\1)\2#g'			\
+	    -e 's#)\(</[biG]>\)\([- 0-9A-z]\)#\1)\2#g'			\
 	    -e 's#<a href="../man'${1:-0}'/#<a href="#g'		\
 									\
 	    -e 's/Á/\&#38;/g'						\
 	    -e 's/þ/\&#60;/g'						\
 	    -e 's/ÿ/\&#62;/g'						\
+									\
+	    -e 's#<G>#<b><i>#g' -e 's#</G>#</i></b>#g'			\
+	    -e 's#</b><b>##g'						\
+									\
+	    -e '1s#^#<pre>#'						\
+	    -e '$s#$#</pre>#'						\
+	    -e 's#<pre></pre>##g'					\
+	    -e 's#</pre><pre>##g'					\
+	| while IFS= read -r line; do
+		if [[ -n $line ]]; then
+			(( _nl )) && [[ $line != '</pre>'* ]] && print
+			print -r -- "$line"
+			_nl=0
+		else
+			_nl=1
+		fi
+	done
+}
+
+function do_convert_paper {
+	local -i _nl=0
+	col -x | sed							\
+	    -e '/-$/N
+{
+s/\([0-9A-z][-.,0-9A-z]*\)-\n\(  *\)\([0-9A-z][-.,0-9A-z]*([1-9][A-z]*)\)\([^ ]*\) /\1\3\4\
+\2/
+}'									\
+	    -e 's#<_#â‰¤#g' -e 's#>_#â‰¥#g'				\
+	    -e 'y#&<>#Áþÿ#'						\
+									\
+	    -e 's#[Oo][Oo]++#â€¢#g'					\
+	    -e 's#_||#_|_|#g'					\
+	    -e 's#+_#Â±#g'						\
+									\
+	    -e 's#\([^~<>€-¿][€-¿]*\)~#\1Ì…#g'				\
+	    -e 's#\([^]\)~_#\1_Ì… #g'					\
+	    -e 's#\([^]\)\([^<>_€-¿][€-¿]*\)\([Ì…]*\)_#\1_\2\3#g'	\
+	    -e 's#\([^<>€-¿]\)[€-¿]*\([Ì…]*\)\([^<>€-¿][€-¿]*\)#<\1<\3\2>#g'	\
+	    -e 's#\(<_<\([^>_]*\)>\)\1#<G>\2</G>#g'			\
+	    -e 's#<_<\([^>_]*\)>#<i>\1</i>#g'				\
+	    -e 's#<.<\([^>]*\)>#<b>\1</b>#g'				\
+	    -e 's###g'							\
+									\
+	    -e 's#</\([biG]\)><\1>##g'					\
+	    -e 's#</\([biG]\)>\([- -*./:;?@^_~]*\)<\1>#\2#g'		\
+	    -e 's#\([- 0-9A-z]\)\([$/_-]*\)\(<[biG]>\)#\1\3\2#g'	\
+	    -e 's#\(</[biG]>\)\([)$/_-]*\)\([- 0-9A-z]\)#\2\1\3#g'	\
+									\
+	    -e '/^ /s#\([0-9A-z][-.,0-9A-z]*\)(\([1-9]\)[/0-9A-Za-z]*)#<a href="../man\2/\1.htm">&</a>#g' \
+	    -e '/^ /s#\([0-9A-z][-.,0-9A-z]*\)(\([PSU][MS][DM]\))#<a href="../man\2/\1.htm">&</a>#g' \
+	    -e '/^ /s#\([0-9A-z][-.,0-9A-z]*\)(\(PAPERS\))#<a href="../man\2/\1.htm">&</a>#g' \
+	    -e '/^ /s#\([0-9A-z][-.,0-9A-z]*\)(GNU)#<a href="../manINFO/\1.htm">&</a>#g' \
+	    -e 's#)\(</[biG]>\)\([- 0-9A-z]\)#\1)\2#g'			\
+	    -e 's#<a href="../man'${1:-0}'/#<a href="#g'		\
+									\
+	    -e 's/Á/\&#38;/g'						\
+	    -e 's/þ/\&#60;/g'						\
+	    -e 's/ÿ/\&#62;/g'						\
+									\
+	    -e 's#<G>#<b><i>#g' -e 's#</G>#</i></b>#g'			\
+	    -e 's#</b><b>##g'						\
 									\
 	    -e '1s#^#<pre>#'						\
 	    -e '$s#$#</pre>#'						\
@@ -183,7 +264,7 @@ function output_header {
 function output_footer {
 	print '
 <hr /><p style="font-size:xx-small;">Generated on' $roff2htm_gendate 'by
- <tt>$MirOS: src/scripts/roff2htm,v 1.68 2011/09/15 16:13:59 tg Exp $</tt></p>
+ <tt>$MirOS: src/scripts/roff2htm,v 1.70 2011/12/03 18:21:12 tg Exp $</tt></p>
 <p>These manual pages and other documentation are <a
  href="../man7/BSD-Licence.htm">copyrighted</a> by their respective writers;
  their source is available at our <a href="http://cvs.mirbsd.de/">CVSweb</a>,
