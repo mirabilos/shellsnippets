@@ -1,4 +1,4 @@
-# $MirOS: src/bin/mksh/dot.mkshrc,v 1.59 2011/02/09 19:32:35 tg Exp $
+# $MirOS: src/bin/mksh/dot.mkshrc,v 1.68 2011/11/25 23:58:04 tg Exp $
 #-
 # Copyright (c) 2002, 2003, 2004, 2006, 2007, 2008, 2009, 2010, 2011
 #	Thorsten Glaser <tg@mirbsd.org>
@@ -34,7 +34,7 @@ function cd {
 	chpwd "$@"
 }
 function cd_csh {
-	typeset d t=${1/#~/$DIRSTACKBASE}
+	local d t=${1/#~/$DIRSTACKBASE}
 
 	if ! d=$(builtin cd "$t" 2>&1); then
 		print -u2 "${1}: ${d##*$t - }."
@@ -43,11 +43,9 @@ function cd_csh {
 	cd "$t"
 }
 function dirs {
-	typeset d dwidth
-	typeset -i isnoglob=0 fl=0 fv=0 fn=0 cpos=0
+	local d dwidth
+	local -i fl=0 fv=0 fn=0 cpos=0
 
-	[[ $(set +o) == *@(-o noglob)@(| *) ]] && isnoglob=1
-	set -o noglob
 	while getopts ":lvn" d; do
 		case $d {
 		(l)	fl=1 ;;
@@ -86,15 +84,12 @@ function dirs {
 		done
 		print
 	fi
-	(( isnoglob )) || set +o noglob
 	return 0
 }
 function popd {
-	typeset d fa
-	typeset -i isnoglob=0 n=1
+	local d fa
+	local -i n=1
 
-	[[ $(set +o) == *@(-o noglob)@(| *) ]] && isnoglob=1
-	set -o noglob
 	while getopts ":0123456789lvn" d; do
 		case $d {
 		(l|v|n)	fa="$fa -$d" ;;
@@ -125,15 +120,12 @@ function popd {
 	unset DIRSTACK[n]
 	set -A DIRSTACK -- "${DIRSTACK[@]}"
 	cd_csh "${DIRSTACK[0]}" || return 1
-	(( isnoglob )) || set +o noglob
 	dirs $fa
 }
 function pushd {
-	typeset d fa
-	typeset -i isnoglob=0 n=1
+	local d fa
+	local -i n=1
 
-	[[ $(set +o) == *@(-o noglob)@(| *) ]] && isnoglob=1
-	set -o noglob
 	while getopts ":0123456789lvn" d; do
 		case $d {
 		(l|v|n)	fa="$fa -$d" ;;
@@ -170,6 +162,5 @@ function pushd {
 		set -A DIRSTACK -- placeholder "${DIRSTACK[@]}"
 		cd_csh "$1" || return 1
 	fi
-	(( isnoglob )) || set +o noglob
 	dirs $fa
 }

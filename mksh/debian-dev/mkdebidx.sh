@@ -1,5 +1,5 @@
 #!/bin/mksh
-rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.51 2011/05/13 20:53:29 tg Exp $'
+rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.52 2011/11/11 17:38:33 tg Exp $'
 #-
 # Copyright (c) 2008, 2009, 2010, 2011
 #	Thorsten Glaser <tg@mirbsd.org>
@@ -33,9 +33,9 @@ function repo_description {
 }
 
 
-set -A dpkgarchs -- alpha amd64 arm armeb armel armhf avr32 hppa \
-    i386 ia64 kfreebsd-amd64 kfreebsd-i386 lpia m32r m68k mips mipsel \
-    powerpc powerpcspe ppc64 s390 s390x sh3 sh3eb sh4 sh4eb sparc
+set -A dpkgarchs -- alpha amd64 arm armel armhf avr32 hppa hurd-i386 i386 \
+    ia64 kfreebsd-amd64 kfreebsd-i386 m68k mips mipsel powerpc powerpcspe \
+    ppc64 s390 s390x sh4 sparc sparc64
 
 function remsign {
 	target=$1; shift
@@ -407,7 +407,7 @@ done
 EOF
 print -r -- " <title>${repo_title} Index</title>"
 cat <<'EOF'
- <meta name="generator" content="$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.51 2011/05/13 20:53:29 tg Exp $" />
+ <meta name="generator" content="$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.52 2011/11/11 17:38:33 tg Exp $" />
  <style type="text/css">
   table {
    border: 1px solid black;

@@ -1,7 +1,7 @@
 #!/bin/mksh
-# $MirOS: contrib/hosted/tg/deb/BuildDSC.sh,v 1.10 2010/08/17 07:47:49 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/BuildDSC.sh,v 1.14 2011/11/17 15:27:53 tg Exp $
 #-
-# Copyright (c) 2010
+# Copyright (c) 2010, 2011
 #	Thorsten Glaser <t.glaser@tarent.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -28,8 +28,10 @@
 # -S: build a snapshot with snapshot.YYYYMMDD.HHMMSS (UTC) as suffix
 # Any further arguments will be passed to debian/rules via MAKEFLAGS
 
+# sanitise environment
 unset LANGUAGE
 export LC_ALL=C
+cd "$(realpath .)"
 
 # preload
 sync
@@ -98,7 +100,7 @@ if (( snap )); then
 	cat debian/changelog >"$T"
 	touch -r debian/changelog "$T"
 	dist=$(dpkg-parsechangelog -n1 | sed -n '/^Distribution: /s///p')
-	if [[ $dist = @(xunstable|UNRELEASED) ]]; then
+	if [[ $dist = UNRELEASED || $dist = x* ]]; then
 		# we’re at “current” already, reduce
 		version=$version'~'$ssuf
 	else
@@ -106,7 +108,7 @@ if (( snap )); then
 		version=$version'+'$ssuf
 	fi
 	print "$pkgstem ($version) UNRELEASED; urgency=low\n\n  *" \
-	    "Automatically built snapshot package.\n\n --" \
+	    "Automatically built snapshot (not backport) package.\n\n --" \
 	    "$DEBEMAIL  $stime_rfc\n" >debian/changelog
 	cat "$T" >>debian/changelog
 	touch -r "$T" debian/changelog
@@ -122,7 +124,7 @@ curname=${mydir##*/}
 newname=$pkgstem-$upstreamversion
 [[ $newname = $curname ]] || mv "$curname" "$newname"
 cd "$newname"
-dpkg-buildpackage -rfakeroot -S -I
+dpkg-buildpackage -rfakeroot -S -I -i
 rv=$?
 fakeroot debian/rules clean
 cd ..

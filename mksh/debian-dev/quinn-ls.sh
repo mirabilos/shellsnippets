@@ -1,5 +1,5 @@
 #!/bin/mksh
-rcsid='$MirOS: contrib/hosted/tg/deb/quinn-ls.sh,v 1.5 2011/06/25 14:28:31 tg Exp $'
+rcsid='$MirOS: contrib/hosted/tg/deb/quinn-ls.sh,v 1.6 2011/11/11 20:24:02 tg Exp $'
 #-
 # Copyright © 2011
 #	Thorsten Glaser <tg@debian.org>
@@ -223,6 +223,8 @@ for pkg in "${asso_y[@]}"; do
 	[[ $lvs = $lv ]] && continue
 	for lv in ${lvs#* }; do
 		[[ $lv = "$uv"?('+b'+([0-9])) ]] && continue
-		print -r -- "$c0$pkg $c4$lv$c0 -"
+		lc=$c4
+		[[ -n $over_ign && $lv = "$over_ign" ]] && lc=$c6
+		print -r -- "$c0$pkg $lc$lv$c0 -"
 	done
 done | sort | column -t

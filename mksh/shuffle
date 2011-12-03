@@ -1,7 +1,7 @@
 #!/usr/bin/env mksh
-# $MirOS: contrib/code/Snippets/shuffle,v 1.5 2010/11/06 14:59:20 tg Exp $
+# $MirOS: contrib/code/Snippets/shuffle,v 1.6 2011/09/07 19:54:51 tg Exp $
 #-
-# Copyright © 2006, 2010
+# Copyright © 2006, 2010, 2011
 #	Thorsten “mirabilos” Glaser <tg@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -22,13 +22,20 @@
 # Provide shuffled input to mpg123, mplayer, mppdec, and other tools
 # that do not properly employ arc4random(3) et al.
 
-function usage {
-	print -u2 "Syntax: $0 program [args ...] -- file ... [ -- args ... ]"
-	print -u2 "To escape '--' in first args prepend another hyphen-minus"
-	exit 1
+usage() {
+	print -u2 "Syntax: $0 [-v] program [args ...] -- file ... [-- args ...]"
+	print -u2 "Prepend another hyphen-minus to escape multi-dash first-args"
+	exit ${1:-1}
 }
 
-[[ -z $1 || $1 = -@(h|H|?) ]] && usage
+[[ -z $1 || $1 = -[hH?] ]] && usage ${1:+0}
+
+if [[ $1 = -v ]]; then
+	verbose=1
+	shift
+else
+	verbose=0
+fi
 
 set -A cmdline
 set -A files
@@ -44,8 +51,8 @@ for arg in "$@"; do
 	case $state {
 	(0)	if [[ $arg = -- ]]; then
 			let state++
-		elif [[ $arg = --- ]]; then
-			cmdline[ncmdline++]=--
+		elif [[ $arg = --+(-) ]]; then
+			cmdline[ncmdline++]=${arg#-}
 		else
 			cmdline[ncmdline++]=$arg
 		fi
@@ -175,8 +182,19 @@ done
 
 # Append post-command arguments, if any
 for arg in "${postfix[@]}"; do
-	cmdline[${#cmdline[*]}]=$arg
+	cmdline[ncmdline++]=$arg
 done
 
 # Run the command
+if (( verbose )); then
+	C_QUOTE=$'[]\t\n "#$&'\''()*;<=>?[\\`|]'
+	for i in "${cmdline[@]}"; do
+		if [[ $i = *${C_QUOTE}* ]]; then
+			print -nr " '${i//\'/\'\\\'\'}'"
+		else
+			print -nr " $i"
+		fi
+	done
+	print
+fi
 exec "${cmdline[@]}"
