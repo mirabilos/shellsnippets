@@ -1,0 +1,25 @@
+This repository is dedicated to POSIX (and compatible) shell
+scripts. Bourne shell may be admissible, but C Shell and not
+shell isn't.
+
+Why not csh? => http://www.faqs.org/faqs/unix-faq/shell/csh-whynot/
+
+Developers have written lots of code and accompanying data that,
+by these rules, is not admissible in this repository. However to
+strengthen the spirit of learning-by-example as by the mission
+statement of this repository, here is a collection of links to
+other repositories which may contain code in other programming
+and/or scripting languages, and accompanying data, and websites
+with useful information:
+
+http://www.mirbsd.org/ksh-chan.htm
+	Homepage of the #ksh IRC channel on Freenode, with lots
+	of (mostly Korn Shell related) links and book references
+
+http://users.softlab.ece.ntua.gr/~ttsiod/tricks.html
+	UNIX/Linux tips (potpourri)
+
+https://www.mirbsd.org/cvs.cgi/contrib/code/Snippets/
+https://www.mirbsd.org/cvs.cgi/contrib/hosted/tg/
+	Collection of (shell and other) scripts, programmes,
+	data, pbuilderrc, and other things by mirabilos
