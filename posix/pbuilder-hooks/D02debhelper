@@ -1,7 +1,9 @@
 #!/bin/sh
-# $MirOS: contrib/hosted/tg/deb/hookdir/D02debhelper,v 1.1 2009/12/28 19:29:06 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/D02debhelper,v 1.2 2011/12/15 21:06:43 tg Exp $
 #-
 # Not complicated enough for copyright.
 
+unset LANGUAGE
+LC_ALL=C; export LC_ALL
 dpkg -i /tmp/debhelper*deb
 apt-get -y --force-yes -o Dpkg::Options::=--force-confnew,confmiss -f install

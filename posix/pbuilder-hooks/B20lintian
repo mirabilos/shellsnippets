@@ -1,0 +1,32 @@
+#!/bin/sh
+# $MirOS: contrib/hosted/tg/deb/hookdir/B20lintian,v 1.1 2011/12/15 21:06:42 tg Exp $
+#-
+# Not complicated enough for copyright.
+
+unset LANGUAGE
+LC_ALL=C; export LC_ALL
+apt-get --purge -y install --install-recommends lintian
+argE=
+argP=
+if lintian -h 2>&1 | grep -F -- --display-experimental >/dev/null 2>&1; then
+	argE=--display-experimental
+fi
+if lintian -h 2>&1 | grep -F -- --pedantic >/dev/null 2>&1; then
+	argP=--pedantic
+fi
+echo
+echo ==================================================================
+echo Running lintian...
+echo
+extraargs=
+for f in /tmp/buildd/*.changes; do
+	case $f in
+	(*snapshot.*)
+		extraargs='-X nmu'
+		;;
+	esac
+done
+lintian -vIi $argE $argP $extraargs --allow-root /tmp/buildd/*.changes 2>&1
+echo
+echo ==================================================================
+echo

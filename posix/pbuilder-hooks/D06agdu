@@ -1,0 +1,14 @@
+#!/bin/sh
+# $MirOS: contrib/hosted/tg/deb/hookdir/D06agdu,v 1.1 2011/12/15 21:06:43 tg Exp $
+#-
+# Not complicated enough for copyright.
+
+#cat >/etc/resolv.conf <<'EOF'
+#lookup file bind
+#nameserver 8.8.8.8
+#EOF
+
+unset LANGUAGE
+LC_ALL=C; export LC_ALL
+apt-get update
+apt-get -y --purge dist-upgrade
