@@ -1,0 +1,20 @@
+# put this into ~/.profile on Cygwin to run a CR-LF line ended script with mksh
+
+mkshdos_re=$(printf 's/\r$//')
+mkshdos() {
+	if test -n "$1"; then
+		mkshdos_fn=$1
+		shift
+	else
+		mkshdos_fn=-
+	fi
+	mkshdos_T=$(mktemp /tmp/mkshdos.XXXXXXXXXX) || {
+		echo >&2 mkshdos: Error: Could not create temporary file.
+		return 255
+	}
+	sed "$mkshdos_re" <"$mkshdos_fn" >"$mkshdos_T"
+	mksh "$mkshdos_T" "$@"
+	mkshdos_rv=$?
+	rm -f "$mkshdos_T"
+	return $mkshdos_rv
+}
