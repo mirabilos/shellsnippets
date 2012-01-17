@@ -1,0 +1,44 @@
+#!/bin/sh
+# $Id$
+#-
+# Copyright © 2012
+#	Thorsten Glaser <t.glaser@tarent.de>
+# Licenced under any OSI approved licence.
+#-
+# Shell Templating Engine (example)
+
+gettemplate() {
+# vvv -- edit here -- vvv
+cat <<'EOF_gettemplate'
+This is a{{{example_plural}}} {{{example_attr}}} example of the
+shell templating engine, allowing you to not bitch about
+{{{fucked} up substitutions while others {{{bla}}} work.
+EOF_gettemplate
+# ^^^ -- edit here -- ^^^
+}
+
+# Do not touch below here.
+
+substtemplate() {
+	gettemplate | (
+		for i in $allvars; do
+			eval export $i
+		done
+		perl -pe 's/\{\{\{([a-z0-9_]+)\}\}\}/$ENV{$1}/eg'
+	)
+}
+
+allvars='example_attr example_plural bla fucked'
+example_attr=nice
+example_plural=
+bla=still
+fucked=kapott
+
+echo "Here you are: 「$(substtemplate)」"
+
+example_attr=interesting
+example_plural=n
+
+echo Another one:
+substtemplate | sed 's/^/|	/'
+echo Yay!
