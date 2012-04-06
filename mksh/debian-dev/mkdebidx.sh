@@ -1,5 +1,5 @@
 #!/bin/mksh
-rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.52 2011/11/11 17:38:33 tg Exp $'
+rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.53 2011/12/28 00:45:47 tg Exp $'
 #-
 # Copyright (c) 2008, 2009, 2010, 2011
 #	Thorsten Glaser <tg@mirbsd.org>
@@ -116,6 +116,7 @@ for suite in dists/*; do
 		[[ -s $dist/distinfo.sh ]] && . $dist/distinfo.sh
 		set -A distarchs -- $(sortlist -u all ${archs:-$suitearchs})
 		IFS=:; distarchl=:"${distarchs[*]}":; IFS=$saveIFS
+		nmds=0
 		for arch in $(sortlist -u ${distarchs[*]} ${dpkgarchs[*]}) /; do
 			# put "all" last
 			[[ $arch = all ]] && continue
@@ -128,6 +129,10 @@ for suite in dists/*; do
 				print "\n===> Linking all =>" \
 				    "${dist#dists/}/$arch/Packages"
 				ln -s binary-all $dist/binary-$arch
+			elif [[ $arch = all ]] && (( nmds == 1 )); then
+				print "\n===> Linking $firstmd =>" \
+				    "${dist#dists/}/all/Packages"
+				ln -s binary-$firstmd $dist/binary-all
 			else
 				print "\n===> Creating" \
 				    "${dist#dists/}/$arch/Packages\n"
@@ -135,6 +140,7 @@ for suite in dists/*; do
 				dpkg-scanpackages $oef -m -a $arch \
 				    $dist $ovf | \
 				    putfile $dist/binary-$arch/Packages
+				(( nmds++ )) || firstmd=$arch
 			fi
 		done
 		print "\n===> Creating ${dist#dists/}/Sources"
@@ -407,7 +413,7 @@ done
 EOF
 print -r -- " <title>${repo_title} Index</title>"
 cat <<'EOF'
- <meta name="generator" content="$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.52 2011/11/11 17:38:33 tg Exp $" />
+ <meta name="generator" content="$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.53 2011/12/28 00:45:47 tg Exp $" />
  <style type="text/css">
   table {
    border: 1px solid black;
