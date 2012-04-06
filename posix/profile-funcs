@@ -1,4 +1,4 @@
-# Copyright (c) 2011
+# Copyright (c) 2011, 2012
 #	Thorsten Glaser <tg@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -58,6 +58,11 @@ df() {
 }
 
 # various web-calling things
+
+# pipe into pastebin
+sprunge() {
+	curl -F 'sprunge=<-' http://sprunge.us
+}
 
 # DuckDuckGo search
 ddg() {
