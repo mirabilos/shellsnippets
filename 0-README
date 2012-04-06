@@ -6,6 +6,11 @@ Some are private, some company-provided.
 All of them MUST have an OSI approved licence, if copyright
 law applies. (Otherwise, they’re obviously Public Domain.)
 For licencing conditions, look into each file separately.
+Things marked as not complicated enough for copyright are
+assumed to not achieve the threshold of originality required
+for such protection; as a fallback, all such files are also
+available under any OSI approved licence, should they not be
+in the Public Domain in your legislation.
 
 Group home: https://evolvis.org/projects/shellsnippets/
 gitweb:     https://evolvis.org/plugins/scmgit/cgi-bin/gitweb.cgi?p=shellsnippets/shellsnippets.git
