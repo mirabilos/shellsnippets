@@ -1,0 +1,33 @@
+#!/bin/mksh
+# $MirOS: contrib/hosted/tg/getarticle,v 1.2 2012/04/06 23:59:21 tg Exp $
+#-
+# Copyright © 2012
+#	Thorsten Glaser <tg@mirbsd.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# call this with one of:
+#	getarticle gmane.foo.bar 1234
+#	getarticle $message_id
+# ensure ~/mail/x can be a unix/mbox format mail folder we append to
+
+if (( $# == 2 )); then
+	printf 'mode reader\r\ngroup %s\r\narticle %d\r\nquit\r\n' "$1" "$2"
+else
+	printf 'mode reader\r\narticle <%s>\r\nquit\r\n' "$1"
+fi | \
+    nc news.gmane.org 119 | sed -e $'s/\r$//' -e '1,/^[^0-9]/d' -e '/^\.$/,$d' | \
+    (date -u +'From MAILER-DAEMON %a %b %e %H:%M:%S %Y'; cat) >>~/mail/x
