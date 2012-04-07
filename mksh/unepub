@@ -1,7 +1,7 @@
 #!/bin/mksh
-# $MirOS: contrib/hosted/tg/unepub,v 1.1 2011/11/13 19:58:18 tg Exp $
+# $MirOS: contrib/hosted/tg/unepub,v 1.2 2012/02/07 20:29:33 tg Exp $
 #-
-# Copyright (c) 2011
+# Copyright (c) 2011, 2012
 #	Thorsten Glaser <tg@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -52,7 +52,9 @@ function ncx2html {
 			;;
 		(4)
 			[[ $line = 'Asrc '* ]] || continue
-			links[idx]=${line#* }
+			line=${line#* }
+			[[ $line = *.xhtml ]] && line=${line%.xhtml}.htm
+			links[idx]=$line
 			state=2 ;;
 		}
 	done
@@ -79,9 +81,16 @@ for fn in "$@"; do
 	mkdir -p "$dn/tmp"
 	cd "$dn/tmp"
 	unzip "../../$fn"
-	mv content/* ..
+	cdir=$(tr -d '\n' <META-INF/container.xml | sed -n \
+	    's/.*<rootfile[^>]*full-path="\([^"]*\)".*$/\1/p')
+	cdir=${cdir%/*}
+	mv "$cdir"/* ..
 	cd ..
 	rm -rf tmp
+	for i in *.xhtml; do
+		[[ -e $i ]] || continue
+		mv "$i" "${i%.xhtml}.htm"
+	done
 	perl -pi -e 's/ / /g' toc.ncx *.htm*
 	ncx2html toc.ncx >index.htm
 	cd ..
