@@ -120,7 +120,7 @@ loadimage() {
 		if test -s "$f"; then
 			xloadimage "$f"
 		else
-			fetch "$f" | xloadimage stdin
+			loadfile "$f" | xloadimage stdin
 		fi
 	done
 }
