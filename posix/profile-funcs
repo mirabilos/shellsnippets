@@ -66,33 +66,75 @@ sprunge() {
 
 # DuckDuckGo search
 ddg() {
-	${BROWSER:-lynx} "https://duckduckgo.com/?kp=-1&kl=wt-wt&kb=t&kh=1&kj=g2&km=l&ka=monospace&ku=1&ko=s&k1=-1&kv=1&t=debian&q=$*"
+	local _q _IFS
+
+	_IFS=$IFS
+	IFS=+
+	_q="$*"
+	IFS=$_IFS
+	${BROWSER:-lynx} "https://duckduckgo.com/?kp=-1&kl=wt-wt&kb=t&kh=1&kj=g2&km=l&ka=monospace&ku=1&ko=s&k1=-1&kv=1&t=debian&q=$_q"
 }
 
 # GooGle Search
 ggs() {
-	${BROWSER:-lynx} "http://www.google.com/search?hl=la&pws=0&num=100&safe=off&q=$*"
+	local _q _IFS
+
+	_IFS=$IFS
+	IFS=+
+	_q="$*"
+	IFS=$_IFS
+	${BROWSER:-lynx} "http://www.google.com/search?hl=la&pws=0&num=100&safe=off&q=$_q"
 }
 # Google GRoups
 ggr() {
-	${BROWSER:-lynx} "http://groups.google.com/groups?hl=la&pws=0&num=100&safe=off&as_umsgid=$*"
+	local _q _IFS
+
+	_IFS=$IFS
+	IFS=+
+	_q="$*"
+	IFS=$_IFS
+	${BROWSER:-lynx} "http://groups.google.com/groups?hl=la&pws=0&num=100&safe=off&as_umsgid=$_q"
 }
 
 # dict.leo.org German English
 ge() {
-	${BROWSER:-lynx} "http://dict.leo.org/?search=$*"
+	local _q _IFS
+
+	_IFS=$IFS
+	IFS=+
+	_q="$*"
+	IFS=$_IFS
+	${BROWSER:-lynx} "http://dict.leo.org/?search=$_q"
 }
 # dict.leo.org German FRench
 gfr() {
-	${BROWSER:-lynx} "http://dict.leo.org/frde?search=$*"
+	local _q _IFS
+
+	_IFS=$IFS
+	IFS=+
+	_q="$*"
+	IFS=$_IFS
+	${BROWSER:-lynx} "http://dict.leo.org/frde?search=$_q"
 }
 # dict.leo.org German ESpa~nol
 ges() {
-	${BROWSER:-lynx} "http://dict.leo.org/esde?search=$*"
+	local _q _IFS
+
+	_IFS=$IFS
+	IFS=+
+	_q="$*"
+	IFS=$_IFS
+	${BROWSER:-lynx} "http://dict.leo.org/esde?search=$_q"
 }
 # explica palabras en espa~nol
 espanol() {
-	lynx -dump --nolist "http://buscon.rae.es/draeI/SrvltGUIBusUsual?TIPO_HTML=2&LEMA=$*"
+	local _q _IFS
+
+	_IFS=$IFS
+	IFS=+
+	_q="$*"
+	IFS=$_IFS
+	lynx -dump --nolist "http://buscon.rae.es/draeI/SrvltGUIBusUsual?TIPO_HTML=2&LEMA=$_q"
 }
 
 # call xloadimage by URI
