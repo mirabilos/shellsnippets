@@ -66,7 +66,7 @@ sprunge() {
 
 # DuckDuckGo search
 ddg() {
-	${BROWSER:-lynx} "https://duckduckgo.com/?kp=-1&kl=wt-wt&kb=t&kh=1&kj=g2&km=l&ka=monospace&ku=1&ko=s&k1=-1&kv=1&q=$*"
+	${BROWSER:-lynx} "https://duckduckgo.com/?kp=-1&kl=wt-wt&kb=t&kh=1&kj=g2&km=l&ka=monospace&ku=1&ko=s&k1=-1&kv=1&t=debian&q=$*"
 }
 
 # GooGle Search
