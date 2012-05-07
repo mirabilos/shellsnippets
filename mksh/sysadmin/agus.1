@@ -1,5 +1,5 @@
 .\" $Id: agus.1 1563 2010-11-12 16:27:24Z tglase $
-.Dd June 14, 2010
+.Dd May 7, 2012
 .Dt AGUS 1
 .Os
 .Sh NAME
@@ -7,6 +7,7 @@
 .Nd call apt\-get update
 .Sh SYNOPSIS
 .Nm agus
+.Op Fl f
 .Op Ar slext
 .Sh DESCRIPTION
 The
@@ -23,6 +24,11 @@ is given, then calls
 then optimises the
 .Nm dpkg
 database.
+Unless
+.Fl f
+is given,
+.Nm sync\-available
+is called when installed.
 .Sh SEE ALSO
 .Xr dpkg 1 ,
 .Xr apt\-get 8
