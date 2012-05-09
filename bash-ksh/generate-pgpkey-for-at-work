@@ -1,7 +1,7 @@
 #!/bin/sh
-# $Id: genkey-firmengebrauch.sh 1932 2011-04-27 14:53:08Z tglase $
+# $Id: genkey-firmengebrauch.sh 2836 2012-03-22 09:51:20Z tglase $
 #-
-# Copyright © 2010, 2011
+# Copyright © 2010, 2011, 2012
 #	Thorsten Glaser <t.glaser@tarent.de>
 # All rights reserved.
 #
@@ -263,8 +263,8 @@ EOF
 
 # show introduction
 echo "
-tarent GmbH - PGP Key Generation
-================================
+tarent solutions GmbH - PGP Key Generation
+==========================================
 
 [de] Ein PGP-Schlüsselpaar wird jetzt erstellt und der öffentliche Teil
      an den tarent-Server übertragen, sodaß die Admins diesen signieren
@@ -297,8 +297,30 @@ password = $resp
 user = $un
 EOF
 
+# create CA “bundle”
+cat >"$T/ca.cer" <<'EOF'
+-----BEGIN CERTIFICATE-----
+MIIC5zCCAlACAQEwDQYJKoZIhvcNAQEFBQAwgbsxJDAiBgNVBAcTG1ZhbGlDZXJ0
+IFZhbGlkYXRpb24gTmV0d29yazEXMBUGA1UEChMOVmFsaUNlcnQsIEluYy4xNTAz
+BgNVBAsTLFZhbGlDZXJ0IENsYXNzIDIgUG9saWN5IFZhbGlkYXRpb24gQXV0aG9y
+aXR5MSEwHwYDVQQDExhodHRwOi8vd3d3LnZhbGljZXJ0LmNvbS8xIDAeBgkqhkiG
+9w0BCQEWEWluZm9AdmFsaWNlcnQuY29tMB4XDTk5MDYyNjAwMTk1NFoXDTE5MDYy
+NjAwMTk1NFowgbsxJDAiBgNVBAcTG1ZhbGlDZXJ0IFZhbGlkYXRpb24gTmV0d29y
+azEXMBUGA1UEChMOVmFsaUNlcnQsIEluYy4xNTAzBgNVBAsTLFZhbGlDZXJ0IENs
+YXNzIDIgUG9saWN5IFZhbGlkYXRpb24gQXV0aG9yaXR5MSEwHwYDVQQDExhodHRw
+Oi8vd3d3LnZhbGljZXJ0LmNvbS8xIDAeBgkqhkiG9w0BCQEWEWluZm9AdmFsaWNl
+cnQuY29tMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDOOnHK5avIWZJV16vY
+dA757tn2VUdZZUcOBVXc65g2PFxTXdMwzzjsvUGJ7SVCCSRrCl6zfN1SLUzm1NZ9
+WlmpZdRJEy0kTRxQb7XBhVQ7/nHk01xC+YDgkRoKWzk2Z/M/VXwbP7RfZHM047QS
+v4dk+NoS/zcnwbNDu+97bi5p9wIDAQABMA0GCSqGSIb3DQEBBQUAA4GBADt/UG9v
+UJSZSWI4OB9L+KXIPqeCgfYrx+jFzug6EILLGACOTb2oWH+heQC1u+mNr0HZDzTu
+IYEZoDJJKPTEjlbVUjP9UNV+mWwD5MlM/Mtsq2azSiGM5bUMMj4QssxsodyamEwC
+W/POuZ6lcg5Ktz885hZo+L7tdEy8W9ViH0Pd
+-----END CERTIFICATE-----
+EOF
+
 # get user information from LDAP
-x=$(wget -O "$T/ui" -S https://tarentpgp.tarent.de/ui.cgi 2>&1 | \
+x=$(wget -O "$T/ui" --ca-certificate="$T/ca.cer" -S https://tarentpgp.tarent.de/ui.cgi 2>&1 | \
     if md5sum --version >/dev/null 2>&1; then
 	md5sum | sed 's/ .*$//'
 else
@@ -313,13 +335,9 @@ if [[ ! -s ~/.gnupg/random_seed ]]; then
 	chmod 0600 ~/.gnupg/random_seed
 	dd if=/dev/urandom of=~/.gnupg/random_seed bs=600 count=1
 fi
-entropy=$x\ $( (
-	wget -O - --no-check-certificate -T 10 \
-	    https://spamfilter2.tarent.de/lb.cgi?genkey.sh,1=$(hostname -f),seed=$RANDOM$RANDOM$RANDOM$RANDOM$RANDOM
-	wget -O - -T 10 http://mirror.bonn.tarent.de/cgi-bin/rb.cgi
-	wget -O - --no-check-certificate -T 10 \
-	    https://spamfilter2.tarent.de/lb.cgi?genkey.sh,2=$(hostname),seed=$RANDOM$RANDOM$RANDOM$RANDOM$RANDOM
-    ) 2>/dev/null | hexdump -ve '1/1 "16#%x "')
+entropy=$(wget -O - -T 10 --ca-certificate="$T/ca.cer" \
+    https://spamfilter3.tarent.de/lb.cgi?genkey.sh,1=$(hostname -f),seed=$RANDOM$RANDOM$RANDOM$RANDOM$RANDOM 2>/dev/null | \
+    hexdump -ve '1/1 "16#%x "')$x
 poolfile=$(hexdump -ve '1/1 "16#%x "' <~/.gnupg/random_seed)
 str2arr entropy
 str2arr poolfile
@@ -444,7 +462,7 @@ echo "=> $?" >>"$T/edit.log"
 # XXX if the key has >1 UID, there must be an extra line
 #	y
 # after the line saying "tsign"!
-gpg --no-use-agent -q -u $pkid --command-fd 4 --edit-key $ckid \
+gpg --no-ask-cert-level --no-expert --no-use-agent -q -u $pkid --command-fd 4 --edit-key $ckid \
     >>"$T/edit.log" 2>&1 4<<-EOF
 	tsign
 	2
@@ -492,6 +510,7 @@ GNUPGHOME="$T/.gnupg" gpg --no-default-keyring --primary-keyring "$T/exp.kr" \
 wget -O "$T/upload" \
     --header="Content-type: application/octet-stream" \
     --post-file="$T/exp.kr" \
+    --ca-certificate="$T/ca.cer" \
     https://tarentpgp.tarent.de/fu.cgi >"$T/upload.log" 2>&1
 (echo "upload keyring {"; sed 's/^/[	/' <"$T/upload.log"; \
     sed 's/^/]	/' <"$T/upload"; echo "}") >>"$log"

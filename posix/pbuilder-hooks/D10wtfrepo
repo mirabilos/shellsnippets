@@ -1,0 +1,18 @@
+#!/bin/sh
+# $MirOS: contrib/hosted/tg/deb/hookdir/D10wtfrepo,v 1.1 2012/01/03 16:57:19 tg Exp $
+#-
+# Not complicated enough for copyright.
+
+unset LANGUAGE
+LC_ALL=C; export LC_ALL
+
+dpkg -i /tmp/wtf-debian-keyring_*.deb /tmp/ca-bundle_*.deb
+apt-get -y --force-yes -o Dpkg::Options::=--force-confnew,confmiss -f install
+apt-get -y --purge install apt-transport-https
+
+cat >>/etc/apt/sources.list <<'EOF'
+deb https://www.freewrt.org/~tg/debs sid wtf
+EOF
+
+apt-get update
+apt-get -y --purge dist-upgrade

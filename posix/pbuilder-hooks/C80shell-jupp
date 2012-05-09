@@ -1,13 +1,14 @@
 #!/bin/sh
-# $MirOS: contrib/hosted/tg/deb/hookdir/C99fu,v 1.2 2011/12/15 21:06:42 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/C80shell-jupp,v 1.2 2012/01/03 16:57:19 tg Exp $
 #-
 # Not complicated enough for copyright.
+
+unset LANGUAGE
+LC_ALL=C; export LC_ALL
 
 echo
 echo Build failed. Trying to invoke a shell.
 echo
-unset LANGUAGE
-LC_ALL=C; export LC_ALL
-apt-get -y --force-yes install less mksh
+apt-get -y --force-yes install less mksh ed jupp
 ENV=/etc/skel/.mkshrc /bin/mksh -l 0<>/dev/tty >&0 2>&0 || \
     /bin/sh 0<>/dev/tty >&0 2>&0

@@ -1,6 +1,6 @@
 #!/bin/mksh
 rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.51 2011/05/13 20:53:29 tg Exp $'
-rcsid='$Id: mvndebri.sh 2503 2011-11-17 15:28:58Z tglase $'
+rcsid='$Id: mvndebri.sh 2534 2011-11-24 16:35:54Z tglase $'
 #-
 # Copyright (c) 2008, 2009, 2010, 2011
 #	Thorsten Glaser <tg@mirbsd.org>
@@ -30,19 +30,15 @@ jobname=$2
 
 hn=$(hostname)
 case $hn {
-(hudson.evolvis.org)
-	hn=evolvis-hudson
+(ci-evolvis?(.*))
+	hn=ci-evolvis
 	repo_keyid=0x16B5D1B2
 	;;
-(dev-hudson?(.*))
-	hn=dev-hudson
-	repo_keyid=0x199D2F3B
-	;;
-(test-hudson?(.*))
-	hn=test-hudson
-	repo_keyid=0xDB58AF73
-	;;
-# […]
+#[…]
+#(test-hudson?(.*))
+#	hn=test-hudson
+#	repo_keyid=0xDB58AF73
+#	;;
 (tglase.bonn.tarent.de)
 	hn=devel-testsystem
 	repo_keyid=0x5EB8D3B3
@@ -53,11 +49,13 @@ case $hn {
 	;;
 }
 case $hn {
-(evolvis-hudson)
+(test-hudson|devel-testsystem)
+	print -u2 moved
+	exit 1
 	dhn=jenkins-debs.evolvis.org
 	;;
 (*)
-	dhn=${hn}-debs.bonn.tarent.de
+	dhn=${hn}-debs.lan.tarent.de
 	;;
 }
 repo_origin='tarent solutions GmbH'
@@ -66,7 +64,7 @@ repo_title="tarent $hn $jobname automatic DEB Repository"
 function repo_description {
 	typeset suite_nick=$1
 
-	print -nr -- "tarent-$hn $jobname/$suite_nick autobuild repository"
+	print -nr -- "tarent $hn $jobname/$suite_nick autobuild repository"
 }
 
 
@@ -338,7 +336,7 @@ done
 EOF
 print -r -- " <title>${repo_title} Index</title>"
 cat <<'EOF'
- <meta name="generator" content="$Id: mvndebri.sh 2503 2011-11-17 15:28:58Z tglase $ based on $MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.51 2011/05/13 20:53:29 tg Exp $" />
+ <meta name="generator" content="Evolvis shellsnippets git based on $Id: mvndebri.sh 2534 2011-11-24 16:35:54Z tglase $ based on $MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.51 2011/05/13 20:53:29 tg Exp $" />
  <style type="text/css">
   table {
    border: 1px solid black;
@@ -407,7 +405,7 @@ for suitename in $allsuites; do
 		print -n " <a href=\"$suite/$distname/\">$distname</a>"
 	done
 	print ")<br />"
-	print " <tt>deb http://${dhn}/$jobname $suitename$vdists</tt>"
+	print " <tt>deb https://${dhn}/$jobname $suitename$vdists</tt>"
 	print "</li>"
 done
 print "</ul>"

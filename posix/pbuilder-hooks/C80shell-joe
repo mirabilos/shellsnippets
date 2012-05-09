@@ -1,0 +1,14 @@
+#!/bin/sh
+# $MirOS: contrib/hosted/tg/deb/hookdir/C80shell-joe,v 1.2 2012/01/03 16:57:18 tg Exp $
+#-
+# Not complicated enough for copyright.
+
+unset LANGUAGE
+LC_ALL=C; export LC_ALL
+
+echo
+echo Build failed. Trying to invoke a shell.
+echo
+apt-get -y --force-yes install less mksh ed joe
+ENV=/etc/skel/.mkshrc /bin/mksh -l 0<>/dev/tty >&0 2>&0 || \
+    /bin/sh 0<>/dev/tty >&0 2>&0
