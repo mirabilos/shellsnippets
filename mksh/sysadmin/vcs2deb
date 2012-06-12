@@ -1,8 +1,8 @@
 #!/bin/mksh
-# $Id: vcs2deb 2504 2011-11-17 15:30:10Z tglase $
+# $Id: vcs2deb 2991 2012-06-12 10:58:55Z tglase $
 # $MirOS: contrib/hosted/tg/deb/BuildDSC.sh,v 1.14 2011/11/17 15:27:53 tg Exp $
 #-
-# Copyright (c) 2010, 2011
+# Copyright (c) 2010, 2011, 2012
 #	Thorsten Glaser <t.glaser@tarent.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -27,7 +27,7 @@
 # vcs2deb -b lenny-backports -r 'deb foo main' -r 'deb bar tarent' \
 #     -o -sa -o -m'Dev Jenkins <buildd@domain.de>' -j portal-setup \
 #     -d squeeze -s main -O [http:/]/path/to/foo-1.2.3.orig.tar.xz \
-#     -T HEAD :ext:anoncvs@server.com:/cvs src/modulename
+#     -X junk -T HEAD :ext:anoncvs@server.com:/cvs src/modulename
 # These arguments are passed to the scripts as follows:
 # * kuhbauer [-r {r*}] {b} *.dsc [{o*}]
 # * mvndput {j} {d} {s} *.changes (if ENABLE_UPLOAD)
@@ -41,7 +41,7 @@ cd "$wd"
 usage() { cat <<EOF
 Syntax: $0 -b DIST [-r aptrepo [-r ...]] [-o debbuiltopt [-o ...]]
 	-j jobname -d targetdistribution -s targetsuite
-	[-O [http:/]/path/to/origtgz] [-T tag] scmpath
+	[-O [http:/]/path/to/origtgz] [-T tag] [-X junk [-X ...]] scmpath
 Tags: cvs (tag/branch[:date]), git (branch), bzr (revisionspec), hg (idem)
 Knobs: ENABLE_UPLOAD, VERSION_AS_SNAPSHOT
 Environment: DEBEMAIL (for snapshots)
@@ -71,7 +71,8 @@ set -A dbo
 xrepo=
 targsuite=
 scmtag=
-while getopts 'b:d:hj:O:o:r:s:T:' ch; do
+set -A excludefiles
+while getopts 'b:d:hj:O:o:r:s:T:X:' ch; do
 	case $ch {
 	(b)	DIST=$OPTARG ;;
 	(d)	targdist=$OPTARG ;;
@@ -82,6 +83,7 @@ while getopts 'b:d:hj:O:o:r:s:T:' ch; do
 	(r)	xrepo="${xrepo}|$OPTARG" ;;
 	(s)	targsuite=$OPTARG ;;
 	(T)	scmtag=$OPTARG ;;
+	(X)	excludefiles[${#excludefiles[*]}]=$OPTARG ;;
 	(*)	usage ;;
 	}
 done
@@ -274,6 +276,13 @@ while :; do
 	cd "$wd"
 	rm -rf "$T"
 	exit 1
+done
+wc=$(realpath .)
+for i in "${excludefiles[@]}"; do
+	i=$(realpath "$i")
+	[[ $i = "$wc"/* && -e $i ]] || continue
+	echo "Nuking \"$i\"..."
+	rm -rf "$i"
 done
 pkgstem=$(dpkg-parsechangelog -n1 | sed -n '/^Source: /s///p')
 version=$(dpkg-parsechangelog -n1 | sed -n '/^Version: /s///p')
