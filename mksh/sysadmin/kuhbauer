@@ -1,7 +1,7 @@
 #!/bin/mksh
-# $Id: kuhbauer 2616 2011-12-18 17:37:48Z tglase $
+# $Id: kuhbauer 2990 2012-06-12 10:51:32Z tglase $
 #-
-# Copyright © 2011
+# Copyright © 2011, 2012
 #	Thorsten Glaser <t.glaser@tarent.de>
 # Licenced under the AGPLv3
 #-
@@ -86,19 +86,21 @@ cat >"$T/config" <<-EOF
 EOF
 
 mkdir "$T/hooks" "$T/res"
-print '#!/bin/sh' >"$T/hooks/D00repos"
-print 'dpkg -i /tmp/tarent-keyring*.deb' >>"$T/hooks/D00repos"
+print '#!/bin/sh' >"$T/hooks/D02repos"
+print 'dpkg -i /tmp/tarent-keyring*.deb' >>"$T/hooks/D02repos"
+has_ssl_repos=0
 if [[ -n $xrepos ]]; then
 	saveIFS=$IFS
 	IFS='|'
 	print -r -- 'cat >>/etc/apt/sources.list <<"EOD"'
 	for repo in $xrepos; do
+		[[ $repo = *'https://'* ]] && has_ssl_repos=1
 		print -r -- "$repo"
 	done
 	print EOD
 	IFS=$saveIFS
-fi >>"$T/hooks/D00repos"
-print 'apt-get update' >>"$T/hooks/D00repos"
+fi >>"$T/hooks/D02repos"
+print 'apt-get update' >>"$T/hooks/D02repos"
 if (( issnapshot )); then
 	extraargs='-X nmu'
 else
@@ -107,7 +109,7 @@ fi
 cat >"$T/hooks/B00lintian" <<-EOF
 	#!/bin/sh
 	# \$MirOS: contrib/hosted/tg/deb/hookdir/B20lintian,v 1.2 2011/12/17 22:33:34 tg Exp $
-	# \$Id: kuhbauer 2616 2011-12-18 17:37:48Z tglase $
+	# \$Id: kuhbauer 2990 2012-06-12 10:51:32Z tglase $
 
 	unset LANGUAGE
 	LC_ALL=C; export LC_ALL
@@ -134,7 +136,12 @@ cat >"$T/hooks/B00lintian" <<-EOF
 	echo ==================================================================
 	echo
 EOF
-chmod +x "$T/hooks/D00repos" "$T/hooks/B00lintian"
+chmod +x "$T/hooks/D02repos" "$T/hooks/B00lintian"
+if (( has_ssl_repos )); then
+	print '#!/bin/sh' >"$T/hooks/D01https"
+	print 'apt-get --purge -y install apt-transport-https' >>"$T/hooks/D01https"
+	chmod +x "$T/hooks/D01https"
+fi
 
 print -nr -- "=== running"
 for arg in "${cbargs[@]}"; do
