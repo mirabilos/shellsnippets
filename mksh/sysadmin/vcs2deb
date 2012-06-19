@@ -1,5 +1,5 @@
 #!/bin/mksh
-# $Id: vcs2deb 2991 2012-06-12 10:58:55Z tglase $
+# $Id: vcs2deb 2996 2012-06-13 12:39:01Z tglase $
 # $MirOS: contrib/hosted/tg/deb/BuildDSC.sh,v 1.14 2011/11/17 15:27:53 tg Exp $
 #-
 # Copyright (c) 2010, 2011, 2012
@@ -335,15 +335,15 @@ cd "$newname"
 dpkg-buildpackage -d -rfakeroot -S -us -uc
 rv=$?
 cd ..
-if (( rv )) || [[ ! -s ${pkgstem}_${version}.dsc || \
-    ! -s ${pkgstem}_${version}_source.changes ]]; then
+if (( rv )) || [[ ! -s ${pkgstem}_${version##+([0-9]):}.dsc || \
+    ! -s ${pkgstem}_${version##+([0-9]):}_source.changes ]]; then
 	ls -l
 	print -u2 "Error $rv creating the .dsc"
 	cd "$wd"
 	rm -rf "$T"
 	exit 1
 fi
-rm -f ${pkgstem}_${version}_source.changes
+rm -f ${pkgstem}_${version##+([0-9]):}_source.changes
 
 # * kuhbauer [-r {r*}] {b} *.dsc [{o*}]
 set -A cmd -- sudo /usr/local/bin/kuhbauer
@@ -353,7 +353,7 @@ if [[ -n $xrepo ]]; then
 	cmd[${#cmd[*]}]=${xrepo#'|'}
 fi
 cmd[${#cmd[*]}]=$DIST
-cmd[${#cmd[*]}]=${pkgstem}_${version}.dsc
+cmd[${#cmd[*]}]=${pkgstem}_${version##+([0-9]):}.dsc
 print -n +
 for arg in "${cmd[@]}" "${dbo[@]}"; do
 	print -nr -- " '${arg//\'/\'\\\'\'}'"
@@ -363,7 +363,7 @@ print
 rv=$?
 cp *.holzscheit "$wd/"
 found=
-for f in ${pkgstem}_${version}_*.changes; do
+for f in ${pkgstem}_${version##+([0-9]):}_*.changes; do
 	[[ -s $f ]] && found=$f
 	break
 done
