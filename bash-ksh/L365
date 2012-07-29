@@ -1,0 +1,43 @@
+#!/bin/mksh
+# $MirOS: contrib/hosted/tg/L365,v 1.1 2012/07/29 17:48:01 tg Exp $
+#-
+# Player for music streams from live365.com (not affiliated).
+
+# Inline-edit this script to define your credentials:
+USERID='myusername'
+PASSWD='my!secret!'
+
+# Code follows.
+
+# disabled as mpg123 with live365 is too unreliable (lack of caching)
+#if [[ $1 = -m ]]; then
+	player='mplayer -cache 256'
+#	shift
+#else
+#	player=mpg123
+#fi
+
+STATION=$1
+
+cd /
+if ! T=$(mktemp -d /tmp/L365.XXXXXXXXXX) || [[ ! -d $T/. ]]; then
+	print -u2 Error creating temporary directory.
+	exit 255
+fi
+
+cd "$T"
+if ! curl --cookie-jar curlcookies --output curldump --location-trusted \
+    "http://www.live365.com/cgi-bin/login.cgi?url=http://www.live365.com/index.live&membername=${USERID}&password=${PASSWD}"; then
+	cd /
+	rm -rf "$T"
+	print -u2 Error logging in.
+	exit 2
+fi
+
+SANE=$(fgrep SaneID curlcookies | cut -f7)
+SESS=$(fgrep sessionid curlcookies | cut -f7 | sed "s/${USERID}%3A//")
+
+cd /
+rm -rf "$T"
+
+exec $player "http://www.live365.com/play/${STATION}?SaneID=${SANE}&membername=${USERID}&session=${SESS}"
