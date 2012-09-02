@@ -1,0 +1,393 @@
+.\" $MirOS: X11/extras/bdfctool/bdfctool.1,v 1.9 2012/09/01 21:15:29 tg Exp $
+.\"-
+.\" Copyright © 2012
+.\"	Thorsten “mirabilos” Glaser <tg@mirbsd.org>
+.\"-
+.\" Try to make GNU groff and AT&T nroff more compatible
+.\" * ` generates ‘ in gnroff, so use \`
+.\" * ' generates ’ in gnroff, \' generates ´, so use \*(aq
+.\" * - generates ‐ in gnroff, \- generates −, so .tr it to -
+.\"   thus use - for hyphens and \- for minus signs and option dashes
+.\" * ~ is size-reduced and placed atop in groff, so use \*(TI
+.\" * ^ is size-reduced and placed atop in groff, so use \*(ha
+.\" * \(en does not work in nroff, so use \*(en
+.\" * <>| are problematic, so redefine and use \*(Lt\*(Gt\*(Ba
+.\" Also make sure to use \& especially with two-letter words.
+.\" The section after the "doc" macropackage has been loaded contains
+.\" additional code to convene between the UCB mdoc macropackage (and
+.\" its variant as BSD mdoc in groff) and the GNU mdoc macropackage.
+.\"
+.ie \n(.g \{\
+.	if \*[.T]ascii .tr \-\N'45'
+.	if \*[.T]latin1 .tr \-\N'45'
+.	if \*[.T]utf8 .tr \-\N'45'
+.	ds <= \[<=]
+.	ds >= \[>=]
+.	ds Rq \[rq]
+.	ds Lq \[lq]
+.	ds sL \(aq
+.	ds sR \(aq
+.	if \*[.T]utf8 .ds sL `
+.	if \*[.T]ps .ds sL `
+.	if \*[.T]utf8 .ds sR '
+.	if \*[.T]ps .ds sR '
+.	ds aq \(aq
+.	ds TI \(ti
+.	ds ha \(ha
+.	ds en \(en
+.\}
+.el \{\
+.	ds aq '
+.	ds TI ~
+.	ds ha ^
+.	ds en \(em
+.\}
+.\"
+.\" Implement .Dd with the Mdocdate RCS keyword
+.\"
+.rn Dd xD
+.de Dd
+.ie \\$1$Mdocdate: \{\
+.	xD \\$2 \\$3, \\$4
+.\}
+.el .xD \\$1 \\$2 \\$3 \\$4 \\$5 \\$6 \\$7 \\$8
+..
+.\"
+.\" .Dd must come before definition of .Mx, because when called
+.\" with -mandoc, it might implement .Mx itself, but we want to
+.\" use our own definition. And .Dd must come *first*, always.
+.\"
+.Dd $Mdocdate: September 1 2012 $
+.\"
+.\" Check which macro package we use, and do other -mdoc setup.
+.\"
+.ie \n(.g \{\
+.	if \*[.T]utf8 .tr \[la]\*(Lt
+.	if \*[.T]utf8 .tr \[ra]\*(Gt
+.	ie d volume-ds-1 .ds tT gnu
+.	el .ds tT bsd
+.\}
+.el .ds tT ucb
+.\"
+.\" Implement .Mx (MirBSD)
+.\"
+.ie "\*(tT"gnu" \{\
+.	eo
+.	de Mx
+.	nr curr-font \n[.f]
+.	nr curr-size \n[.ps]
+.	ds str-Mx \f[\n[curr-font]]\s[\n[curr-size]u]
+.	ds str-Mx1 \*[Tn-font-size]\%MirOS\*[str-Mx]
+.	if !\n[arg-limit] \
+.	if \n[.$] \{\
+.	ds macro-name Mx
+.	parse-args \$@
+.	\}
+.	if (\n[arg-limit] > \n[arg-ptr]) \{\
+.	nr arg-ptr +1
+.	ie (\n[type\n[arg-ptr]] == 2) \
+.	as str-Mx1 \~\*[arg\n[arg-ptr]]
+.	el \
+.	nr arg-ptr -1
+.	\}
+.	ds arg\n[arg-ptr] "\*[str-Mx1]
+.	nr type\n[arg-ptr] 2
+.	ds space\n[arg-ptr] "\*[space]
+.	nr num-args (\n[arg-limit] - \n[arg-ptr])
+.	nr arg-limit \n[arg-ptr]
+.	if \n[num-args] \
+.	parse-space-vector
+.	print-recursive
+..
+.	ec
+.	ds sP \s0
+.	ds tN \*[Tn-font-size]
+.\}
+.el \{\
+.	de Mx
+.	nr cF \\n(.f
+.	nr cZ \\n(.s
+.	ds aa \&\f\\n(cF\s\\n(cZ
+.	if \\n(aC==0 \{\
+.		ie \\n(.$==0 \&MirOS\\*(aa
+.		el .aV \\$1 \\$2 \\$3 \\$4 \\$5 \\$6 \\$7 \\$8 \\$9
+.	\}
+.	if \\n(aC>\\n(aP \{\
+.		nr aP \\n(aP+1
+.		ie \\n(C\\n(aP==2 \{\
+.			as b1 \&MirOS\ #\&\\*(A\\n(aP\\*(aa
+.			ie \\n(aC>\\n(aP \{\
+.				nr aP \\n(aP+1
+.				nR
+.			\}
+.			el .aZ
+.		\}
+.		el \{\
+.			as b1 \&MirOS\\*(aa
+.			nR
+.		\}
+.	\}
+..
+.\}
+.\"-
+.Dt BDFCTOOL 1
+.Os MirBSD
+.Sh NAME
+.Nm bdfctool
+.Nd convert BDF and bdfc font files
+.Sh SYNOPSIS
+.Nm
+.Fl c
+.Nm
+.Fl d
+.Op Fl F
+.Nm
+.Fl e
+.Op Fl a
+.Sh DESCRIPTION
+The
+.Nm
+utility converts (mostly) fixed-width bitmap fonts between the
+.Tn BDF
+file format as used by
+.Tn XFree86\(rg
+and the
+.Ic bdfc
+format as specified below.
+It operates as a filter, i.e. takes its input from the standard
+input stream and writes data to standard output.
+.Pp
+The options are as follows:
+.Bl -tag -width XXX
+.It Fl a
+In edit mode, emit ASCII (1:2) encoding for an unset bit
+.Pq Sq Li \&. ,
+a set bit
+.Pq Sq Li \&#
+and the line end separator
+.Pq Sq Li \&\*(Ba .
+.It Ic +a
+In edit mode, emit Unicode (1:1) encoding (default).
+.It Fl d
+Decompress the font from bdfc into
+.Tn BDF .
+.It Fl c
+Compress the font from
+.Tn BDF
+or the bdfc edit form to bdfc, also sorting and weeding out
+any duplicates (later occurrence wins).
+.It Fl e
+Expand selected glyphs inside the bdfc file into the edit form,
+which uses U+3000 and U+4DC0 to represent unset and set bits,
+respectively, so they can be visually edited.
+This mode operates on glyphs and does not need to be passed the
+whole file, e.g. using \*(haK/ in the jupp text editor.
+.It Fl F
+Do a fast decompression with no error checking.
+Run this on files passed through
+.Nm
+.Fl c
+.Em only .
+Used by the
+.Mx
+.Tn XFree86\(rg
+build process.
+.El
+.Sh BDFC FORMAT DESCRIPTION
+A
+.Ic \&.bdfc
+file is a compressed, editable representation of a subset of the
+.Ic Bitmap Distribution Format Pq BDF
+as used for fixed-width fonts in the
+.Tn XFree86\(rg
+windowing system.
+.Pp
+Every file starts with a line consisting of
+.Dq Li "=bdfc 1" ,
+where
+.Ql \&1
+is the version number.
+The format is line-oriented and only somewhat stateful.
+It is optimised for being operated on using the jupp text editor and
+.Nm mksh
+shell scripts.
+Lines starting with an apostrophe U+0027 and a space U+0020, or
+consisting of only an apostrophe before the newline, can be
+used anywhere inside the file, except within the trailing-data lines
+of an edit block (see below), to denote a comment, which is retained
+(tacked on to the following character).
+.Pp
+Next comes a block of font header information that are just
+passed through, prefixed with a
+.Dq Li h .
+After that, list the font properties, prefixed with a
+.Dq Li p
+each, and followed by a
+.Dq Li C
+on a line by itself, which will deal with emitting the
+.Li STARTPROPERTIES
+number, the properties and
+.Li ENDPROPERTIES
+and marks the place where
+.Li CHARS
+is put in
+.Tn BDF .
+.Pp
+Finally, there is the character block, which is somewhat stateless.
+There are two types of entries for that block, glyph defaults and glyph data.
+The block is ended with a period
+.Pq Dq Li .\&
+on a line by itself.
+.Pp
+Glyphs are sorted by their font encoding / Unicode code point, and each
+glyph occurs only once, although the
+.Nm
+tool in the
+.Fl c
+operation mode is able to take glyphs in any order and weed out duplicates.
+The character name can be omitted if it matches the form
+.Dq Li uni Ns Ar 20AC
+where
+.Dq Ar 20AC
+is the four-nibble uppercase Unicode codepoint of the glyph, in this
+example the Euro sign.
+.Pp
+Glyph defaults are lines in the format
+.Dl d 540 0 9 0 0 \-4
+where the first
+.Dq Li d
+is the line type, and the next values are, in order, the arguments to the
+.Li SWIDTH
+and
+.Li DWIDTH
+and the third and fourth argument to the
+.Li BBX
+.Tn BDF
+commands.
+(The first and second arguments of
+.Li BBX
+are derived from the glyph data line instead.)
+.Pp
+The glyph defaults are used in encoding every subsequent glyph for
+.Tn BDF
+and are valid until the next glyph default line, which means that
+a character block must start with one, and that sorting may need
+to duplicate or move such lines, as handled by
+.Nm
+.Fl c .
+.Pp
+Finally, let's talk about the glyph data lines.
+The standard (condensed) form looks like
+.Dl c 0020 6 00:00:00:00:00:00:00:00 space
+which are, in this order, the type of the line, the encoding of
+the glyph, the width (in bit) of the glyph (first argument of
+.Li BBX ) ,
+the glyph data (in whole bytes, uppercase nibbles, as in
+.Tn BDF ,
+but colon-separated; the number of which yields the second argument to
+.Li BBX )
+and the glyph name (which, as explained above, is optional)
+consisting of up to 14 alphanumeric characters.
+.Pp
+The editing form is a multi-line form and
+.Em must not
+be used in persistent storage, revision control or transmission.
+Its first line looks like
+.Dl e 0020 6 8 space
+which is basically the same as the standard form, except that the
+number of lines replaces the bitmap data.
+This is followed by (in this case eight) lines that comprise of
+(in this case six) occurrences of either U+3000 (to denote an unset
+pixel) or U+4DC0 (to denote a set pixel), followed by U+258C (to
+denote, as a visual help, the next character).
+The compression script also accepts a dot U+002E or a space U+0020
+as null-bit, a hash U+0023 or an asterisk U+002A as set bit, and a
+pipe sign / bar U+007C as line end marker.
+You should use the regular form if your display font has an 1:2
+ratio (e.g. 8x16, 9x18) and the alternative form if it has an 1:1
+ratio (e.g. 8x8 pixels), and switch fonts if it has a different
+ratio altogether.
+.Pp
+The trailing dot does not denote the end of file for the
+.Fl c
+operation, as it can handle concatenated files, but is used
+to have an easy way to switch between the file and glyph sections,
+since the former does not use a structured line format.
+.Sh RETURN VALUES
+The
+.Nm
+utility exits with one of the following values:
+.Pp
+.Bl -tag -width XXX -compact
+.It Li 0
+No error occurred.
+.It Li 1
+Wrong usage.
+.It Li 2
+An error during processing occurred, e.g. invalid input.
+.It Li 3
+A strict mode
+.Pq Fl d
+error occurred, e.g. invalid input.
+.It Li 4
+An error in an external program, such as
+.Xr mktemp 1 ,
+occurred.
+.El
+.Sh EXAMPLES
+The following example should be a minimal valid font demonstrating
+all features of the bdfc format:
+.Bd -literal
+=bdfc 1
+\&' $ucs\-fonts: 4x6.bdf,v 1.5 2002\-08\-26 18:05:49+01 mgk25 Rel $
+hFONT \-Misc\-Fixed\-Medium\-R\-Normal\-\-6\-60\-75\-75\-C\-40\-ISO10646\-1
+hSIZE 6 75 75
+hFONTBOUNDINGBOX 4 6 0 \-1
+pFONT_ASCENT 5
+pFONT_DESCENT 1
+pDEFAULT_CHAR 0
+C
+d 640 0 4 0 0 \-1
+e 0000 4 6 char0
+#.#.\*(Ba
+\&....\*(Ba
+#.#.\*(Ba
+\&....\*(Ba
+#.#.\*(Ba
+\&....\*(Ba
+c 0020 4 00:00:00:00:00:00 space
+c 018F 4 00:C0:60:A0:40:00
+\&.
+.Ed
+.Sh SEE ALSO
+.Xr bdftopcf 1 ,
+.Xr fstobdf 1
+.Pp
+The
+.Tn XFree86\(rg
+.Ic Bitmap Distribution Format ,
+version 2.1, specification
+.Sh AUTHORS
+.An Thorsten Glaser Aq tg@mirbsd.org
+wrote this tool because
+.Xr cvs 1
+does not scale for multi-thousand-line files,
+to have a one-line-per-glyph format that matches
+.Tn BDF .
+.Sh CAVEATS
+.Nm
+has its own ideas of how a
+.Tn BDF
+font file should look like, and if you deviate from that,
+you might get an error; although, support for more features
+can surely be added.
+.Pp
+.Dq Li ENCODING \-1
+support is missing.
+The glyph encoding is currently treated as the primary key;
+values from 0000 to FFFF inclusive are valid, the zero-padding
+is mandatory.
+.Pp
+The current practical limit on glyph width is 32.
+0-bit wide glyphs cause an error; those with height 0 are
+silently converted to an unset 1x1 bitmap.
