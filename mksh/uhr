@@ -1,0 +1,280 @@
+#!/bin/mksh
+# $MirOS: contrib/hosted/tg/uhr,v 1.5 2012/05/28 00:30:00 tg Exp $
+#-
+# Copyright © 2012
+#	Thorsten Glaser <tg@mirbsd.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# Analoguhr mit Digitalanzeige. Grundlegende Annahme: schnelles Ter‐
+# minal, d.h. keine Voroptimierung der Darstellung durch Shellcode.
+
+# stupid GNU idiots breaking everything by default… grml…
+bcopt=
+bc --help >/dev/null 2>&1 && bcopt=-q
+
+trap got_sigwinch=1 WINCH
+while :; do
+got_sigwinch=0
+
+print "\e[0m\nPregenerating arrays, please wait..."
+set -A dt -- $(stty size)
+LINES=${dt[0]} COLUMNS=${dt[1]}
+(( r = LINES * 2 ))
+(( r = (r > COLUMNS ? COLUMNS : r) / 2 - 1))
+(( n = 2 * r + 1 ))
+set -A fb
+integer fb
+
+integer F_NO=0x00 M_NO=0x1F
+integer F_BG=0x01 M_BG=0x1E
+integer F_CC=0x02 M_CC=0x1D
+integer F_HP=0x04 M_HP=0x1B
+integer F_MP=0x08 M_MP=0x17
+integer F_SP=0x10 M_SP=0x0F
+integer B_BG=0x01 B_BLK=0x02 B_NB=0x0C B_DOT=0x10
+
+set -U
+#	-	BLK	BG	NB	DOT	NB|DOT
+set -A m2c \
+	0x20	1#▀	1#*	1#▀	1#·	1#░	\
+	1#▄	1#█	1#█	1#█	1#▆	1#█	\
+	1#*	1#█	1##	1#◘	1#⁂	1#◙	\
+	1#▄	1#█	1#▆	1#█	1#▒	1#▓	\
+	1#.	1#▛	1#☿	1#▛	1#:	1#▒	\
+	1#▄	1#█	1#◙	1#█	1#▆	1#▓
+typeset -i1 m2c[*]
+
+set -A m2m
+integer m2m
+
+integer i=-1 j
+while (( ++i <= 0x1F )); do
+	(( m2m[i] = !i ? 0 : (i & B_BLK) ? 1 :
+	    (i & B_NB) ? ((i & B_DOT) ? 5 : 3) : (i & B_DOT) ? 4 : 2 ))
+done
+
+function refresh {
+	local -i10 i j z s c
+	local t
+
+	for i in "$@"; do
+		(( z = (i / n) & 0xFFFE ))
+		(( s = i % n ))
+		(( i = m2m[fb[z * n + s]] ))
+		(( j = m2m[fb[(z + 1) * n + s]] ))
+		print -n "\e[$((z / 2 + 1));$((s + 1))H${m2c[j * 6 + i]#1#}"
+	done
+	print -n "\e[$((r / 2 + 1));$((r + 1))H\e[7mⓄ\e[0m"
+}
+
+# put arrayname x y
+function put {
+	local _x=$(($2)) _y=$(($3)) _i
+	nameref _c=$4 _px=$1
+
+	(( _i = (r - _y) * n + _x + r ))
+	_px+=($_i)
+}
+
+# retrace arrayname maskname colourname
+set -A px
+function retrace {
+	nameref _px=$1 _m=$2 _c=$3
+	local _i
+
+	for _i in "${_px[@]}"; do
+		(( fb[_i] = (fb[_i] & _m) | _c ))
+	done
+	px+=("${_px[@]}")
+}
+
+# precalculate all lines’ endpoints with bc and paths with Bresenham
+integer x y dx sx dy sy e f
+bc -l $bcopt |&
+print -p scale=20
+print -p r=$r
+print -p o=r
+print -p 'define p(t) {
+	auto d
+	d = 90 - t
+	if (d < 0) d = 360 + d
+	return (d * 3.1415926535897932 / 180)
+}'
+# minutes and seconds – full length, 60 items
+i=-1
+while (( ++i < 60 )); do
+	eval set -A lms$i
+	print -p "r * c(p($i * 6))"
+	read -p S; [[ $S = ?(-).* ]] && S=0
+	x=${S%%.*}
+	print -p "r * s(p($i * 6))"
+	read -p S; [[ $S = ?(-).* ]] && S=0
+	y=${S%%.*}
+	(( dx = x < 0 ? -x : x ))
+	(( sx = x < 0 ? 1 : -1 ))
+	(( dy = y < 0 ? y : -y ))
+	(( sy = y < 0 ? 1 : -1 ))
+	(( e = dx + dy ))
+	while :; do
+		put lms$i x y
+		(( !x && !y )) && break
+		(( f = 2 * e ))
+		if (( f > dy )); then
+			(( e += dy ))
+			(( x += sx ))
+		fi
+		if (( f < dx )); then
+			(( e += dx ))
+			(( y += sy ))
+		fi
+	done
+done
+# hours – 2/3 length, 60 items (5 per hour)
+print -p 'r = o * 2 / 3'
+i=-1
+while (( ++i < 60 )); do
+	eval set -A lh$i
+	print -p "r * c(p($i * 6))"
+	read -p S; [[ $S = ?(-).* ]] && S=0
+	x=${S%%.*}
+	print -p "r * s(p($i * 6))"
+	read -p S; [[ $S = ?(-).* ]] && S=0
+	y=${S%%.*}
+	(( dx = x < 0 ? -x : x ))
+	(( sx = x < 0 ? 1 : -1 ))
+	(( dy = y < 0 ? y : -y ))
+	(( sy = y < 0 ? 1 : -1 ))
+	(( e = dx + dy ))
+	while :; do
+		put lh$i x y
+		(( !x && !y )) && break
+		(( f = 2 * e ))
+		if (( f > dy )); then
+			(( e += dy ))
+			(( x += sx ))
+		fi
+		if (( f < dx )); then
+			(( e += dx ))
+			(( y += sy ))
+		fi
+	done
+done
+# hour markers – 80% length, 12 items
+print -p 'r = o * 8 / 10'
+i=-1
+set -A mkx
+set -A mky
+while (( ++i < 12 )); do
+	print -p "r * c(p($i * 30))"
+	read -p S; [[ $S = ?(-).* ]] && S=0
+	mkx[i]=${S%%.*}
+	print -p "r * s(p($i * 30))"
+	read -p S; [[ $S = ?(-).* ]] && S=0
+	mky[i]=${S%%.*}
+done
+print -p quit
+
+# clear framebuffer and screen
+set -A fb
+integer fb
+print -n -- '\e[H\e[J'
+
+# draw hour markers
+set -A lb
+integer e f=-1 k
+(( LINES > 21 )) && while (( ++f < 12 )); do
+	i=mkx[f]
+	(( j = mky[f] & ~1 ))
+	case $f {
+	(0) e=7 S='# # # # #  # ## # # #' ;;
+	(1) e=1 S='###' ;;
+	(2) e=3 S='# ## ## #' ;;
+	(3) e=5 S='# # ## # ## # #' ;;
+	(4) e=5 S='# # ## # ##  # ' ;;
+	(5) e=3 S='# ## # # ' ;;
+	(6) e=5 S='# # ## # # #  #' ;;
+	(7) e=7 S='# # # ## # # # #  # #' ;;
+	(8) e=9 S='# # # # ## # # # # #  # # #' ;;
+	(9) e=5 S='# # ##  # # # #' ;;
+	(10) e=3 S='# # # # #' ;;
+	(11) e=5 S='# # # #  ## # #' ;;
+	}
+	(( i -= e / 2 ))
+	k=0
+	for y in 0 1 2; do
+		(( y = j - y * 2 + 1 + (r & 1) ))
+		(( dy = y + 1 ))
+		(( x = i - 1 ))
+		while (( ++x < (i + e) )); do
+			[[ ${S: k++:1} = ' ' ]] && continue
+			put lb x y
+			put lb x dy
+		done
+	done
+done
+retrace lb M_BG F_BG
+
+# draw outer circle with Bresenham
+set -A lc
+integer x=r y=-1 f=r dx dy
+while (( y < x )); do
+	(( dy = y++ * 2 + 1 ))
+	if (( y )); then
+		(( f -= dy ))
+		if (( f < 0 )); then
+			(( dx = 1 - x-- * 2 ))
+			(( f -= dx ))
+		fi
+	fi
+	put lc x y
+	put lc -x y
+	put lc -x -y
+	put lc x -y
+	put lc y x
+	put lc -y x
+	put lc -y -x
+	put lc y -x
+done
+retrace lc M_CC F_CC
+refresh "${px[@]}"; set -A px
+
+set -A do -- -1 -1 -1
+while (( !got_sigwinch )); do
+	d=$(date +'%H %M %S,%d %b %Y')
+	S=${d#*,}
+	d=${d%,*}
+	set -A dt $d
+
+	if (( dt[2] == do[2] )); then
+		sleep 0.1
+		continue
+	fi
+	(( dt[0] = (dt[0] % 12) * 5 + (dt[1] / 12) ))
+	if (( do[2] != -1 )); then
+		retrace lms$((do[2])) M_SP F_NO
+		(( do[1] == dt[1] )) || retrace lms$((do[1])) M_MP F_NO
+		(( do[0] == dt[0] )) || retrace lh$((do[0])) M_HP F_NO
+	fi
+	(( do[0] == dt[0] )) || retrace lh$((dt[0])) M_HP F_HP
+	(( do[1] == dt[1] )) || retrace lms$((dt[1])) M_MP F_MP
+	retrace lms$((dt[2])) M_SP F_SP
+	refresh "${px[@]}"; set -A px
+	set -A do -- "${dt[@]}"
+
+	print -n "\e[1;$((n - ${%S} + 1))H$S\e[1;1H${d// /:}"
+done
+done
