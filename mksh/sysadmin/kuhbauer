@@ -1,5 +1,5 @@
 #!/bin/mksh
-# $Id: kuhbauer 2990 2012-06-12 10:51:32Z tglase $
+# $Id: kuhbauer 3198 2012-09-23 15:46:07Z tglase $
 #-
 # Copyright © 2011, 2012
 #	Thorsten Glaser <t.glaser@tarent.de>
@@ -24,7 +24,7 @@ while getopts 'r:S' ch; do
 done
 shift $((OPTIND - 1))
 
-if [[ $1 != @(sarge|etch|lenny|squeeze|wheezy|sid|dapper|hardy|karmic|lucid|maverick|natty|oneiric|precise)?(-backports?(-sloppy))?(/i386) || \
+if [[ $1 != @(sarge|etch|lenny|squeeze|wheezy|jessie|sid|dapper|hardy|karmic|lucid|maverick|natty|oneiric|precise)?(-backports?(-sloppy))?(/i386) || \
     $2 != *.dsc || ! -s $2 || $SUDO_UID != +([0-9]) || $SUDO_GID != +([0-9]) ]]; then
 	print -u2 "Syntax: sudo $0 [-r xr] lenny-backports file.dsc [-B -m...]"
 	print -u2 "The third argument onwards are dpkg-buildpackage options."
@@ -101,15 +101,17 @@ if [[ -n $xrepos ]]; then
 	IFS=$saveIFS
 fi >>"$T/hooks/D02repos"
 print 'apt-get update' >>"$T/hooks/D02repos"
+suppresstags=
 if (( issnapshot )); then
 	extraargs='-X nmu'
+	suppresstags="$suppresstags package-has-long-file-name"
 else
 	extraargs=
 fi
 cat >"$T/hooks/B00lintian" <<-EOF
 	#!/bin/sh
 	# \$MirOS: contrib/hosted/tg/deb/hookdir/B20lintian,v 1.2 2011/12/17 22:33:34 tg Exp $
-	# \$Id: kuhbauer 2990 2012-06-12 10:51:32Z tglase $
+	# \$Id: kuhbauer 3198 2012-09-23 15:46:07Z tglase $
 
 	unset LANGUAGE
 	LC_ALL=C; export LC_ALL
@@ -127,11 +129,22 @@ cat >"$T/hooks/B00lintian" <<-EOF
 	if lintian -h 2>&1 | grep -F -- --pedantic >/dev/null 2>&1; then
 		argP=--pedantic
 	fi
+	argSup=
+	for x in $suppresstags; do
+		if test -n "\$argSup"; then
+			argSup=\$argSup,
+		else
+			lintian -h 2>&1 | grep -F -- --suppress-tags \
+			    >/dev/null 2>&1 || break
+			argSup='--suppress-tags '
+		fi
+		argSup=\$argSup\$x
+	done
 	echo
 	echo ==================================================================
 	echo Running lintian...
 	echo
-	lintian -vIi \$argE \$argP $extraargs --allow-root /tmp/buildd/*.changes 2>&1
+	lintian -vIi \$argE \$argP \$argSup $extraargs --allow-root /tmp/buildd/*.changes 2>&1
 	echo
 	echo ==================================================================
 	echo
