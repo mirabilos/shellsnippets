@@ -1,7 +1,7 @@
 #!/bin/mksh
-rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.53 2011/12/28 00:45:47 tg Exp $'
+rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.56 2012/08/02 21:01:39 tg Exp $'
 #-
-# Copyright (c) 2008, 2009, 2010, 2011
+# Copyright (c) 2008, 2009, 2010, 2011, 2012
 #	Thorsten Glaser <tg@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -45,7 +45,7 @@ function remsign {
 	ssh -o ControlPath=$tmpfnm "$target" cat \>$tmpfnm
 	ssh -o ControlPath=$tmpfnm -t "$target" "$* $tmpfnm" 0<&2 1>&2
 	rv=$?
-	ssh -o ControlPath=$tmpfnm "$target" "cat $tmpfnm.sig; rm -f $tmpfnm $tmpfnm.sig"
+	ssh -o ControlPath=$tmpfnm "$target" "cat $tmpfnm.asc; rm -f $tmpfnm $tmpfnm.asc"
 	ssh -o ControlPath=$tmpfnm "$target" -O exit
 	return $rv
 }
@@ -101,13 +101,15 @@ for suite in dists/*; do
 	[[ $suites = : || $suites = *:"$suite":* ]] || continue
 	archs=
 	distribution=
+	debootstrap_compat=0
 	. $suite/distinfo.sh
 	suitearchs=${archs:-${normarchs[*]}}
 	components=Components:
 	for dist in $suite/*; do
 		[[ -d $dist/. ]] || continue
 		rm -rf $dist/binary-* $dist/source
-		ovf= oef= osf=
+		ovf= oef= osf= om=-m
+		(( debootstrap_compat )) && om=
 		[[ -s $dist/override.file ]] && ovf=$dist/override.file
 		[[ -s $dist/override.extra ]] && oef="-e $dist/override.extra"
 		[[ -s $dist/override.src ]] && osf="-s $dist/override.src"
@@ -137,7 +139,7 @@ for suite in dists/*; do
 				print "\n===> Creating" \
 				    "${dist#dists/}/$arch/Packages\n"
 				mkdir -p $dist/binary-$arch
-				dpkg-scanpackages $oef -m -a $arch \
+				dpkg-scanpackages $oef $om -a $arch \
 				    $dist $ovf | \
 				    putfile $dist/binary-$arch/Packages
 				(( nmds++ )) || firstmd=$arch
@@ -153,8 +155,8 @@ for suite in dists/*; do
 		    putfile $dist/source/Sources
 		print done.
 	done
-	print "\n===> Creating ${suite#dists/}/Release.gpg"
-	rm -f $suite/Release*
+	print "\n===> Creating ${suite#dists/}/Release"
+	rm -f $suite/Release-*
 	(cat <<-EOF
 		Origin: ${repo_origin}
 		Label: ${repo_label}
@@ -211,10 +213,38 @@ for suite in dists/*; do
 		print " $nm $ns $n"
 		print -u4 " $nsha1 $ns $n"
 		print -u5 " $nsha2 $ns $n"
-	done) >$suite/Release
-	cat $suite/Release-sha1 $suite/Release-sha2 >>$suite/Release
-	rm $suite/Release-sha1 $suite/Release-sha2
-	$gpg_remote gpg -u $repo_keyid -sb <$suite/Release >$suite/Release.gpg
+	done) >$suite/Release-tmp
+	cat $suite/Release-sha1 $suite/Release-sha2 >>$suite/Release-tmp
+
+	# note: InRelease files can only be safely used by wheezy
+	# onwards, and oneiric onwards; known to be insecure on
+	# natty, but usable concurrent to detached files on squeeze
+
+	unset release_sign_detached release_sign_inline
+	release_sign_detached=x
+	release_sign_inline=0
+	. $suite/distinfo.sh
+	[[ $release_sign_inline = [01] ]] || release_sign_inline=0
+	[[ $release_sign_detached = [01] ]] || \
+	    (( release_sign_detached = release_sign_inline ? 0 : 1 ))
+
+	(( release_sign_detached )) && $gpg_remote gpg -u $repo_keyid \
+	    -sab <$suite/Release-tmp >$suite/Release-sig
+	(( release_sign_inline )) && $gpg_remote gpg -u $repo_keyid \
+	    --clearsign <$suite/Release-tmp >$suite/Release-inl
+
+	if (( release_sign_inline )); then
+		mv -f $suite/Release-inl $suite/InRelease
+	else
+		rm -f $suite/InRelease
+	fi
+	if (( release_sign_detached )); then
+		mv -f $suite/Release-tmp $suite/Release
+		mv -f $suite/Release-sig $suite/Release.gpg
+	else
+		rm -f $suite/Release*
+	fi
+	rm -f $suite/Release-*
 done
 
 print "\n===> Creating debidx.htm\n"
@@ -413,7 +443,7 @@ done
 EOF
 print -r -- " <title>${repo_title} Index</title>"
 cat <<'EOF'
- <meta name="generator" content="$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.53 2011/12/28 00:45:47 tg Exp $" />
+ <meta name="generator" content="$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.56 2012/08/02 21:01:39 tg Exp $" />
  <style type="text/css">
   table {
    border: 1px solid black;

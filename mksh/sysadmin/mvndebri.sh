@@ -1,8 +1,8 @@
 #!/bin/mksh
-rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.51 2011/05/13 20:53:29 tg Exp $'
-rcsid='$Id: mvndebri.sh 2534 2011-11-24 16:35:54Z tglase $'
+rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.56 2012/08/02 21:01:39 tg Exp $'
+rcsid='$Id: mvndebri.sh 3150 2012-08-15 11:17:10Z tglase $'
 #-
-# Copyright (c) 2008, 2009, 2010, 2011
+# Copyright (c) 2008, 2009, 2010, 2011, 2012
 #	Thorsten Glaser <tg@mirbsd.org>
 # Copyright (c) 2011
 #	Thorsten Glaser <t.glaser@tarent.de>
@@ -68,9 +68,9 @@ function repo_description {
 }
 
 
-#set -A dpkgarchs -- alpha amd64 arm armeb armel armhf avr32 hppa \
-#    i386 ia64 kfreebsd-amd64 kfreebsd-i386 lpia m32r m68k mips mipsel \
-#    powerpc powerpcspe ppc64 s390 s390x sh3 sh3eb sh4 sh4eb sparc
+#set -A dpkgarchs -- alpha amd64 arm armel armhf avr32 hppa hurd-i386 i386 \
+#    ia64 kfreebsd-amd64 kfreebsd-i386 m68k mips mipsel powerpc powerpcspe \
+#    ppc64 s390 s390x sh4 sparc sparc64
 set -A dpkgarchs -- amd64 i386
 
 function putfile {
@@ -136,8 +136,8 @@ for suite in dists/*; do
 		    putfile $dist/source/Sources
 		print done.
 	done
-	print "\n===> Creating ${suite#dists/}/Release.gpg"
-	rm -f $suite/Release*
+	print "\n===> Creating ${suite#dists/}/Release"
+	rm -f $suite/Release-*
 	(cat <<-EOF
 		Origin: ${repo_origin}
 		Label: ${repo_label}
@@ -167,12 +167,18 @@ for suite in dists/*; do
 		print " $nm $ns $n"
 		print -u4 " $nsha1 $ns $n"
 		print -u5 " $nsha2 $ns $n"
-	done) >$suite/Release
-	cat $suite/Release-sha1 $suite/Release-sha2 >>$suite/Release
-	rm $suite/Release-sha1 $suite/Release-sha2
-	gpg -u $repo_keyid -sb --batch \
-	    --passphrase-file /etc/tarent/maven.kpw \
-	    <$suite/Release >$suite/Release.gpg
+	done) >$suite/Release-tmp
+	cat $suite/Release-sha1 $suite/Release-sha2 >>$suite/Release-tmp
+
+	gpg -u $repo_keyid --batch --passphrase-file /etc/tarent/maven.kpw \
+	    -sab <$suite/Release-tmp >$suite/Release-sig
+	gpg -u $repo_keyid --batch --passphrase-file /etc/tarent/maven.kpw \
+	    --clearsign <$suite/Release-tmp >$suite/Release-inl
+
+	mv -f $suite/Release-inl $suite/InRelease
+	mv -f $suite/Release-tmp $suite/Release
+	mv -f $suite/Release-sig $suite/Release.gpg
+	rm -f $suite/Release-*
 done
 
 print "\n===> Creating debidx.htm\n"
@@ -336,7 +342,7 @@ done
 EOF
 print -r -- " <title>${repo_title} Index</title>"
 cat <<'EOF'
- <meta name="generator" content="Evolvis shellsnippets git based on $Id: mvndebri.sh 2534 2011-11-24 16:35:54Z tglase $ based on $MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.51 2011/05/13 20:53:29 tg Exp $" />
+ <meta name="generator" content="Evolvis shellsnippets git based on $Id: mvndebri.sh 3150 2012-08-15 11:17:10Z tglase $ based on $MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.56 2012/08/02 21:01:39 tg Exp $" />
  <style type="text/css">
   table {
    border: 1px solid black;
