@@ -1,5 +1,4 @@
 #!/bin/sh
-# colourised wdiff(1)
-
+# $MirOS: contrib/hosted/tg/wcdiff,v 1.1 2012/09/01 19:07:12 tg Exp $
 exec wdiff -w '[4;34m⌦[0m[1;4;31m' -x '[0m[4;34m⌫[0m' \
     -y '[4;34m▶[0m[1;4;32m' -z '[0m[4;34m◀[0m' "$@"

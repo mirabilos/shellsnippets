@@ -1,7 +1,0 @@
-#!/bin/mksh
-# probably works with POSIX shell, tested only with mksh
-
-trap "" INT
-for a in "$@"; do
-	flac -d -c "$a" | waveplay -
-done
