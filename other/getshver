@@ -1,6 +1,6 @@
-# $MirOS: contrib/code/Snippets/getshver,v 1.11 2011/11/02 21:48:05 tg Exp $
+# $MirOS: contrib/code/Snippets/getshver,v 1.15 2012/09/23 15:50:16 tg Exp $
 #-
-# Copyright (c) 2009, 2010, 2011
+# Copyright (c) 2009, 2010, 2011, 2012
 #	Thorsten Glaser <tg@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -17,6 +17,9 @@
 # of dealing in the work, even if advised of the possibility of such
 # damage or existence of a defect, except proven that it results out
 # of said person's immediate fault when using the work as intended.
+#-
+# There's also this one (although mksh never sets $SH_VERSION):
+# http://www.in-ulm.de/~mascheck/various/whatshell/whatshell.sh.html
 
 # escape this from tclsh \
 set x = 1
@@ -64,6 +67,9 @@ exit 0
 '
 # ))) END of Tcl section
 
+LC_ALL=C
+export LC_ALL
+
 if test x"`echo u ^ echo x`" = x"x"; then
 	# Bourne shell, maybe Heirloom sh (tested)
 	echo bourne
@@ -78,6 +84,14 @@ fi
 
 case $ZSH_VERSION in
 *[0-9]*) echo "zsh $ZSH_VERSION"; exit 0 ;;
+esac
+
+case $VERSION in
+zsh*) printf "zsh-old $VERSION"; exit 0 ;;
+esac
+
+case $YASH_VERSION in
+*.*) echo "yash $YASH_VERSION"; exit 0 ;;
 esac
 
 case x$SHELL_VERSION in
@@ -117,8 +131,9 @@ if test x"$x" != x""; then
 	exit 0
 fi
 
-# mksh, mirbsdksh (pre-mksh), oksh (3.7+), pdksh
+# lksh, mksh, mirbsdksh (pre-mksh), oksh (3.7+), pdksh
 case $KSH_VERSION in
+*LEGACY\ KSH*) echo "mksh-legacy ${KSH_VERSION#*KSH }" ; exit 0 ;;
 *MIRBSD\ KSH*) echo "mksh ${KSH_VERSION#*KSH }" ; exit 0 ;;
 *PD\ KSH*MirOS*) echo "pdksh-mbsd${KSH_VERSION#*PD KSH}"; exit 0 ;;
 *PD\ KSH*)
@@ -129,6 +144,19 @@ case $KSH_VERSION in
 		# unspecified: Debian (modern), 5.2.14 (sorta modern),
 		# some older or vendor-modified version, old oksh
 		echo "pdksh ${KSH_VERSION#*KSH }"
+	fi
+	exit 0 ;;
+esac
+case $SH_VERSION in
+*PD\ KSH*MirOS*) echo "pdksh-binsh-mbsd${SH_VERSION#*PD KSH}"; exit 0 ;;
+*PD\ KSH*)
+	if test x"`typeset -i10 x=0x10 2>&-; echo $x`" = x"16"; then
+		# printing SH_VERSION here is rather useless though
+		echo "pdksh-binsh-obsd ${SH_VERSION#*KSH }"
+	else
+		# unspecified: Debian (modern), 5.2.14 (sorta modern),
+		# some older or vendor-modified version, old oksh
+		echo "pdksh-binsh ${SH_VERSION#*KSH }"
 	fi
 	exit 0 ;;
 esac
