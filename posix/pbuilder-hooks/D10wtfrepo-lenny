@@ -1,0 +1,45 @@
+#!/bin/sh
+# $MirOS: contrib/hosted/tg/deb/hookdir/D10wtfrepo-lenny,v 1.1 2012/06/23 16:27:18 tg Exp $
+#-
+# Not complicated enough for copyright.
+
+unset LANGUAGE
+LC_ALL=C; export LC_ALL
+
+apt-get --purge install -y --force-yes apt-transport-https
+
+apt-key add - <<'EOF'
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+Version: gpg
+
+mQENBEjCxooBCACytVdobmcvuc3u8QDORGDtocpl3siHq8w1tVLgvD5HyBZ7w3rv
+AQZYgm3tTxEVCMsAuj3aBJmWJvQdjfhl0lQEFilelEgQtA+Kbf5RnMVlElIALgJN
+Sx6g9tJDD+o2mpE83nFzk3V8qCyxu18TiZDnJOG9+xobzqpDoRJpmyhspLa7E8Io
+M2ZV5BHF6/i544UCOTlldHRAvSJIlxx4Rux9d2F1eC8aDbvIc1P4xqEFHPXJ3e3U
+xLtax87vYRmmCFnFJGE7YQvuoIKmkckpfcFcB9E2RIXajX3tvbgqybxv+cDxcO1f
+BbfKBiaKI+bKNtfjUs/FerH+rwl/COqELGUXABEBAAGJATcEHwECACEFAkjC1ZQX
+DIABkDGVXnqXpP2jKyuGdrU0sumQB+ACBwAACgkQ9+l06UBUIt2fqwf+Jz/c7xaG
+K5mGh+NHyQ/LXM20lAKMkt1VdLimKsIemOPeBpA9G/j183kuGRMvTy1GVgpI0rIX
+bxiJMff5TH+OBh5QhxiuIaNOmTK9WnFE1r3XM1POyBJgld0no9pO7gtBynQyIPmO
+AAPOSE9gpM4a+Xv+LcHMJLSWlQZ8SsZk2ccCRXvs9TGJsTmt+7l+LWCq9ixlUrm1
+UQcnOk2oq+UZsRMY47CnlSuD21uzQBDRtfdBjQOM4gC7iM2ioikSXxHmI+ctLooN
+efOurLf0OWv42CoQohQPgxY4D9KaMJQOcehwd/+Oo2p8RHIug9VA/8rQHrtdRHrq
+dYi42GvvPR6HVbRDVGhvcnN0ZW4gR2xhc2VyIChQYWNrYWdlIHNpZ25pbmcga2V5
+IGZvciB3dGYgZGVicykgPHRnQGZyZWV3cnQub3JnPokBOAQTAQIAIgIbAwIeAQIX
+gAQLCQQHAxUDCgMWAgAFAk5mYeIFCQlmAlMACgkQ9+l06UBUIt0wAQgAofuWIMu7
+mAj7SnpGUIMgL8E2xYaKOREZv7sk9Z/9PoHp8aQRhjVD/UWkkIiYMJffU/XtAZuu
+qAtRO13/7tYf4rd7fhXkVS0VI4LO5Mk2yfmJLxAm8dUeIlk3/pRk82wpt/226+Dg
+l7OZALhVSLJwHl9BEGknRBQES+VJhbEvKTW+w/KUC9TmmPIGLgjerivvSlq8FWzA
+qrFvXGi0zfP8GhSUNbf9P7FHe285l8t78sg16nZr6SyVR1YGCcGLzKLcqZKLCRrg
+wesy709LHPePJhX26DcvJVwk7GWzsl+0+btkNHTO6FXG9b0Cf/ffSIXiHVGYm/ix
+3ps4RepDTBCMgA==
+=z6WJ
+-----END PGP PUBLIC KEY BLOCK-----
+EOF
+
+cat >>/etc/apt/sources.list <<'EOF'
+deb https://www.freewrt.org/~tg/debs lenny wtf
+EOF
+
+apt-get update
+apt-get -y --purge dist-upgrade
