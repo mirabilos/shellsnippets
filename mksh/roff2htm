@@ -1,4 +1,4 @@
-# $MirOS: src/scripts/roff2htm,v 1.73 2012/07/01 16:04:30 tg Exp $
+# $MirOS: src/scripts/roff2htm,v 1.74 2012/09/27 18:03:10 tg Exp $
 # $ekkoBSD: catman2html.sh,v 1.2 2004/03/07 03:02:53 stephen Exp $
 #-
 # Copyright (c) 2004, 2005, 2006, 2007, 2011, 2012
@@ -113,7 +113,6 @@ s/\([0-9A-z][-.,0-9A-z:]*\)-\n\(  *\)\([0-9A-z][-.,0-9A-z:]*([1-9][A-z]*)\)\([^ 
 	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(\(PAPERS\))#<a href="../man\2/\1.htm">&</a>#g' \
 	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(GNU)#<a href="../manINFO/\1.html">&</a>#g' \
 	    -e 's#)\(</[biG]>\)\([- 0-9A-z]\)#\1)\2#g'			\
-	    -e 's#<a href="../man'${1:-0}'/#<a href="#g'		\
 									\
 	    -e 's/Á/\&#38;/g'						\
 	    -e 's/þ/\&#60;/g'						\
@@ -171,7 +170,6 @@ s/\([0-9A-z][-.,0-9A-z:]*\)-\n\(  *\)\([0-9A-z][-.,0-9A-z:]*([1-9][A-z]*)\)\([^ 
 	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(\(PAPERS\))#<a href="../man\2/\1.htm">&</a>#g' \
 	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(GNU)#<a href="../manINFO/\1.html">&</a>#g' \
 	    -e 's#)\(</[biG]>\)\([- 0-9A-z]\)#\1)\2#g'			\
-	    -e 's#<a href="../man'${1:-0}'/#<a href="#g'		\
 									\
 	    -e 's/Á/\&#38;/g'						\
 	    -e 's/þ/\&#60;/g'						\
@@ -265,7 +263,7 @@ function output_header {
 function output_footer {
 	print '
 <hr /><p style="font-size:xx-small;">Generated on' $roff2htm_gendate 'by
- <tt>$MirOS: src/scripts/roff2htm,v 1.73 2012/07/01 16:04:30 tg Exp $</tt></p>
+ <tt>$MirOS: src/scripts/roff2htm,v 1.74 2012/09/27 18:03:10 tg Exp $</tt></p>
 <p>These manual pages and other documentation are <a
  href="../man7/BSD-Licence.htm">copyrighted</a> by their respective writers;
  their source is available at our <a href="http://cvs.mirbsd.de/">CVSweb</a>,
