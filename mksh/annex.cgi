@@ -40,6 +40,7 @@ fi
 
 me=$(realpath "$0")
 cd $(dirname "$(dirname "$me")")
+basedir=$(realpath .)
 shift
 pi=$1
 
@@ -53,6 +54,11 @@ function e403 {
 	print Du kumms hier nisch rein!
 	exit 1
 }
+
+if [[ -n $pi ]]; then
+	i=$(realpath "$pi")
+	[[ -n $i && $i = "$basedir"/* ]] || e403
+fi
 
 [[ -e ${pi:-.} && -r ${pi:-.} ]] || e403
 
