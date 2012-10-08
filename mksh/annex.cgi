@@ -25,7 +25,8 @@ unset LANGUAGE
 [[ $1 = -s ]] || if [[ $REQUEST_METHOD = GET && $HTTPS = on && \
     -n $REMOTE_USER && $REMOTE_USER = "$AUTHENTICATE_UID" ]]; then
 	[[ $PATH_INFO = /* ]] && \
-	    exec sudo -u "$REMOTE_USER" "$(realpath "$0")" -s "$PATH_INFO"
+	    exec sudo -u "$REMOTE_USER" "$(realpath "$0")" -s "$PATH_INFO" \
+	    "$QUERY_STRING"
 	print Status: 301 Redirect
 	print Location: $SCRIPT_NAME/
 	print
@@ -43,6 +44,60 @@ cd $(dirname "$(dirname "$me")")
 basedir=$(realpath .)
 shift
 pi=$1
+QUERY_STRING=$2
+
+function qsdecode {
+	local _x=$1
+
+	_x=${_x//\\/\\\\}
+	print -- "${_x//[%]/\\x}"
+}
+
+function qsparse {
+	local _saveIFS _q _s _k _v
+
+	# no 'key=value' at all: make q be everything
+	if [[ $QUERY_STRING != *=* ]]; then
+		qs_q=$(qsdecode "$QUERY_STRING")
+		qskeys=(q)
+		return
+	fi
+
+	_saveIFS=$IFS
+	IFS=';&'
+	set -A _q -- $QUERY_STRING
+	IFS=$_saveIFS
+
+	set -A qskeys
+	for _s in "${_q[@]}"; do
+		# skip not 'key=value' parts
+		[[ $_s = *=* ]] || continue
+
+		_k=$(qsdecode "${_s%%=*}")
+		_v=$(qsdecode "${_s#*=}")
+
+		# limit keys to alphanumeric and underscore
+		# as they must fit as part of an mksh variable
+		[[ $_k = +([0-9A-Za-z_]) ]] || continue
+
+		# eval is evil, but… as long as we don’t have
+		# associative arrays in mksh… this works
+		eval qs_$_k=\$_v
+		qskeys+=("$_k")
+	done
+}
+
+function in_array {
+	nameref _arr=$1
+	local _val=$2 _x
+
+	for _x in "${_arr[@]}"; do
+		[[ $_x = "$_val" ]] && return 0
+	done
+	return 1
+}
+
+qsparse
 
 pi=${pi##*(/)}
 pi=${pi%%*(/)}
@@ -63,7 +118,12 @@ fi
 [[ -e ${pi:-.} && -r ${pi:-.} ]] || e403
 
 [[ -n $pi ]] && if [[ ! -d $pi ]]; then
-	print Content-type: $(file -biL "$pi")
+	if in_array qskeys type; then
+		ct=$qs_type
+	else
+		ct=$(file -biL "$pi")
+	fi
+	print -r Content-type: "$ct"
 	print
 	cat "$pi"
 	exit 0
@@ -129,7 +189,7 @@ else
 		else
 			sz=$(bc -q <<<$'scale=2\n'"$sz/1073741824") GiB
 		fi
-		print "<tr><td align=\"right\" style=\"width:20;\">$sz</td><td><a href=\"$(h "$i")\">$(h "$i")</a></td></tr>"
+		print "<tr><td align=\"right\" style=\"width:20;\">$sz</td><td><a href=\"$(h "$i")\">$(h "$i")</a> (<a href=\"$(h "$i")?type=application/octet-stream\">download</a>)</td></tr>"
 	done
 	print '</table>'
 fi
