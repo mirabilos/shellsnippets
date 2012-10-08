@@ -54,7 +54,7 @@ function qsdecode {
 }
 
 function qsparse {
-	local _saveIFS _q _s _k _v
+	local _saveIFS _q _s _k _v _a
 
 	# no 'key=value' at all: make q be everything
 	if [[ $QUERY_STRING != *=* ]]; then
@@ -76,14 +76,27 @@ function qsparse {
 		_k=$(qsdecode "${_s%%=*}")
 		_v=$(qsdecode "${_s#*=}")
 
+		if [[ $_k = *'[]' ]]; then
+			_a=1
+			_k=${_k%??}
+		else
+			_a=0
+		fi
+
 		# limit keys to alphanumeric and underscore
 		# as they must fit as part of an mksh variable
 		[[ $_k = +([0-9A-Za-z_]) ]] || continue
 
-		# eval is evil, but… as long as we don’t have
-		# associative arrays in mksh… this works
-		eval qs_$_k=\$_v
-		qskeys+=("$_k")
+		if (( _a )); then
+			in_array qskeys $_k || eval set -A qs_$k
+			nameref _A=qs_$_k
+			_A+=("$_v")
+		else
+			# eval is evil, but… as long as we don’t have
+			# associative arrays in mksh… this works
+			eval qs_$_k=\$_v
+		fi
+		in_array qskeys $_k || qskeys+=("$_k")
 	done
 }
 
