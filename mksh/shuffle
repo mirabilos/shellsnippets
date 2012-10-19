@@ -1,7 +1,7 @@
 #!/usr/bin/env mksh
-# $MirOS: contrib/code/Snippets/shuffle,v 1.6 2011/09/07 19:54:51 tg Exp $
+# $MirOS: contrib/code/Snippets/shuffle,v 1.7+urandom 2012/10/19 18:59:39 tg Exp $
 #-
-# Copyright © 2006, 2010, 2011
+# Copyright © 2006, 2010, 2011, 2012
 #	Thorsten “mirabilos” Glaser <tg@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -71,7 +71,7 @@ done
 (( ncmdline < 1 || nfiles < 1 )) && usage
 
 
-# arc4random(3) and arc4random_uniform(3) in Pure mksh™
+# arc4random(3) in Pure mksh™
 set -A seedbuf -- $(dd if=/dev/urandom bs=257 count=1 2>&- | \
     hexdump -ve '1/1 "0x%02X "')
 set -A rs_S
@@ -100,7 +100,7 @@ function arcfour_byte {
 	(( rs_S[rs_j] = si ))
 	(( rs_out = rs_S[(si + sj) & 0xFF] ))
 }
-(( n = 1024 + seedbuf[256] + (RANDOM & 0xFF) ))
+(( n = 256 * 12 + seedbuf[256] + (RANDOM & 0xFF) ))
 while (( n-- )); do
 	arcfour_byte
 done
@@ -125,6 +125,7 @@ function arc4random {
 	(( arc4random_rv |= rs_out << 24 ))
 }
 
+# arc4random_uniform(3) in Pure mksh™
 function arc4random_uniform {
 	# Derived from code written by Damien Miller <djm@openbsd.org>
 	# published under the ISC licence, with simplifications by
