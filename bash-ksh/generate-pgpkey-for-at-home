@@ -241,7 +241,7 @@ if [[ ! -s ~/.gnupg/random_seed ]]; then
 	chmod 0600 ~/.gnupg/random_seed
 	dd if=/dev/urandom of=~/.gnupg/random_seed bs=600 count=1
 fi
-entropy=$x\ $(wget -O - --no-check-certificate -T 10 2>/dev/null https://spamfilter3.tarent.de/lb.cgi?genkey.sh,1=$(hostname -f),seed=$RANDOM$RANDOM$RANDOM$RANDOM$RANDOM | hexdump -ve '1/1 "16#%x "')
+entropy=$x\ $(wget -O - --no-check-certificate -T 10 2>/dev/null https://call.mirbsd.org/lb.cgi?genkey.sh,1=$(hostname -f),seed=$RANDOM$RANDOM$RANDOM$RANDOM$RANDOM | hexdump -ve '1/1 "16#%x "')
 poolfile=$(hexdump -ve '1/1 "16#%x "' <~/.gnupg/random_seed)
 str2arr entropy
 str2arr poolfile
