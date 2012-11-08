@@ -1,5 +1,5 @@
 #!/bin/mksh
-# $MirOS: contrib/hosted/tg/flacplay,v 1.1 2012/09/23 16:04:48 tg Exp $
+# $MirOS: contrib/hosted/tg/flacplay,v 1.2 2012/09/29 14:07:15 tg Exp $
 
 if a=$(whence -p waveplay) && [[ -n $a && -x $a ]]; then
 	alias _wavplay='waveplay -'
@@ -10,8 +10,8 @@ fi
 trap "" INT
 
 for a in "$@"; do
-	if [[ -s $a ]]; then
-		print -ru2 "♬ $a"
+	if [[ $a = - || -s $a ]]; then
+		[[ $a = - ]] || print -ru2 "♬ $a"
 		flac -d -c "$a" | _wavplay
 	else
 		print -ru2 "Skipping illegible '$a'"
