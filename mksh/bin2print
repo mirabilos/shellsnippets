@@ -1,0 +1,61 @@
+#!/bin/mksh
+# $MirOS: contrib/hosted/tg/bin2print,v 1.1 2013/04/09 23:02:12 tg Exp $
+#-
+# Copyright © 2013
+#	Thorsten Glaser <tg@mirbsd.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# Converts stdin to an mksh print statement producing identical, NUL
+# safe, output for embedding (statement is not UTF-8 clean).
+
+set +U
+read -arN -1 line || exit 1
+typeset -Uui16 -Z5 hv
+typeset -i1 ch
+imax=${#line[*]}
+i=0
+s="print -n -- '"
+while (( i < imax )); do
+	hv=${line[i++]}
+	if (( hv == 92 )); then
+		s+='\\'
+	elif (( hv == 39 || hv == 126 )); then
+		s+='\x'${hv#16#}
+	elif (( hv > 31 )); then
+		let ch=hv
+		s+=${ch#1#}
+	elif (( !hv )); then
+		s+='\x00'
+	elif (( hv == 7 )); then
+		s+='\a'
+	elif (( hv == 8 )); then
+		s+='\b'
+	elif (( hv == 12 )); then
+		s+='\f'
+	elif (( hv == 10 )); then
+		s+='\n'
+	elif (( hv == 13 )); then
+		s+='\r'
+	elif (( hv == 9 )); then
+		s+='\t'
+	elif (( hv == 11 )); then
+		s+='\v'
+	else
+		s+='\x'${hv#16#}
+	fi
+done
+print -r -- "$s'" | sed 's/\\x00\([^0-9A-Fa-f]\)/\\0\1/g'
