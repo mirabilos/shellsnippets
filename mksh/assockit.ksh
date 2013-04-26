@@ -1,7 +1,9 @@
-# $MirOS: contrib/hosted/tg/assockit.ksh,v 1.2 2011/07/05 20:15:26 tg Exp $
+# $MirOS: contrib/hosted/tg/assockit.ksh,v 1.3 2013/04/26 16:10:20 tg Exp $
 #-
 # Copyright © 2011
-#	Thorsten Glaser <tg@mirbsd.org>
+#	Thorsten “mirabilos” Glaser <tg@mirbsd.org>
+# Copyright © 2013
+#	Thorsten Glaser <t.glaser@tarent.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission
@@ -152,14 +154,14 @@ function asso_loadv {
 # result is in the global variable asso_y
 function asso_loadk {
 	if (( $# < 1 )); then
-		print -u2 'assockit.ksh: syntax: asso_loadv key [key ...]'
+		print -u2 'assockit.ksh: syntax: asso_loadk key [key ...]'
 		return 2
 	fi
 
 	asso__lookup 0 "$@" || return 1
 	(( asso_f & ASSO_MASK_ARR )) || return 1
 	nameref _keys=${asso_b}${asso_k#16#}_k
-	set -A asso_y -- ${_keys[*]}
+	set -A asso_y -- "${_keys[@]}"
 }
 
 # set a string value
@@ -480,6 +482,7 @@ function asso__r_free {
 			local _ob=$asso_b _ok=$asso_k
 			asso_b=$asso_b${asso_k#16#}
 			nameref _s=${asso_b}_f
+			#XXX not "${!_s[@]}" since indicēs are numbers atm
 			for asso_k in ${!_s[*]}; do
 				asso__r_free
 			done
