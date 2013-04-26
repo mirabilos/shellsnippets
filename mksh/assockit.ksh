@@ -1,6 +1,6 @@
-# $MirOS: contrib/hosted/tg/assockit.ksh,v 1.3 2013/04/26 16:10:20 tg Exp $
+# $MirOS: contrib/hosted/tg/assockit.ksh,v 1.4 2013/04/26 17:20:33 tg Exp $
 #-
-# Copyright © 2011
+# Copyright © 2011, 2013
 #	Thorsten “mirabilos” Glaser <tg@mirbsd.org>
 # Copyright © 2013
 #	Thorsten Glaser <t.glaser@tarent.de>
@@ -482,8 +482,7 @@ function asso__r_free {
 			local _ob=$asso_b _ok=$asso_k
 			asso_b=$asso_b${asso_k#16#}
 			nameref _s=${asso_b}_f
-			#XXX not "${!_s[@]}" since indicēs are numbers atm
-			for asso_k in ${!_s[*]}; do
+			for asso_k in "${!_s[@]}"; do
 				asso__r_free
 			done
 			eval unset ${asso_b}_f ${asso_b}_k ${asso_b}_v
