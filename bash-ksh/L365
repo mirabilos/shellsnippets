@@ -1,5 +1,5 @@
 #!/bin/mksh
-# $MirOS: contrib/hosted/tg/L365,v 1.1 2012/07/29 17:48:01 tg Exp $
+# $MirOS: contrib/hosted/tg/L365,v 1.2 2012/08/23 17:39:59 tg Exp $
 #-
 # Player for music streams from live365.com (not affiliated).
 
@@ -11,7 +11,7 @@ PASSWD='my!secret!'
 
 # disabled as mpg123 with live365 is too unreliable (lack of caching)
 #if [[ $1 = -m ]]; then
-	player='mplayer -cache 256'
+	player='mplayer -cache 128'
 #	shift
 #else
 #	player=mpg123
