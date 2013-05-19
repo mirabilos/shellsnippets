@@ -1,0 +1,121 @@
+#!/bin/mksh
+# $MirOS: contrib/hosted/tg/ps2pdfmir,v 1.7 2010/07/31 23:11:15 tg Exp $
+#-
+# Copyright (c) 2009, 2010
+#	Thorsten Glaser <tg@mirbsd.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un-
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided "AS IS" and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person's immediate fault when using the work as intended.
+#-
+# Convert PostScript or PDF to PDF 1.3 (Acrobat 4-and-later compatible),
+# or, if the -a option is given, to something resembling PDF/A (PDF 1.4,
+# Acrobat 5-and-later compatible, ISO standardised).
+
+set -A args
+function addargs {
+	typeset _i
+
+	for _i in "$@"; do
+		args[${#args[*]}]=$_i
+	done
+}
+
+function usage {
+	print -u2 "Syntax:"
+	print -ru2 "	$0 [-a] [-p papersize] [-t title] infile [outfile]"
+	print -ru2 "	$0 [-a] [-p p.] [-t t.] -o outfile infile [...]"
+	print -ru2 "	$0 [-a] [-p p.] [-t t.] -c -o outfile pscommand [... -f infile ...]"
+	exit 1
+}
+
+pdfa=0
+icmd=0
+outfile=
+papersize=
+overtitle=
+while getopts "aco:p:t:" c; do
+	case $c {
+	(a)	pdfa=1 ;;
+	(c)	icmd=1 ;;
+	(o)	outfile=$OPTARG ;;
+	(p)	papersize=$OPTARG ;;
+	(t)	overtitle=$OPTARG ;;
+	(*)	usage ;;
+	}
+done
+shift $((OPTIND - 1))
+
+#XXX
+if [[ $overtitle = *@(\(|\))* ]]; then
+	print -u2 Cannot deal with parentheses in title.
+	exit 1
+fi
+
+if [[ -n $outfile ]]; then
+	(( $# )) || usage
+	infile=
+else
+	case $# {
+	(1)	infile=$1
+		if [[ -z $infile ]]; then
+			usage
+		elif [[ $infile = - ]]; then
+			outfile=-
+		else
+			outfile=${infile%.?(e)ps}.pdf
+		fi
+		;;
+	(2)	infile=$1
+		outfile=$2
+		[[ -z $infile || -z $outfile ]] && usage
+		;;
+	(*)	usage
+		;;
+	}
+fi
+
+r=${0%/*}
+[[ $r = $0 ]] && r=.
+r=$(realpath "$r")
+(( pdfa )) && addargs -I"$r"
+
+addargs -q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -sOutputFile="$outfile" \
+    -dSAFER -dCompatibilityLevel=1.3 -dSubsetFonts=true -dEmbedAllFonts=true
+[[ -n $papersize ]] && addargs -sPAPERSIZE="$papersize"
+
+if (( pdfa )); then
+	p=$r/sRGB_IEC61966-2-1_black_scaled.icc
+	d=$r/ps2pdfa.ps
+	if [[ ! -s $p || ! -s $d ]]; then
+		print -u2 "Cannot find definition and profile files:"
+		print -ru2 -- "- $d"
+		print -ru2 -- "- $p"
+		exit 1
+	fi
+	addargs -dNOOUTERSAVE -dPDFA -sProcessColorModel=DeviceCMYK \
+	    -c /ICCProfile "($p)" def -f "$d"
+fi
+
+addargs -c .setpdfwrite
+[[ -n $overtitle ]] && addargs '[' /Title "($overtitle)" /DOCINFO pdfmark
+
+if [[ -n $infile ]]; then
+	addargs -f "$infile"
+elif (( icmd )); then
+	addargs "$@"
+else
+	addargs -f "$@"
+fi
+exec gs "${args[@]}"

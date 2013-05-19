@@ -1,6 +1,6 @@
-.\" $MirOS: X11/extras/bdfctool/bdfctool.1,v 1.9 2012/09/01 21:15:29 tg Exp $
+.\" $MirOS: X11/extras/bdfctool/bdfctool.1,v 1.10 2013/05/17 21:51:40 tg Exp $
 .\"-
-.\" Copyright © 2012
+.\" Copyright © 2012, 2013
 .\"	Thorsten “mirabilos” Glaser <tg@mirbsd.org>
 .\"-
 .\" Try to make GNU groff and AT&T nroff more compatible
@@ -57,7 +57,7 @@
 .\" with -mandoc, it might implement .Mx itself, but we want to
 .\" use our own definition. And .Dd must come *first*, always.
 .\"
-.Dd $Mdocdate: September 1 2012 $
+.Dd $Mdocdate: May 17 2013 $
 .\"
 .\" Check which macro package we use, and do other -mdoc setup.
 .\"
@@ -144,6 +144,8 @@
 .Nm
 .Fl e
 .Op Fl a
+.Nm
+.Ic +e
 .Sh DESCRIPTION
 The
 .Nm
@@ -182,6 +184,9 @@ which uses U+3000 and U+4DC0 to represent unset and set bits,
 respectively, so they can be visually edited.
 This mode operates on glyphs and does not need to be passed the
 whole file, e.g. using \*(haK/ in the jupp text editor.
+.It Ic +e
+Revert selected glyphs from edit form back to compressed form
+.Pq without whole-file validation .
 .It Fl F
 Do a fast decompression with no error checking.
 Run this on files passed through

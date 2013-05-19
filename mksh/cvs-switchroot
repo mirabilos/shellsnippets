@@ -1,0 +1,99 @@
+#!/bin/mksh
+# $MirOS: contrib/hosted/tg/deb/cvs/debian/cvs-switchroot,v 1.1 2011/06/10 23:44:12 tg Exp $
+#-
+# Copyright © 2005, 2008, 2011
+#	Thorsten “mirabilos” Glaser <tg@mirbsd.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# Change CVSROOT of a checked out tree (and save space with it)
+# With option -T: change Tag instead of Root
+
+me=${0##*/}
+if [[ $1 = -T ]]; then
+	tagmode=-T
+	fn=Tag
+	shift
+else
+	tagmode=
+	fn=Root
+fi
+newroot=$1
+useroot=0
+if [[ $newroot = - ]]; then
+	shift
+	newroot=$(realpath "$1")
+	[[ -d $newroot ]] && if [[ -d $newroot/CVS ]]; then
+		newroot=$newroot/CVS/$fn
+	else
+		newroot=$newroot/$fn
+	fi
+	useroot=1
+fi
+if [[ -z $newroot || $newroot = -? ]]; then
+	print -u2 "Syntax: $me newroot [dir [...]]"
+	print -u2 "\t$me - .../CVS/Root [dir [...]]"
+	print -u2 "\t$me -T - .../CVS/Tag [dir [...]]"
+	exit 1
+fi
+shift
+
+[[ -z $1 ]] && set -- .
+
+# realpath(2)ise arguments
+set -A arg
+let i=0
+for name in "$@"; do
+	arg[i++]=$(realpath "$name")
+done
+
+if ! T="$(mktemp ${arg[0]}/$me.XXXXXXXXXX)"; then
+	print -u2 "$me: fatal: cannot mktemp"
+	exit 1
+fi
+
+if (( useroot )); then
+	rm -f "$T"
+	ln "$newroot" "$T" || cp "$newroot" "$T"
+fi
+
+trap 'rm -f "$T"; exit 0' 0
+trap 'rm -f "$T"; trap - EXIT; exit 1' 1 2 3 5 13 15
+
+if (( !useroot )); then
+	chmod 664 "$T"
+	print -r -- "$newroot" >"$T"
+fi
+
+let rv=0
+find "${arg[@]}" -path \*/CVS/$fn -print0 |&
+while IFS= read -d '' -pr name; do
+	if ! rm "$name"; then
+		print -u2 "$me: error: cannot rm <$name>"
+		exit 1
+	fi
+	ln -f "$T" "$name" || if ! U="$(mktemp ${arg[0]}/$me.XXXXXXXXXX)"; then
+		cp "$T" "$name"
+	elif cat "$T" >"$U" && ln -f "$U" "$name"; then
+		rm -f "$T"
+		T="$U"
+	else
+		rm -f "$U"
+		cp "$T" "$name"
+	fi
+done
+
+exit 0

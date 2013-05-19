@@ -1,0 +1,72 @@
+#!/bin/mksh
+# $MirOS: contrib/hosted/tg/verscmp,v 1.1 2013/01/03 22:15:00 tg Exp $
+#-
+# Copyright © 2013
+#	Thorsten Glaser <tg@mirbsd.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# Compare versions. Syntax: verscmp filea fileb
+# Files contain IFS-separated: name, version, ignored
+
+fa=$1; fb=$2
+[[ -n $fa && -s $fa && -n $fb && -s $fb ]] || exit 1
+
+py='# coding: utf-8'
+nl=$'\n'
+
+function pyadd {
+	local field=$1 file=$2 cola colb rest
+
+	py+=$nl"$field = {"
+	while read cola colb rest; do
+		py+=$nl"'''${cola//\\/\\\\}''': '''${colb//\\/\\\\}''',"
+	done <"$file"
+	py+=$nl"}"
+}
+
+pyadd sidea "$fa"
+pyadd sideb "$fb"
+
+py+=$nl"q = '\"'"
+py+='
+comb = {}
+ckeys = sidea.keys()
+ckeys.extend(sideb.keys())
+ckeys = set(ckeys)
+for k in ckeys:
+	comb[k] = [None, None]
+for k, v in sidea.iteritems():
+	comb[k][0] = v
+for k, v in sideb.iteritems():
+	comb[k][1] = v
+ckeys = list(ckeys)
+ckeys.sort()
+for k in ckeys:
+	va = comb[k][0]
+	vb = comb[k][1]
+	if va <> vb:
+		if va is None:
+			da = "None"
+		else:
+			da = q + va + q
+		if vb is None:
+			db = "None"
+		else:
+			db = q + vb + q
+		print k, da, db
+'
+python <<<"$py"

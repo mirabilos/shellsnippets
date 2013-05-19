@@ -1,7 +1,7 @@
 #!/bin/mksh
-rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.56 2012/08/02 21:01:39 tg Exp $'
+rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.58 2013/03/18 16:55:37 tg Exp $'
 #-
-# Copyright (c) 2008, 2009, 2010, 2011, 2012
+# Copyright (c) 2008, 2009, 2010, 2011, 2012, 2013
 #	Thorsten Glaser <tg@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -33,9 +33,9 @@ function repo_description {
 }
 
 
-set -A dpkgarchs -- alpha amd64 arm armel armhf avr32 hppa hurd-i386 i386 \
+set -A dpkgarchs -- alpha amd64 arm arm64 armel armhf hppa hurd-i386 i386 \
     ia64 kfreebsd-amd64 kfreebsd-i386 m68k mips mipsel powerpc powerpcspe \
-    ppc64 s390 s390x sh4 sparc sparc64
+    ppc64 s390 s390x sh4 sparc sparc64 x32
 
 function remsign {
 	target=$1; shift
@@ -227,6 +227,11 @@ for suite in dists/*; do
 	[[ $release_sign_inline = [01] ]] || release_sign_inline=0
 	[[ $release_sign_detached = [01] ]] || \
 	    (( release_sign_detached = release_sign_inline ? 0 : 1 ))
+
+	# Debian's fix for CVE-2013-1051 consists of disabling
+	# support for InRelease files altogether (WTF!)
+	release_sign_detached=1
+	release_sign_inline=0
 
 	(( release_sign_detached )) && $gpg_remote gpg -u $repo_keyid \
 	    -sab <$suite/Release-tmp >$suite/Release-sig
@@ -443,7 +448,7 @@ done
 EOF
 print -r -- " <title>${repo_title} Index</title>"
 cat <<'EOF'
- <meta name="generator" content="$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.56 2012/08/02 21:01:39 tg Exp $" />
+ <meta name="generator" content="$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.58 2013/03/18 16:55:37 tg Exp $" />
  <style type="text/css">
   table {
    border: 1px solid black;

@@ -1,11 +1,12 @@
 #!/bin/sh
-# $MirOS: contrib/hosted/tg/deb/hookdir/C80shell-joe,v 1.2 2012/01/03 16:57:18 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/C80shell-joe,v 1.3 2013/02/06 18:27:04 tg Exp $
 #-
 # Not complicated enough for copyright.
 
 unset LANGUAGE
 LC_ALL=C; export LC_ALL
 
+echo "I: Current time: $(date)"
 echo
 echo Build failed. Trying to invoke a shell.
 echo

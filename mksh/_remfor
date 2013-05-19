@@ -1,0 +1,11 @@
+#!/bin/mksh
+
+local _i _fm=$2 _h=$1
+shift; shift
+
+trap "" INT
+ssh "$_h" find "${_fm@Q}" -type f -print0 | sort -R "" | \
+    while IFS= read -r -d "" _i; do
+	print -r "◖${_i}◗"
+	ssh -n "$_h" cat "${_i@Q}" | "$@"
+done

@@ -1,7 +1,7 @@
 #!/bin/mksh
-rcsid='$MirOS: contrib/hosted/tg/deb/quinn-ls.sh,v 1.6 2011/11/11 20:24:02 tg Exp $'
+rcsid='$MirOS: contrib/hosted/tg/deb/quinn-ls.sh,v 1.12 2013/01/14 22:16:42 tg Exp $'
 #-
-# Copyright © 2011
+# Copyright © 2011, 2012, 2013
 #	Thorsten Glaser <tg@debian.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -19,13 +19,14 @@ rcsid='$MirOS: contrib/hosted/tg/deb/quinn-ls.sh,v 1.6 2011/11/11 20:24:02 tg Ex
 # damage or existence of a defect, except proven that it results out
 # of said person’s immediate fault when using the work as intended.
 
-gather=cwd
+gather=cwd fromfile=
 mydir=$(realpath "$(dirname "$0")")
 PATH="$mydir:$mydir/..:$PATH" . assockit.ksh
 
-while getopts "l" ch; do
+while getopts "L:l" ch; do
 	case $ch {
-	(l)	gather=installed ;;
+	(L)	gather=installed fromfile=$OPTARG ;;
+	(l)	gather=installed fromfile= ;;
 	(*)	exit 1 ;;
 	}
 done
@@ -63,6 +64,30 @@ function isdebver {
 
 	eval [[ \$1 = $epochglob$uvglob$dvglob ]]
 }
+
+# packages to never ask rmadison for
+asso_setv 1 nomadison arngc
+asso_setv 1 nomadison atari-bootstrap
+asso_setv 1 nomadison atari-fdisk
+asso_setv 1 nomadison ca-bundle
+asso_setv 1 nomadison defoma
+asso_setv 1 nomadison evolvis-anonsvnsh
+asso_setv 1 nomadison evolvis-meta
+asso_setv 1 nomadison m68k-gcc-defaults
+asso_setv 1 nomadison m68k-vme-tftplilo
+asso_setv 1 nomadison m68kboot
+asso_setv 1 nomadison mircpio
+asso_setv 1 nomadison mirhost
+asso_setv 1 nomadison mirmake
+asso_setv 1 nomadison mirsirc
+asso_setv 1 nomadison pbuilder-satisfydepends-dummy
+asso_setv 1 nomadison sbuild-build-depends-core-dummy
+asso_setv 1 nomadison ssfe
+asso_setv 1 nomadison vmelilo
+asso_setv 1 nomadison vmelilo-installer
+asso_setv 1 nomadison wtf
+asso_setv 1 nomadison wtf-debian-keyring
+asso_setv 1 nomadison xfree86
 
 i=0
 function do_gather {
@@ -110,7 +135,19 @@ if [[ $gather = cwd ]]; then
 		do_gather
 	done
 elif [[ $gather = installed ]]; then
-	dpkg-query -Wf '${Package} ${Version} ${Source} ${Package}\n' |&
+	if [[ -n $fromfile ]]; then
+		# e.g. from running the following command:
+		# chroot --userspec=65534:65534 /var/cache/pbuilder/build/cow.27937 \
+		#     /usr/bin/dpkg-query -Wf '${Package} ${Version} ${Source} ${Package}\n' \
+		#     >thefile
+		if [[ ! -s $fromfile ]]; then
+			print -u2 "Cannot read $fromfile."
+			exit 1
+		fi
+		cat "$fromfile"
+	else
+		dpkg-query -Wf '${Package} ${Version} ${Source} ${Package}\n'
+	fi |&
 	while read -p name Version Source x rest; do
 		if [[ $Source = *'('*')' ]]; then
 			# this is not customary…
@@ -131,6 +168,10 @@ fi
 
 print -u2 '\nrunning rmadison…'
 asso_loadk pkgs
+i=${#asso_y[*]}
+while (( i-- )); do
+	asso_isset nomadison "${asso_y[i]}" && unset asso_y[i]
+done
 rmadison -s sid "${asso_y[@]}" |&
 while read -pr pkg pipe vsn pipe sid pipe arches; do
 	#print -u2 "D: pkg<$pkg> vsn<$vsn> sid<$sid> arches<$arches>"
@@ -162,6 +203,11 @@ for type in bad bld ign; do
 	[[ -s $mydir/quinn-ls.$type ]] || continue
 	while read pkg vsn; do
 		[[ $pkg = '#'* ]] && continue
+		if [[ $pkg = *_* && -z $vsn ]]; then
+			# buildd syntax
+			vsn=${pkg#*_}
+			pkg=${pkg%%_*}
+		fi
 		if ! isdebpkg "$pkg"; then
 			print -ru2 "skipping invalid package '$pkg'," \
 			    override $type

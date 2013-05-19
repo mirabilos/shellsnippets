@@ -1,0 +1,58 @@
+#!/bin/mksh
+# $MirOS: contrib/code/Snippets/permute,v 1.4 2008/05/03 01:09:24 tg Exp $
+#-
+# Copyright (c) 2006
+#	Thorsten Glaser <tg@mirbsd.de>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un-
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided "AS IS" and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person's immediate fault when using the work as intended.
+#-
+# Achtung: dieses Skript gibt n! Zeilen (n = $#) aus! (n-Fakultät)
+
+function permute
+{
+	integer i=0
+	integer num
+
+	set -A all $*
+	num=${#all[*]}
+	if (( num == 2 )); then
+		print $1 $2
+		print $2 $1
+		return 0
+	fi
+	if (( num == 1 )); then
+		print $1
+		return 0
+	fi
+	while (( i < num )); do
+		local x= y sp=
+		integer j=0
+		while (( j < num )); do
+			if (( j == i )); then
+				y=${all[j]}
+			else
+				x=$x$sp${all[j]}
+				sp=" "
+			fi
+			let j++
+		done
+		permute $x | sed "s^$y "
+		let i++
+	done
+}
+
+(( $# > 0 )) || return 0
+permute $*

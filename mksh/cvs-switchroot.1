@@ -1,0 +1,78 @@
+.\" $MirOS: contrib/hosted/tg/deb/cvs/debian/cvs-switchroot.1,v 1.2 2011/06/24 16:16:06 tg Exp $
+.\"
+.Dd June 10, 2011
+.Dt CVS\-SWITCHROOT 1
+.Os
+.Sh NAME
+.Nm cvs\-switchroot
+.Nd change repository or tag in a cvs working copy
+.Sh SYNOPSIS
+.Nm
+.Op Fl T
+.Ar newroot
+.Op Ar
+.Pp
+.Nm
+.Op Fl T
+\-\&
+.Ar srcpath
+.Op Ar
+.Sh DESCRIPTION
+The
+.Nm
+utility manipulates a CVS working copy directly,
+modifying the information stored in the administrative
+subdirectory and saving space by hardlinking if possible.
+.Pp
+If the
+.Fl T
+option is given, the sticky tag is operated on,
+otherwise, the repository path
+.Pq Ev CVSROOT .
+.Pp
+The information (Tag or Root) is set to the same as in
+.Ar srcpath
+if the first non-option argument
+.Ar newroot
+is a sole dash
+.Pq Sq \-\& ,
+the literal value
+.Ar newroot
+otherwise.
+.Sh EXAMPLES
+Change all
+.Pa Root
+information in the current sandbox to 
+.Pa /cvs :
+.Bd -literal -offset ident
+$ cvs-switchroot /cvs .
+.Ed
+.Pp
+Set all roots in the current working directory and all
+its subdirectories to the
+.Pa Root
+of the parent directory:
+.Bd -literal -offset ident
+$ cvs-switchroot \- .. .
+.Ed
+.Pp
+Hardlink the
+.Pa Tag
+information in the current working directory, for example
+.Pa /usr/src ,
+and
+.Pa /usr/ports
+with each other:
+.Bd -literal -offset ident
+$ cvs-switchroot \-T \- . . /usr/ports
+.Ed
+.Sh SEE ALSO
+.Xr cvs 1
+.Sh HISTORY
+.Nm
+has existed in the MirBSD source tree since 2005.
+It was added to Debian's cvs package in 2011.
+.Sh CAVEATS
+.Nm
+depends on
+.Nm mksh .

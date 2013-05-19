@@ -1,0 +1,29 @@
+# $MirOS: contrib/hosted/tg/deb/dot.quiltrc,v 1.3 2012/12/01 14:08:31 tg Exp $
+
+while test -z "$QUILT_PATCHES" || test x"$QUILT_PATCHES" = x"-"; do
+	d=.
+	while :; do
+		test -d $d/debian && test -x $d/debian/rules && break
+		test x"$(/bin/readlink -e $d)" = x"/" && break
+		d=$d/..
+	done
+	test -x $d/debian/rules || break
+
+	# now in Debian packaging tree with unset $QUILT_PATCHES
+
+	QUILT_PATCHES="debian/patches"
+	QUILT_PATCH_OPTS="--reject-format=unified"
+	QUILT_DIFF_OPTS=""
+	test -n "$QUILTRC_NO_DIFF_P" || \
+	    QUILT_DIFF_OPTS="$QUILT_DIFF_OPTS --show-c-function"
+	QUILT_DIFF_ARGS="-p ab --no-timestamps --no-index --color=auto"
+	QUILT_REFRESH_ARGS="-p ab --no-timestamps --no-index"
+	QUILT_PUSH_ARGS="--color=auto"
+	QUILT_COLORS="diff_hdr=1;32:diff_add=1;34:diff_rem=1;31:diff_hunk=1;33:diff_ctx=35:diff_cctx=33"
+	test -d $d/debian/patches || mkdir $d/debian/patches
+
+	# this is not a real loop, exit it always
+	break
+done
+test x"$QUILT_PATCHES" = x"-" && QUILT_PATCHES=patches
+:

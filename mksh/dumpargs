@@ -1,7 +1,7 @@
 #!/bin/mksh
-# $MirOS: contrib/hosted/tg/getarticle,v 1.3 2012/11/20 19:52:38 tg Exp $
+# $MirOS: contrib/hosted/tg/dumpargs,v 1.2 2013/05/18 15:34:34 tg Exp $
 #-
-# Copyright © 2012
+# Copyright © 2013
 #	Thorsten Glaser <tg@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -19,17 +19,20 @@
 # damage or existence of a defect, except proven that it results out
 # of said person’s immediate fault when using the work as intended.
 #-
-# call this with one of:
-#	getarticle gmane.foo.bar 1234
-#	getarticle $message_id
-# ensure ~/mail/x can be a unix/mbox format mail folder we append to
+# Dump process environment to syslog.
 
-if (( $# == 2 )); then
-	printf 'mode reader\r\ngroup %s\r\narticle %d\r\nquit\r\n' "$1" "$2"
-elif [[ $1 = */+([0-9]) ]]; then
-	printf 'mode reader\r\ngroup %s\r\narticle %d\r\nquit\r\n' "${1%/*}" "${1##*/}"
-else
-	printf 'mode reader\r\narticle <%s>\r\nquit\r\n' "$1"
-fi | \
-    nc news.gmane.org 119 | sed -e $'s/\r$//' -e '1,/^[^0-9]/d' -e '/^\.$/,$d' | \
-    (date -u +'From MAILER-DAEMON %a %b %e %H:%M:%S %Y'; cat) >>~/mail/x
+{
+	{
+		typeset -p
+		print -n "args($#)"
+		i=-1
+		for x in "$0" "$@"; do
+			print -nr -- " $((++i)):${x@Q}"
+		done
+		print
+	} | /usr/bin/tee /dev/stderr | \
+	    /usr/bin/logger -p user.debug -t "dumpargs[$$]"
+} 2>&1 | {
+	print "=== dumpargs[$$] ==="
+	cat
+}

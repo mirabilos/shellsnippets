@@ -1,4 +1,4 @@
-# $MirOS: src/scripts/roff2htm,v 1.74 2012/09/27 18:03:10 tg Exp $
+# $MirOS: src/scripts/roff2htm,v 1.77 2013/01/01 20:49:09 tg Exp $
 # $ekkoBSD: catman2html.sh,v 1.2 2004/03/07 03:02:53 stephen Exp $
 #-
 # Copyright (c) 2004, 2005, 2006, 2007, 2011, 2012
@@ -74,6 +74,14 @@ function set_conversion_paper {
 }
 set_conversion_man
 
+function set_target_absolute {
+	roff2htm_rel=https://www.mirbsd.org/
+}
+function set_target_relative {
+	roff2htm_rel=../
+}
+set_target_relative
+
 function do_convert_man {
 	local -i _nl=0
 	col -x | sed							\
@@ -90,7 +98,7 @@ s/\([0-9A-z][-.,0-9A-z:]*\)-\n\(  *\)\([0-9A-z][-.,0-9A-z:]*([1-9][A-z]*)\)\([^ 
 	    -e 's#+_#Â±#g'						\
 									\
 	    -e 's#^[A-z][ 0-9A-z]*$#</pre><h2>&</h2><pre>#'		\
-	    -e 's#^  \([A-z][ ,0-9A-z]*\)$#</pre><h3>\1</h3><pre>#'	\
+	    -e 's#^  \([A-z][ -%'\''-;=?-~]*\)$#</pre><h3>\1</h3><pre>#'	\
 									\
 	    -e 's#\([^~<>€-¿][€-¿]*\)~#\1Ì…#g'				\
 	    -e 's#\([^]\)~_#\1_Ì… #g'					\
@@ -107,11 +115,11 @@ s/\([0-9A-z][-.,0-9A-z:]*\)-\n\(  *\)\([0-9A-z][-.,0-9A-z:]*([1-9][A-z]*)\)\([^ 
 	    -e 's#\([- 0-9A-z]\)\([$/_-]*\)\(<[biG]>\)#\1\3\2#g'	\
 	    -e 's#\(</[biG]>\)\([)$/_-]*\)\([- 0-9A-z]\)#\2\1\3#g'	\
 									\
-	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(\(3p\))#<a href="../man\2/\1.htm">&</a>#g' \
-	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(\([1-9]\)\(/[/0-9A-Za-z]*\)*)#<a href="../man\2/\1.htm">&</a>#g' \
-	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(\([PSU][MS][DM]\))#<a href="../man\2/\1.htm">&</a>#g' \
-	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(\(PAPERS\))#<a href="../man\2/\1.htm">&</a>#g' \
-	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(GNU)#<a href="../manINFO/\1.html">&</a>#g' \
+	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(\(3p\))#<a href="'$roff2htm_rel'man\2/\1.htm">&</a>#g' \
+	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(\([1-9]\)\(/[/0-9A-Za-z]*\)*)#<a href="'$roff2htm_rel'man\2/\1.htm">&</a>#g' \
+	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(\([PSU][MS][DM]\))#<a href="'$roff2htm_rel'man\2/\1.htm">&</a>#g' \
+	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(\(PAPERS\))#<a href="'$roff2htm_rel'man\2/\1.htm">&</a>#g' \
+	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(GNU)#<a href="'$roff2htm_rel'manINFO/\1.html">&</a>#g' \
 	    -e 's#)\(</[biG]>\)\([- 0-9A-z]\)#\1)\2#g'			\
 									\
 	    -e 's/Á/\&#38;/g'						\
@@ -165,10 +173,10 @@ s/\([0-9A-z][-.,0-9A-z:]*\)-\n\(  *\)\([0-9A-z][-.,0-9A-z:]*([1-9][A-z]*)\)\([^ 
 	    -e 's#\([- 0-9A-z]\)\([$/_-]*\)\(<[biG]>\)#\1\3\2#g'	\
 	    -e 's#\(</[biG]>\)\([)$/_-]*\)\([- 0-9A-z]\)#\2\1\3#g'	\
 									\
-	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(\([1-9]\)[/0-9A-Za-z]*)#<a href="../man\2/\1.htm">&</a>#g' \
-	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(\([PSU][MS][DM]\))#<a href="../man\2/\1.htm">&</a>#g' \
-	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(\(PAPERS\))#<a href="../man\2/\1.htm">&</a>#g' \
-	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(GNU)#<a href="../manINFO/\1.html">&</a>#g' \
+	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(\([1-9]\)[/0-9A-Za-z]*)#<a href="'$roff2htm_rel'man\2/\1.htm">&</a>#g' \
+	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(\([PSU][MS][DM]\))#<a href="'$roff2htm_rel'man\2/\1.htm">&</a>#g' \
+	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(\(PAPERS\))#<a href="'$roff2htm_rel'man\2/\1.htm">&</a>#g' \
+	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(GNU)#<a href="'$roff2htm_rel'manINFO/\1.html">&</a>#g' \
 	    -e 's#)\(</[biG]>\)\([- 0-9A-z]\)#\1)\2#g'			\
 									\
 	    -e 's/Á/\&#38;/g'						\
@@ -257,17 +265,17 @@ function output_header {
 	/* ]]> */
  </style>
 </head><body>
-<h1>MirOS Manual: <a href="../man'$2/$1'.htm">'$1\($2')</a></h1>'
+<h1>MirOS Manual: <a href="'$roff2htm_rel'man'$2/$1'.htm">'$1\($2')</a></h1>'
 }
 
 function output_footer {
 	print '
 <hr /><p style="font-size:xx-small;">Generated on' $roff2htm_gendate 'by
- <tt>$MirOS: src/scripts/roff2htm,v 1.74 2012/09/27 18:03:10 tg Exp $</tt></p>
+ <tt>$MirOS: src/scripts/roff2htm,v 1.77 2013/01/01 20:49:09 tg Exp $</tt></p>
 <p>These manual pages and other documentation are <a
- href="../man7/BSD-Licence.htm">copyrighted</a> by their respective writers;
+ href="'$roff2htm_rel'man7/BSD-Licence.htm">copyrighted</a> by their respective writers;
  their source is available at our <a href="http://cvs.mirbsd.de/">CVSweb</a>,
- AnonCVS, and other mirrors. The rest is Copyright Â© 2002â€’2011 <a
+ AnonCVS, and other mirrors. The rest is Copyright Â© 2002â€’2013 <a
  href="https://www.mirbsd.org/">The MirOS Project</a>, Germany.<br /><span
  style="font-size:3pt; font-style:italic;">This product includes material
  provided by Thorsten Glaser.</span></p>
@@ -308,7 +316,7 @@ function convert_page {
 		# patch in the additional name(s)
 		ed -s $2/$tn <<-EOF
 			/<title>/s#</title>#, $page($sect)&#
-			/<h1>/s#</h1>#, <a href="../$tn">$page($sect)</a>&#
+			/<h1>/s#</h1>#, <a href="$roff2htm_rel$tn">$page($sect)</a>&#
 			wq
 		EOF
 	else

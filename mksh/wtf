@@ -1,0 +1,154 @@
+#!/bin/mksh
+# $MirOS: src/usr.bin/wtf/wtf,v 1.20 2012/08/18 04:48:46 tg Exp $
+# $NetBSD: wtf,v 1.7 2000/11/21 00:18:52 soren Exp $
+#-
+# Copyright © 2002, 2003, 2004, 2006, 2007, 2008, 2010, 2011, 2012
+#	Thorsten “mirabilos” Glaser <tg@mirbsd.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+
+acronyms=${ACRONYMDB:-/usr/share/misc/acronyms}
+
+function usage {
+	print -u2 "usage: ${0##*/} [±adPpw] [-f dbfile] [is[t]] <acronym> [...]"
+	exit 1
+}
+
+use_acronyms=1
+use_dict=0
+use_ports=0
+use_whatis=1
+while getopts "adf:Ppt:w" ch; do
+	case $ch {
+	(+a)	use_acronyms=0 ;;
+	(a)	use_acronyms=1 ;;
+	(+d)	use_dict=0 ;;
+	(d)	use_dict=1 ;;
+	(f)	acronyms=$OPTARG ;;
+	(+P)	use_ports=0 ;;
+	(P)	use_ports=2 ;;
+	(+p)	use_ports=0 ;;
+	(p)	use_ports=1 ;;
+	(t)	;;
+	(+w)	use_whatis=0 ;;
+	(w)	use_whatis=1 ;;
+	(*)	usage ;;
+	}
+done
+shift $((OPTIND - 1))
+
+[[ $1 = is || $1 = ist ]] && shift
+(( $# < 1 )) && usage
+
+if (( use_ports )); then
+	if [[ -s /usr/ports/INDEX ]]; then
+		# MirPorts Framework, OpenBSD ports tree
+		binpkgs=ports
+		function ports_acquire_filtered {
+			while IFS='|' read a b c d e; do
+				[[ $a = *"$1"* ]] && \
+				    print -r -- "$a|${d%% \(uses*}"
+			done </usr/ports/INDEX
+		}
+		function ports_acquire_unfiltered {
+			while IFS='|' read a b c d e; do
+				[[ $a$d = *"$1"* ]] && \
+				    print -r -- "$a|${d%% \(uses*}"
+			done </usr/ports/INDEX
+		}
+	elif [[ -x $(whence -p yum) ]]; then
+		# Red Hat Yellowdog Updater Modified
+		binpkgs=RPMs
+		function ports_acquire_filtered {
+			yum search -q -- "$1" | \
+			    tr '\n' '' | sed 's/ *: / /g' | tr '' '\n' | \
+			    while read a b c; do
+				[[ $a = *"$1"* ]] && print -r -- "$a|$c"
+			done
+		}
+		function ports_acquire_unfiltered {
+			yum search -q -- "$1" | \
+			    tr '\n' '' | sed 's/ *: / /g' | tr '' '\n' | \
+			    while read a b c; do
+				print -r -- "$a|$c"
+			done
+		}
+	elif [[ -x $(whence -p apt-cache) ]]; then
+		# Debian Advanced Packaging Tool
+		binpkgs=packages
+		function ports_acquire_filtered {
+			apt-cache search -- "$1" | while read a b c; do
+				[[ $a = *"$1"* ]] && print -r -- "$a|$c"
+			done
+		}
+		function ports_acquire_unfiltered {
+			apt-cache search -- "$1" | while read a b c; do
+				print -r -- "$a|$c"
+			done
+		}
+	else
+		use_ports=0
+	fi
+	case $use_ports {
+	(1)	alias ports_acquire=ports_acquire_filtered ;;
+	(2)	alias ports_acquire=ports_acquire_unfiltered ;;
+	(*)	use_ports=0 ;;
+	}
+fi
+
+rv=0
+for target in "$@"; do
+	typeset -u tgsrch=$target
+	tgsrch=${tgsrch//ä/Ä}
+	tgsrch=${tgsrch//ö/Ö}
+	tgsrch=${tgsrch//ü/Ü}
+
+	if (( use_ports )); then
+		p=$(ports_acquire "$target")
+		if [[ -n $p ]]; then
+			print -r "  - $binpkgs matching “$target”:"
+			print -r -- "$p" | sort -u | column -ts'|'
+		fi
+	fi
+
+	if (( use_acronyms )); then
+		found=0
+		while IFS= read -r line; do
+			[[ $line = "$tgsrch	"* ]] || continue
+			(( found++ )) || print -r "   $tgsrch:"
+			print -r -- "${line#*	}"
+		done <"$acronyms"
+		if (( !found )); then
+			print -ru2 Gee… I don’t know what “"$tgsrch"” means…
+			(( rv |= 1 ))
+		fi
+	fi
+
+	(( use_dict || use_whatis )) && print "  - other information sources"
+
+	(( use_dict )) && if whence -p dict >&-; then
+		dict "$target" || (( rv |= 2 ))
+	else
+		(( rv |= 4 ))
+	fi
+
+	if (( use_whatis )); then
+		w=$(whatis "$target") || \
+		    w="Sorry, no entry for a “$target” manual page"
+		print -r -- "$w"
+	fi
+done
+exit $rv

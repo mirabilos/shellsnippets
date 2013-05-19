@@ -1,0 +1,194 @@
+#!/usr/bin/env mksh
+# $MirOS: contrib/code/Snippets/mpcabber,v 1.16 2009/12/01 19:28:45 tg Exp $
+#-
+# Copyright (c) 2008, 2009
+#	Thorsten Glaser <tg@mirbsd.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un-
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# mpg123-0.59r-MirPorts-6 to mcabber-0.9.7 FIFO gateway
+# mplayer and mppdec-static SV7 1.95e also work
+# Requires mksh R34 or above
+#
+# User Tunes strings are courtesy of Jonathan Schleifer (my personal
+# XEP to German gateway ☺)
+
+# Configuration
+integer usestate=1	# use Away Status
+integer usetunes=1	# use User Tunes (XEP #0118)
+
+
+x=0
+if [[ $KSH_VERSION = @(\@\(#\)MIRBSD KSH R)+([0-9])\ +([0-9])/+([0-9])/+([0-9])?(\ *) ]]; then
+	set -A x -- ${KSH_VERSION#* R}
+	(( x[0] < 39 )) && x=0
+	(( x[0] == 39 )) && [[ ${x[1]} < "2009/12/01" ]] && x=0
+fi
+(( x )) || { echo mksh too old; exit 1; }
+
+set -U
+set -A vistable -- [0xEF7F]=-1 \
+    0x20AC 0x278A 0x201A 0x0192 0x201E 0x2026 0x2020 0x2021 \
+    0x02C6 0x2030 0x0160 0x2039 0x0152 0x278B 0x017D 0x278C \
+    0x278D 0x2018 0x2019 0x201C 0x201D 0x2022 0x2013 0x2014 \
+    0x02DC 0x2122 0x0161 0x203A 0x0153 0x278E 0x017E 0x0178 \
+    0x00A0 0x00A1 0x00A2 0x00A3 0x00A4 0x00A5 0x00A6 0x00A7 \
+    0x00A8 0x00A9 0x00AA 0x00AB 0x00AC 0x00AD 0x00AE 0x00AF \
+    0x00B0 0x00B1 0x00B2 0x00B3 0x00B4 0x00B5 0x00B6 0x00B7 \
+    0x00B8 0x00B9 0x00BA 0x00BB 0x00BC 0x00BD 0x00BE 0x00BF \
+    0x00C0 0x00C1 0x00C2 0x00C3 0x00C4 0x00C5 0x00C6 0x00C7 \
+    0x00C8 0x00C9 0x00CA 0x00CB 0x00CC 0x00CD 0x00CE 0x00CF \
+    0x00D0 0x00D1 0x00D2 0x00D3 0x00D4 0x00D5 0x00D6 0x00D7 \
+    0x00D8 0x00D9 0x00DA 0x00DB 0x00DC 0x00DD 0x00DE 0x00DF \
+    0x00E0 0x00E1 0x00E2 0x00E3 0x00E4 0x00E5 0x00E6 0x00E7 \
+    0x00E8 0x00E9 0x00EA 0x00EB 0x00EC 0x00ED 0x00EE 0x00EF \
+    0x00F0 0x00F1 0x00F2 0x00F3 0x00F4 0x00F5 0x00F6 0x00F7 \
+    0x00F8 0x00F9 0x00FA 0x00FB 0x00FC 0x00FD 0x00FE 0x00FF
+typeset -i1 vistable
+function toutf8 {
+	local intext="$*" outtext=''
+	typeset -i i=0 n=${#intext}
+	typeset -i1 c
+	typeset -Uui16 -Z5 x
+
+	while (( i < n )); do
+		c=1#${intext:(i++):1}
+		if (( (c & 0xFF80) == 0xEF80 )); then
+			outtext=${outtext}${vistable[c]#1#}
+		elif (( c < 32 || c == 1#% )); then
+			let x=c
+			outtext=${outtext}%${x#16#}
+		elif (( c > 0x7E && c < 0xA0 )); then
+			outtext=${outtext}�
+		else
+			outtext=${outtext}${c#1#}
+		fi
+	done
+
+	print -nr -- "$outtext"
+}
+
+function settitle {
+	typeset title=$(toutf8 "$*")
+
+	# Debugging
+	#print -ru2 -- "setting title: $title"
+
+	if [[ -n $title ]]; then
+		titlemsg="♫ $title"
+		titlexml="<title>$(sed \
+		    -e "s/&/\&#38;/g" \
+		    -e "s/</\&#60;/g" \
+		    -e "s/>/\&#62;/g" \
+		    -e "s/'/\&#39;/g" \
+		    <<<"$title")</title>"
+	else
+		titlemsg=∅
+		titlexml=
+	fi
+
+	# Is mcabber running and listening on the FIFO?
+	[[ -p ~/.etc/mcabber/mcabber.fifo ]] || return
+
+	# Away Status
+	(( usestate )) && print -r -- "/status message $titlemsg" \
+	    >~/.etc/mcabber/mcabber.fifo
+
+	# Give the mcabber FIFO some rest, will ya?
+	if (( usestate && usetunes )); then
+		sleep 1
+		# Is mcabber _still_ running and listening on the FIFO?
+		[[ -p ~/.etc/mcabber/mcabber.fifo ]] || return
+	fi
+
+	# User Tunes
+	(( usetunes )) && print -r -- '/rawxml send <iq type="set"><pubsub' \
+	    'xmlns="http://jabber.org/protocol/pubsub"><publish' \
+	    'node="http://jabber.org/protocol/tune"><item id="0"><tune' \
+	    'xmlns="http://jabber.org/protocol/tune">'"${titlexml}</tune></item></publish></pubsub></iq>" \
+	    >~/.etc/mcabber/mcabber.fifo
+}
+
+
+integer rv gotintr=0
+curdir=
+
+trap 'gotintr=1' INT
+
+exec 3>&1
+exec 0>&3
+if [[ $1 = - ]]; then
+	shift
+	"$@" <&3 |&
+else
+	"$@" <&3 2>&1 |&
+fi
+subpid=$!
+
+while :; do
+	IFS= read -pr line
+	rv=$?
+	if (( gotintr )); then
+		gotintr=0
+		kill -INT $subpid
+		continue
+	fi
+	(( rv )) && break
+	print -r -- "$line"
+	case $line {
+	(@(ICY metadata:)*)
+		curdir=
+		title=${line/*StreamTitle=\'}
+		title=${title/@(\';StreamUrl=)*}
+		title=${title%%?(\');}
+		;;
+	(@(Directory: http://)*)
+		curdir=${line#Directory: }
+		continue
+		;;
+	(@(Playing MPEG stream from )*)
+		title=$(sed -e 's/^Playing MPEG stream from \(.*\) ...$/\1/' \
+		    <<<"$line")
+		[[ $title = $line ]] && continue	# sanity
+		[[ -n $curdir ]] && title=$curdir$title
+		curdir=
+		;;
+	(@(decoding of file )*)
+		title=${line##decoding of file ?(\')}
+		title=${title%\'}
+		curdir=
+		;;
+	(@(Playing )*.)
+		title=${line#Playing }
+		title=${title%.}
+		curdir=
+		;;
+	(*)
+		continue
+		;;
+	}
+	title=${title##+([	 ])}
+	title=${title##[Nn]?(ow )[Pp]?(laying):}
+	title=${title##+([	 ])}
+	title=${title%%+([	 ])}
+	[[ $title = *://* ]] || title=${title%%.@([Mm][Pp][234CcPp]|[Mm]4[Aa]|[Aa][Vv][Ii]|[Mm][Kk][Vv]|[Ff][Ll][Aa][Cc]|[Ff][Ll][Vv]|[Oo][Gg][Gg]|[Ww][Aa][Vv])}
+	title=${title%%+([	 ])}
+	[[ -n $title ]] || continue
+	settitle "$title" &
+done
+
+settitle # empty
+exit 0

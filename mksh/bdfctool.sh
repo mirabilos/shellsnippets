@@ -1,7 +1,7 @@
 #!/bin/mksh
-# $MirOS: X11/extras/bdfctool/bdfctool.sh,v 1.11 2012/09/01 19:00:01 tg Exp $
+# $MirOS: X11/extras/bdfctool/bdfctool.sh,v 1.12 2013/05/17 21:51:40 tg Exp $
 #-
-# Copyright © 2012
+# Copyright © 2012, 2013
 #	Thorsten Glaser <tg@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -27,7 +27,7 @@ while getopts "acdeFh" ch; do
 	case $ch {
 	(a) uascii=1 ;;
 	(+a) uascii=0 ;;
-	(c|d|e) mode=$ch ;;
+	(c|d|e|+e) mode=$ch ;;
 	(F) ufast=1 ;;
 	(+F) ufast=0 ;;
 	(h) mode=$ch ;;
@@ -39,7 +39,7 @@ shift $((OPTIND - 1))
 
 if [[ $mode = ?(h) ]] || [[ $mode != e && $uascii != -1 ]] || \
     [[ $mode != d && $ufast != 0 ]]; then
-	print -ru2 "Usage: ${0##*/} -c | -d [-F] | -e [-a]"
+	print -ru2 "Usage: ${0##*/} -c | -d [-F] | -e [-a] | +e"
 	[[ $mode = h ]]; exit $?
 fi
 
@@ -526,6 +526,56 @@ if [[ $mode = c ]]; then
 		print -r -- "$line"
 	done
 	print .
+	exit 0
+fi
+
+if [[ $mode = +e ]]; then
+	while IFS= read -r line; do
+		(( ++lno ))
+		if [[ $line = \' || $line = "' "* ]]; then
+			print -r -- "$line"
+			continue
+		fi
+		set -A f -- $line
+		if [[ ${f[0]} != [ce] ]]; then
+			print -ru2 "E: invalid line #$lno: '$line'"
+			exit 2
+		fi
+		if [[ ${f[1]} != [0-9A-F][0-9A-F][0-9A-F][0-9A-F] ]]; then
+			print -ru2 "E: invalid encoding '${f[1]}' at line $lno"
+			exit 2
+		fi
+		typeset -Uui16 -Z7 ch=16#${f[1]}
+		if (( ${#f[*]} < 4 || ${#f[*]} > 5 )); then
+			print -ru2 "E: invalid number of fields on line $lno" \
+			    "at U+${ch#16#}: ${#f[*]}: '$line'"
+			exit 2
+		fi
+		if (( f[2] < 1 || f[2] > 32 )); then
+			print -ru2 "E: width ${f[2]} not in 1‥32 at line $lno"
+			exit 2
+		fi
+		[[ ${f[4]} = "uni${ch#16#}" ]] && unset f[4]
+		if [[ ${f[0]} = e ]]; then
+			parse_bdfc_edit
+		else
+			if (( f[2] <= 8 )); then
+				x='+([0-9A-F][0-9A-F]:)'
+			elif (( f[2] <= 16 )); then
+				x='+([0-9A-F][0-9A-F][0-9A-F][0-9A-F]:)'
+			elif (( f[2] <= 24 )); then
+				x='+([0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F]:)'
+			else
+				x='+([0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F]:)'
+			fi
+			if eval [[ '${f[3]}:' != "$x" ]]; then
+				print -ru2 "E: invalid hex encoding for" \
+				    "U+${ch#16#}, line $lno: '${f[3]}'"
+				exit 2
+			fi
+		fi
+		print -r -- "${f[@]}"
+	done
 	exit 0
 fi
 
