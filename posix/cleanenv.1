@@ -1,0 +1,49 @@
+.\" $Id: cleanenv.1 3351+X11R6 2012-12-17 14:16:11Z tglase $
+.ds p. /bin:/usr/bin:/sbin:/usr/sbin:/usr/X11R6/bin
+.Dd September 25, 2012
+.Dt CLEANENV 1
+.Os
+.Sh NAME
+.Nm cleanenv
+.Nd run programs with cleaned-up environment
+.Sh SYNOPSIS
+.Nm
+.Op Fl
+.Op Ev Foo=bar ...
+.Ic utility
+.Op Ar ...
+.Sh DESCRIPTION
+The
+.Nm
+utility cleans the environment pointer, sets a few environment
+variables as well as those passed, and runs the program passed.
+With
+.Fl
+set, it cleans even more, i.e. anonymises: only
+.Ev HOME Ns = Ns Pa /
+and
+.Ev PATH Ns = Ns Pa \*(p.
+are set then, whereas normal operation keeps the user's
+.Ev HOME
+and additionally passes through
+.Ev LC_CTYPE ,
+.Ev DISPLAY ,
+.Ev TERM ,
+.Ev USER
+from the current environment; then,
+.Ev HOME
+defaults to
+.Pa /
+if not set in the current environment,
+.Ev TERM
+defaults to
+.Ic vt100 ,
+and the
+.Xr locale 1
+utility is used to determine the value of
+.Ev LC_CTYPE
+to set.
+.Sh SEE ALSO
+.Xr env 1
+.Sh AUTHORS
+.An Thorsten Glaser Aq tg@mirbsd.org

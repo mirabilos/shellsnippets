@@ -1,5 +1,5 @@
 #!/bin/sh
-# $MirOS: src/scripts/cleanenv,v 1.4 2009/03/29 13:04:20 tg Exp $
+# $MirOS: src/scripts/cleanenv,v 1.4+notz 2009/03/29 13:04:20 tg Exp $
 #-
 # Not complicated enough for copyright.
 
@@ -8,10 +8,10 @@ p=/bin:/usr/bin:/sbin:/usr/sbin:/usr/X11R6/bin
 if test x"$1" = x"-"; then
 	shift
 	exec /usr/bin/env -i \
-	    PATH=$p TZ=UTC HOME=/ \
+	    PATH=$p HOME=/ \
 	    "$@"
 fi
 exec /usr/bin/env -i \
-    PATH=$p TZ=UTC $(locale 2>/dev/null | fgrep LC_CTYPE) \
+    PATH=$p $(locale 2>/dev/null | fgrep LC_CTYPE) \
     DISPLAY="$DISPLAY" HOME="${HOME:-/}" TERM="${TERM:-vt100}" USER="${USER}" \
     "$@"
