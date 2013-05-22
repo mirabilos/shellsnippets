@@ -1,6 +1,6 @@
-# $Id: agents.sh 805 2010-01-04 15:35:33Z tglase $
+# $Id: agents.sh 3654 2013-05-22 12:22:54Z tglase $
 #-
-# Copyright © 2009
+# Copyright © 2009, 2012
 #	Thorsten Glaser <t.glaser@tarent.de>
 # Licenced under the AGPLv3
 #-
@@ -19,21 +19,21 @@ for PID_FILE in .gnupg/gpg.conf .gnupg/gpg-agent.conf .ssh/config; do
 	# + note the spaces at beginning and end of md5list! +
 	case $PID_FILE in
 	.gnupg/gpg.conf)
-		md5list=" 2b7d7e47afb59ec164cf0ab512bb4ddc c8b796ed85a79e458a564645dcf38281 d5c4f4335d1eab08bfc9afe7ab494801 e6af3b74078a49db14f2f79fa82b7d3a 1f5d00be735cd1b1a57960c0128d2368 e51c210618d7dbc93c63e456d4dd4af1 7dfefaad0f417b7f50da1d80f8f0759b "
+		_md5list=" 2b7d7e47afb59ec164cf0ab512bb4ddc c8b796ed85a79e458a564645dcf38281 d5c4f4335d1eab08bfc9afe7ab494801 e6af3b74078a49db14f2f79fa82b7d3a 1f5d00be735cd1b1a57960c0128d2368 e51c210618d7dbc93c63e456d4dd4af1 7dfefaad0f417b7f50da1d80f8f0759b 07826f04f9e3b700e0f45da360d25877 "
 		;;
 	.gnupg/gpg-agent.conf)
-		md5list=" e7e9b7940f07c3cb447b30da27914f8d "
+		_md5list=" e7e9b7940f07c3cb447b30da27914f8d "
 		;;
 	*)
-		md5list=
+		_md5list=
 		;;
 	esac
 
 	if test -s "$HOME/$PID_FILE"; then
-		md5=$( (fgrep -v '$Id' "$HOME/$PID_FILE" | md5sum) 2>&1 || \
+		_md5=$( (fgrep -v '$Id' "$HOME/$PID_FILE" | md5sum) 2>&1 || \
 		    echo fail)
-		case $md5list in
-		*\ ${md5%% *}\ *)
+		case $_md5list in
+		*\ ${_md5%% *}\ *)
 			# MD5 matches, remove file
 			rm -f "$HOME/$PID_FILE"
 			;;
@@ -48,6 +48,8 @@ for PID_FILE in .gnupg/gpg.conf .gnupg/gpg-agent.conf .ssh/config; do
 	cp /etc/skel/$PID_FILE "$HOME/$PID_FILE"
 	chmod 0600 "$HOME/$PID_FILE"
 done
+unset _md5
+unset _md5list
 
 PID_FILE="/dev/shm/.ssh-$USER_ID"
 test -n "$SSH_AGENT_PID" || test -z "$SSH_CONNECTION" || SSH_AGENT_PID=fwd
