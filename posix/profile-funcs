@@ -190,3 +190,9 @@ setenv() {
 	eval $1=\$2
 	eval export $1
 }
+
+# benchmark machine with python
+pystones() {
+	# default for $1 is 50000
+	${2:-python} -c "from test import pystone; pystone.main($1)"
+}

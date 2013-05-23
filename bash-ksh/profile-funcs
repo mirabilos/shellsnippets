@@ -1,0 +1,26 @@
+# Debian Bug Tracking System
+bts() {
+	if [[ $1 = +([0-9]) ]]; then
+		${BROWSER:-lynx} "http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=$1"
+	else
+		${BROWSER:-lynx} "http://bugs.debian.org/$*"
+	fi
+}
+# Debian Package Tracking System, QA, buildd logs Debian, buildd logs D-Ports
+pts() {
+	local p=${1%%_*} not_slash_bksls=$'[!/\t\n\f\r ]'
+
+	if [[ $p = src:* ]]; then
+		${BROWSER:-lynx} "http://packages.debian.org/source/sid/${p#src:}"
+	elif [[ $p = qa:lib${not_slash_bksls}${not_slash_bksls}* ]]; then
+		${BROWSER:-lynx} "http://packages.qa.debian.org/${p:3:4}/${p#qa:}.html"
+	elif [[ $p = qa:* ]]; then
+		${BROWSER:-lynx} "http://packages.qa.debian.org/${p:3:1}/${p#qa:}.html"
+	elif [[ $p = bd:* ]]; then
+		${BROWSER:-lynx} "https://buildd.debian.org/status/package.php?p=${p#bd:}"
+	elif [[ $p = bp:* ]]; then
+		${BROWSER:-lynx} "http://buildd.debian-ports.org/status/package.php?p=${p#bp:}"
+	else
+		${BROWSER:-lynx} "http://packages.debian.org/sid/$p"
+	fi
+}
