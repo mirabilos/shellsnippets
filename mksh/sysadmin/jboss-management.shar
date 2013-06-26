@@ -1,0 +1,301 @@
+# This is a shell archive.  Save it in a file, remove anything before
+# this line, and then unpack it by entering "sh file".  Note, it may
+# create directories; files and directories will be owned by you and
+# have default permissions.
+#
+# This archive contains:
+#
+#	jboss-management/jboss.sh
+#	jboss-management/taract.init
+#
+echo x - jboss-management/jboss.sh
+sed 's/^X//' >jboss-management/jboss.sh << 'END-of-jboss-management/jboss.sh'
+X#!/bin/mksh
+X#-
+X# tarent-activity JBoss startup script
+X# Copyright © 2013
+X#	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
+X#	Umer Kayani <u.kayani@tarent.de>
+X# All rights reserved.
+X#
+X# Licenced under the GNU AGPLv3.
+X
+X# Settings (paths replaced by the installer)
+XJBOSS_HOME='$INSTALL_PATH/bundles/jboss-7.1.1'
+XJBOSS_BIND_ADDRESS='$jboss.configureBindAddress'
+X
+X# Settings (to be adjusted by the local administrator if necessary)
+Xexport LC_ALL=de_DE.UTF-8
+X#export LC_ALL=en_GB.UTF-8
+X
+X# Initialisation code
+X
+Xjbin=$JBOSS_HOME/bin
+Xjlog=$JBOSS_HOME/standalone/log/server.log
+Xjpid=$JBOSS_HOME/standalone/log/jboss.pid
+Xjcli=$jbin/jboss-cli.sh
+X
+Xfunction usage {
+X	print 'Usage: ./jboss.sh [log | start | status | stop | trigger_start]'
+X	exit ${1:-1}
+X}
+X
+Xfunction do_trigger {
+X	local q=0 what=$1
+X	shift
+X
+X	if [[ $1 = -q ]]; then
+X		q=1
+X		shift
+X	fi
+X
+X	(( q )) || print Starting tarent-activity JBoss Application Server...
+X	(( q )) || print
+X	(( q )) || case $what {
+X	(t)
+X		print Server startup may take a while - \
+X		    check logfiles for completion.
+X		;;
+X	(*)
+X		print Server startup may take a while.
+X		;;
+X	}
+X	export LAUNCH_JBOSS_IN_BACKGROUND=1 JBOSS_PIDFILE=$jpid jbin
+X	rm -f "$jpid"	#XXX but the init script handles this
+X	mksh -T- -c "\"\$jbin\"/standalone.sh -b $JBOSS_BIND_ADDRESS"
+X	# wait for a maximum of five seconds until the PID file is created
+X	local i=0
+X	while (( ++i < 5 )); do
+X		sleep 1
+X		[[ -s $jpid ]] && break
+X	done
+X	[[ -s $jpid ]] && return 0
+X	(( q )) || print 'The JBoss standalone.sh failed to create a PID file in time.'
+X	(( q )) || print 'Startup execution inconclusive.'
+X	exit 1
+X}
+X
+Xfunction do_wait {
+X	local maxdelay=240 i=0 found=0 deploy deploys
+X	print -n "Waiting until fully deployed or $maxdelay seconds / CLI calls "
+X	while (( !found && (++i < maxdelay) )); do
+X		sleep 1
+X		print -n .
+X		deploys=$("$jbin"/jboss-cli.sh --connect \
+X		    --command='ls /deployment' 2>/dev/null)
+X		# require successful deployment of *all* jars
+X		found=1
+X		for deploy in activity-backend-ear.ear \
+X		    activity-portlets.war activity-theme.war; do
+X			[[ $deploys = *"$deploy"* ]] && continue
+X			found=0
+X			break
+X		done
+X	done
+X	if (( found )); then
+X		print \ done
+X		return 0
+X	fi
+X	print \ aborted!
+X	return 1
+X}
+X
+Xfunction do_stop {
+X	print Stopping tarent-activity JBoss Application Server...
+X	print
+X	"$jbin"/jboss-cli.sh --connect :shutdown
+X	# wait for 5..20 seconds
+X	local i=0
+X	while (( ++i < 5 )); do
+X		sleep 5
+X		[[ -s $jpid ]] || break
+X		kill $(<$jpid)
+X	done
+X	[[ -s $jpid ]] || return 0
+X	rm -f "$jpid"
+X	return 1
+X}
+X
+Xfunction do_status {
+X	local pid
+X
+X	if [[ ! -e $jpid ]]; then
+X		print PID file does not exist
+X		exit 1
+X	fi
+X	if [[ ! -s $jpid ]]; then
+X		print PID file is empty
+X		exit 1
+X	fi
+X	pid=$(<$jpid)
+X	if [[ $pid != +([0-9]) ]]; then
+X		print PID file does not contain the PID
+X		exit 1
+X	fi
+X	if ! kill -0 $pid; then
+X		print Process $pid not running
+X		rm -f "$jpid"
+X		exit 1
+X	fi
+X	print Process $pid running
+X	exit 0
+X}
+X
+Xfunction do_log {
+X	local lines
+X
+X	case $1 {
+X	(-n|--lines)
+X		lines=$2
+X		shift 2
+X		;;
+X	(--lines=*)
+X		lines=${1#*=}
+X		shift
+X		;;
+X	}
+X
+X	exec tail -F ${lines:+--lines=$lines} "$jlog"
+X}
+X
+Xcase $1 {
+X(-h|--help)
+X	usage 0
+X	;;
+X(log)
+X	shift
+X	do_log "$@"
+X	;;
+X(start)
+X	shift
+X	do_trigger s "$@"
+X	do_wait || exit 1
+X	;;
+X(status)
+X	do_status
+X	;;
+X(stop)
+X	do_stop || exit 1
+X	;;
+X(trigger_start)
+X	do_trigger t
+X	;;
+X(*)
+X	usage
+X	;;
+X}
+Xexit 0
+END-of-jboss-management/jboss.sh
+echo x - jboss-management/taract.init
+sed 's/^X//' >jboss-management/taract.init << 'END-of-jboss-management/taract.init'
+X#!/bin/sh
+X### BEGIN INIT INFO
+X# Provides:          taract
+X# Required-Start:    $local_fs $remote_fs $network $time postgresql networking
+X# Required-Stop:     $local_fs $remote_fs $network $time postgresql networking
+X# Should-Start:      $named mail-transport-agent ntp openntpd tarent-server
+X# Should-Stop:       $named mail-transport-agent ntp openntpd
+X# X-Start-Before:    apache2
+X# X-Stop-After:      apache2
+X# Default-Start:     2 3 4 5
+X# Default-Stop:      0 1 6
+X# Short-Description: tarent-activity
+X# Description:       Init script for JBoss/Liferay used by tarent-activity
+X### END INIT INFO
+X# Copyright © 2013
+X#	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
+X# All rights reserved.
+X#
+X# Licenced under the GNU AGPLv3.
+X
+X# Absolute basic settings
+XLC_ALL=C
+XPATH=/sbin:/usr/sbin:/bin:/usr/bin
+Xexport LC_ALL PATH
+X
+X# The following two lines are replaced by the taract installer:
+Xbasedir='$INSTALL_PATH'
+Xprtuser='$USER_NAME'
+X
+X# Internal functions
+Xis_running() {
+X	sudo -u "$prtuser" "$basedir/jboss.sh" status >/dev/null 2>&1
+X}
+X
+Xdo_start() {
+X	sudo -u "$prtuser" "$basedir/jboss.sh" start -q
+X}
+X
+Xdo_stop() {
+X	sudo -u "$prtuser" "$basedir/jboss.sh" stop >/dev/null 2>&1
+X}
+X
+X# Exit cleanly if tarent-activity or dependencies are removed but not purged:
+Xtest -x /bin/mksh || exit 0
+Xtest -x /usr/bin/which || exit 0
+Xfor dep in bash java sudo; do
+X	test -n "$(which $dep)" || exit 0
+X	test -x "$(which $dep)" || exit 0
+Xdone
+Xtest -x "$basedir/jboss.sh" || exit 0
+X
+X# Debian/LSB init script foobar
+XDESC='tarent-activity'
+XNAME=taract
+X. /lib/init/vars.sh
+X. /lib/lsb/init-functions
+X
+Xcase $1 in
+X(start)
+X	test x"$VERBOSE" = x"no" || log_daemon_msg "Starting $DESC" "$NAME"
+X	if is_running; then
+X		test x"$VERBOSE" = x"no" || log_end_msg 0
+X	elif test x"$VERBOSE" = x"no"; then
+X		do_start >/dev/null 2>&1
+X	elif echo && do_start; then
+X		log_end_msg 0
+X	else
+X		log_end_msg 1
+X	fi
+X	;;
+X(stop)
+X	test x"$VERBOSE" = x"no" || log_daemon_msg "Stopping $DESC" "$NAME"
+X	if is_running; then
+X		if do_stop; then
+X			test x"$VERBOSE" = x"no" || log_end_msg 0
+X		else
+X			test x"$VERBOSE" = x"no" || log_end_msg 1
+X		fi
+X	else
+X		test x"$VERBOSE" = x"no" || log_end_msg 0
+X	fi
+X	;;
+X(status)
+X	if is_running; then
+X		test x"$VERBOSE" = x"no" || log_success_msg "$DESC is running"
+X		exit 0
+X	else
+X		test x"$VERBOSE" = x"no" || log_success_msg "$DESC is not running"
+X		exit 3
+X	fi
+X	;;
+X(restart|force-reload)
+X	test x"$VERBOSE" = x"no" || log_daemon_msg "Restarting $DESC" "$NAME"
+X	if is_running && ! do_stop; then
+X		test x"$VERBOSE" = x"no" || log_end_msg 1
+X	elif test x"$VERBOSE" = x"no"; then
+X		do_start >/dev/null 2>&1
+X	elif echo && do_start; then
+X		log_end_msg 0
+X	else
+X		log_end_msg 1
+X	fi
+X	;;
+X(*)
+X	echo >&2 "Usage: /etc/init.d/taract {start|stop|status|restart|force-reload}"
+X	exit 3
+X	;;
+Xesac
+Xexit 0
+END-of-jboss-management/taract.init
+exit
