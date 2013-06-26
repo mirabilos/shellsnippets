@@ -20,6 +20,8 @@ pts() {
 		${BROWSER:-lynx} "https://buildd.debian.org/status/package.php?p=${p#bd:}"
 	elif [[ $p = bp:* ]]; then
 		${BROWSER:-lynx} "http://buildd.debian-ports.org/status/package.php?p=${p#bp:}"
+	elif [[ $p = f:* ]]; then
+		${BROWSER:-lynx} "http://packages.debian.org/search?searchon=contents&keywords=${p#f:}&mode=path&suite=unstable&arch=any"
 	else
 		${BROWSER:-lynx} "http://packages.debian.org/sid/$p"
 	fi
