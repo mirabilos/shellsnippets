@@ -1,0 +1,569 @@
+# This is a bigger CGI sample application.
+#-
+# This is a shell archive.  Save it in a file, remove anything before
+# this line, and then unpack it by entering "sh file".  Note, it may
+# create directories; files and directories will be owned by you and
+# have default permissions.
+#
+# This archive contains:
+#
+#	rechte-mock/.htaccess
+#	rechte-mock/addrole.cgi
+#	rechte-mock/common
+#	rechte-mock/grpimport.cgi
+#	rechte-mock/grprole.cgi
+#	rechte-mock/roleperm.cgi
+#	rechte-mock/se.cgi
+#
+echo x - rechte-mock/.htaccess
+sed 's/^X//' >rechte-mock/.htaccess << 'END-of-rechte-mock/.htaccess'
+X# $Id$
+X
+XOptions +ExecCGI
+XAddHandler cgi-script .cgi
+END-of-rechte-mock/.htaccess
+echo x - rechte-mock/addrole.cgi
+sed 's/^X//' >rechte-mock/addrole.cgi << 'END-of-rechte-mock/addrole.cgi'
+X#!/bin/mksh
+X# $Id$
+X#-
+X# Copyright © 2011, 2012
+X#	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
+X# Licenced under the AGPLv3
+X
+X. "$(dirname "$0")"/common
+X
+Xparse_getparms Submit name
+Xif [[ -n $parm_Submit && -n $parm_name ]]; then
+X	print 0 >data/roles/"$parm_name"
+X	html_open "Add Role"
+X	print "<p>Role $parm_name added successfully.</p>"
+X	html_close
+X	exit 0
+Xfi
+X
+Xhtml_open "Add Role"
+Xprint '<form method="get" action="addrole.cgi">'
+Xprint '<p>New role: <input type="text" name="name" size="20" /></p>'
+Xprint '<p><input type="submit" name="Submit" value="Rolle hinzufügen" /></p>'
+Xprint '</form>'
+Xprint '<p>Existierende Rollen:</p><ul>'
+Xcd data/roles
+Xfor i in *; do
+X	print -r " <li>$i</li>"
+Xdone
+Xprint '</ul>'
+Xhtml_close
+Xexit 0
+END-of-rechte-mock/addrole.cgi
+echo x - rechte-mock/common
+sed 's/^X//' >rechte-mock/common << 'END-of-rechte-mock/common'
+X# $Id$
+X#-
+X# Copyright © 2011, 2012
+X#	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
+X# Licenced under the AGPLv3
+X
+Xexport LC_ALL=C
+Xunset LANGUAGE
+X
+X# check for new enough mksh version
+X#set -A PIPESTATUS -- 23 42
+Xfalse | true | true
+Xset -A rv -- "${PIPESTATUS[@]}"
+Xif [[ ${#rv[*]} != 3 || ${rv[0]} != 1 || ${rv[1]} != 0 || ${rv[2]} != 0 ]]; then
+X	print -u2 need mksh R40
+X	exit 255
+Xfi
+X
+X# ensure cwd is right and data dirs exist
+Xcd "$(dirname "$0")"
+Xmkdir -p data/{roles,groups/{isactive,roles}}
+X
+X# Base64 encoder/decoder
+Xset -A Lb64encode_code -- A B C D E F G H I J K L M N O P Q R S T U V W X Y Z \
+X    a b c d e f g h i j k l m n o p q r s t u v w x y z 0 1 2 3 4 5 6 7 8 9 + /
+Xfunction b64encode {
+X	[[ -o utf8-mode ]]; local u=$?
+X	set +U
+X	local c s t
+X	if (( $# )); then
+X		read -raN-1 s <<<"$*"
+X		unset s[${#s[*]}-1]
+X	else
+X		read -raN-1 s
+X	fi
+X	local -i i=0 n=${#s[*]} j v
+X
+X	while (( i < n )); do
+X		(( v = s[i++] << 16 ))
+X		(( j = i < n ? s[i++] : 0 ))
+X		(( v |= j << 8 ))
+X		(( j = i < n ? s[i++] : 0 ))
+X		(( v |= j ))
+X		t+=${Lb64encode_code[v >> 18]}${Lb64encode_code[v >> 12 & 63]}
+X		c=${Lb64encode_code[v >> 6 & 63]}
+X		if (( i <= n )); then
+X			t+=$c${Lb64encode_code[v & 63]}
+X		elif (( i == n + 1 )); then
+X			t+=$c=
+X		else
+X			t+===
+X		fi
+X		if (( ${#t} == 76 || i >= n )); then
+X			print $t
+X			t=
+X		fi
+X	done
+X	(( u )) || set -U
+X}
+X
+Xfunction b64decode {
+X	typeset c s="$*" t=
+X	typeset -i i=0 n=${#s} p=0 v x
+X	typeset -i1 o
+X
+X	while (( i < n )); do
+X		c=${s:(i++):1}
+X		case $c {
+X		(=)	break ;;
+X		([A-Z])	(( v = 1#$c - 65 )) ;;
+X		([a-z])	(( v = 1#$c - 71 )) ;;
+X		([0-9])	(( v = 1#$c + 4 )) ;;
+X		(+)	v=62 ;;
+X		(/)	v=63 ;;
+X		(*)	continue ;;
+X		}
+X		(( x = (x << 6) | v ))
+X		case $((p++)) {
+X		(0)	continue ;;
+X		(1)	(( o = (x >> 4) & 255 )) ;;
+X		(2)	(( o = (x >> 2) & 255 )) ;;
+X		(3)	(( o = x & 255 ))
+X			p=0
+X			;;
+X		}
+X		t=$t${o#1#}
+X	done
+X	print -nr -- "$t"
+X}
+X
+X# make an LDAP request
+XLDAP_SERVER=dc-slave.lan.tarent.de
+Xfunction ldapshow {
+X	local rv
+X
+X	ldapsearch -xLLL -ZZ -h "$LDAP_SERVER" "$@" | \
+X	    tr '\n' $'\a' | sed -e $'s/\a //g' | tr $'\a' '\n'
+X	set -A rv -- "${PIPESTATUS[@]}"
+X	return ${rv[0]}
+X}
+X
+X# start and finish an HTML page
+Xfunction html_open {
+X	local title="$*"
+X
+X	cat <<EOF
+XContent-Type: text/html; charset=utf-8
+X
+X<?xml version="1.0"?>
+X<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+X "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+X<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en"><head>
+X <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+X <title>${title}</title>
+X</head><body>
+XEOF
+X}
+Xfunction html_close {
+X	print '</body></html>'
+X}
+X
+X# set of permission bits and their names
+Xset -A perm_bits -- \
+X    'Eigene Leistungen eintragen/ändern/löschen/umbuchen' \
+X    'Fremde Leistungen in einem Projekt sehen' \
+X    'Fremde Leistungen eines Bereichs sehen' \
+X    'Alle fremden Leistungen sehen' \
+X    'Fremde Leistungen löschen' \
+X    'Fremde Leistungen umbuchen' \
+X    'Fremde Leistungen importieren/exportieren' \
+X    'Eigene Überstunden eintragen/ändern/löschen' \
+X    'Fremde Überstunden in einem Projekt sehen' \
+X    'Fremde Überstunden in einem Projekt exportieren' \
+X    'Fremde Überstunden eines Bereichs sehen' \
+X    'Fremde Überstunden eines Bereichs exportieren' \
+X    'Alle fremden Überstunden sehen' \
+X    'Alle Überstunden eines Bereichs exportieren' \
+X    'Fremde Überstunden eintragen/löschen/abfeiern' \
+X    'Eigene Abwesenheiten beantragen/ändern/löschen' \
+X    'Abwesenheiten genehmigen' \
+X    'Fremde Abwesenheiten in einem Projekt sehen' \
+X    'Fremde Abwesenheiten eines Bereichs sehen' \
+X    'Alle fremden Abwesenheiten sehen' \
+X    'Alle fremden Abwesenheiten exportieren' \
+X    'Fremde Abwesenheiten löschen/ändern' \
+X    'Kunden anlegen/ändern/löschen' \
+X    'Projekte anlegen' \
+X    'Eigene Projekte ändern/löschen' \
+X    'Projekte eines Bereichs ändern/löschen' \
+X    'Alle Projekte ändern/löschen' \
+X    'Eigene Projekte sehen' \
+X    'Projekte eines Bereichs sehen' \
+X    'Alle Projekte sehen' \
+X    'Aufträge anlegen' \
+X    'Eigene Aufträge ändern/löschen' \
+X    'Aufträge eines Bereichs ändern/löschen' \
+X    'Alle Aufträge ändern/löschen' \
+X    'Eigene Aufträge sehen' \
+X    'Aufträge eines Bereichs sehen' \
+X    'Alle Aufträge sehen' \
+X    'Rechnungen zu Aufträgen sehen' \
+X    'Positionen anlegen' \
+X    'Eigene Positionen ändern/löschen' \
+X    'Positionen eines Bereichs ändern/löschen' \
+X    'Alle Positionen ändern löschen' \
+X    'Eigene Positionen sehen' \
+X    'Positionen eines Bereichs sehen' \
+X    'Alle Positionen sehen' \
+X    'Ressourcen zu Positionen hinzufügen/löschen' \
+X    'Ressourcen anlegen/bearbeiten/sperren/löschen' \
+X    'Ressourcen einsehen' \
+X    'Ressourcen Rechte zuteilen' \
+X    'Auftragsrechnungen einstellen/bearbeiten/löschen' \
+X    'Auftragsrechnungen sehen' \
+X    'Projektrechnungen einstellen/bearbeiten/löschen' \
+X    'Projektrechnungen sehen' \
+X    'activity Einstellungen ändern' \
+X# add only here; the keys are indicēs
+X
+X# parse query string
+Xfunction parse_getparms {
+X	local saveIFS flds fld cfld k v
+X
+X	saveIFS=$IFS
+X	IFS='&;'
+X	set -A flds -- $QUERY_STRING
+X	IFS=$saveIFS
+X
+X	for cfld in "$@"; do
+X		eval parm_$cfld=
+X	done
+X
+X	for fld in "${flds[@]}"; do
+X		k=${fld%%=*}
+X		v=${fld#*=}
+X		for cfld in "$@"; do
+X			[[ $k = "$cfld" ]] || continue
+X			eval parm_$cfld=\$v
+X			break
+X		done
+X	done
+X}
+END-of-rechte-mock/common
+echo x - rechte-mock/grpimport.cgi
+sed 's/^X//' >rechte-mock/grpimport.cgi << 'END-of-rechte-mock/grpimport.cgi'
+X#!/bin/mksh
+X# $Id$
+X#-
+X# Copyright © 2011, 2012
+X#	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
+X# Licenced under the AGPLv3
+X
+X. "$(dirname "$0")"/common
+X
+Xcurcn=
+Xldapshow -b cn=groups,dc=tarent,dc=de objectClass=posixGroup cn | \
+X    while read key value; do
+X	case $key {
+X	(cn:)	curcn=$value ;;
+X	(cn::)	curcn=$(b64decode "$value") ;;
+X	}
+X
+X	# ignore unknown lines / keys
+X	[[ -z $key ]] || continue
+X	# empty lines separate records
+X
+X	if [[ -n $curcn ]]; then
+X		[[ $curcn = */* ]] || print -r -- "$curcn"
+X	fi
+X	curcn=
+Xdone | sort -fu |&
+XIFS=$'\n' read -p -A -N-1 all_ldap_groups
+Xall_ldap_groups_=${#all_ldap_groups[*]}
+X
+Xset -A all_ldap_groups_enabledp
+X
+X#QUERY_STRING='grp%5B%5D=Administrators&grp%5B%5D=Controller&Submit=Gruppen+freischalten'
+Xparse_getparms Submit
+Xif [[ -n $parm_Submit ]]; then
+X	saveIFS=$IFS
+X	IFS='&;'
+X	set -A flds -- $QUERY_STRING
+X	IFS=$saveIFS
+X
+X	for fld in "${flds[@]}"; do
+X		k=${fld%%=*}
+X		[[ $k = 'grp%5B%5D' || $k = 'grp%5b%5d' || $k = 'grp[]' ]] || continue
+X		v=${fld#*=}
+X		v=${v//+/ }
+X		i=-1
+X		while (( ++i < all_ldap_groups_ )); do
+X			[[ ${all_ldap_groups[i]} = "$v" ]] || continue
+X			all_ldap_groups_enabledp[i]=1
+X			break
+X		done
+X	done
+X
+X	i=-1
+X	while (( ++i < all_ldap_groups_ )); do
+X		n=${all_ldap_groups[i]}
+X		x=0
+X		[[ ${all_ldap_groups_enabledp[i]} = 1 ]] && x=1
+X		print $x >data/groups/isactive/"$n"
+X	done
+Xfi
+X
+Xset -A all_ldap_groups_enabledp
+X
+Xi=-1
+Xwhile (( ++i < all_ldap_groups_ )); do
+X	n=${all_ldap_groups[i]}
+X	x=0
+X	[[ -s data/groups/isactive/$n && \
+X	    "$(<data/groups/isactive/$n)" = *1* ]] && x=1
+X	all_ldap_groups_enabledp[i]=$x
+Xdone
+X
+Xhtml_open "Import LDAP groups"
+Xprint '<form method="get" action="grpimport.cgi">'
+Xprint '<div><table border="1">'
+Xprint '<tr><th width="10em">Import?</th><th>Group Common Name</th></tr>'
+Xi=-1
+Xwhile (( ++i < all_ldap_groups_ )); do
+X	n=${all_ldap_groups[i]}
+X	x=${all_ldap_groups_enabledp[i]}
+X	print -n '<td><input type="checkbox" name="grp[]" value="'"$n"\"
+X	(( x )) && print -n ' checked="checked"'
+X	print " /></td><td>$n</td></tr>"
+Xdone
+Xprint '</table></div><div>'
+Xprint '<p><input type="submit" name="Submit" value="Gruppen freischalten" /></p>'
+Xprint '</div></form>'
+Xhtml_close
+Xexit 0
+END-of-rechte-mock/grpimport.cgi
+echo x - rechte-mock/grprole.cgi
+sed 's/^X//' >rechte-mock/grprole.cgi << 'END-of-rechte-mock/grprole.cgi'
+X#!/bin/mksh
+X# $Id$
+X#-
+X# Copyright © 2011, 2012
+X#	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
+X# Licenced under the AGPLv3
+X
+X. "$(dirname "$0")"/common
+X
+X(cd data/groups/isactive; for n in *; do
+X	[[ $(<$n) = *1* ]] && print -r -- "$n"
+Xdone) |&
+XIFS=$'\n' read -p -A -N-1 ldap_groups
+X
+X(cd data/roles; for n in *; do
+X	[[ -s $n ]] && print -r -- "$n"
+Xdone) |&
+XIFS=$'\n' read -p -A -N-1 roles
+X
+Xparse_getparms Submit
+Xif [[ -n $parm_Submit ]]; then
+X	saveIFS=$IFS
+X	IFS='&;'
+X	set -A flds -- $QUERY_STRING
+X	IFS=$saveIFS
+X
+X	rm -rf data/groups/roles
+X	for n in "${ldap_groups[@]}"; do
+X		mkdir -p data/groups/roles/"$n"
+X	done
+X
+X	for fld in "${flds[@]}"; do
+X		k=${fld%%=*}
+X		[[ $k = 'gr%5B%5D' || $k = 'gr%5b%5d' || $k = 'gr[]' ]] || continue
+X		v=${fld#*=}
+X		v=${v//+/ }
+X		v=${v//\\/\\\\}
+X		v=${v//[%]/\\x}
+X		v=$(print -- "$v")
+X		va=${v%/*}
+X		vb=${v#*/}
+X		[[ -d data/groups/roles/"$va"/. ]] || continue
+X		for r in "${roles[@]}"; do
+X			[[ $r = "$vb" ]] || continue
+X			:>data/groups/roles/"$v"
+X			break
+X		done
+X	done
+Xfi
+X
+Xhtml_open "Assign Roles to Groups"
+Xprint '<form method="get" action="grprole.cgi">'
+Xprint '<div><table border="1">'
+Xprint '<tr>'
+Xprint ' <th align="right">Group \ Role</th>'
+Xfor r in "${roles[@]}"; do
+X	print " <th>$r</th>"
+Xdone
+Xprint '</tr>'
+Xfor n in "${ldap_groups[@]}"; do
+X	mkdir -p data/groups/roles/"$n"
+X	print '<tr>'
+X	print " <th align=\"right\">$n</th>"
+X	for r in "${roles[@]}"; do
+X		print -n ' <td><input type="checkbox" name="gr[]" value="'"$n/$r"\"
+X		[[ -e data/groups/roles/$n/$r ]] && print -n ' checked="checked"'
+X		print " /></td>"
+X	done
+X	print '</tr>'
+Xdone
+Xprint '</table></div><div>'
+Xprint '<p><input type="submit" name="Submit" value="Rollen zuweisen" /></p>'
+Xprint '</div></form>'
+Xhtml_close
+Xexit 0
+END-of-rechte-mock/grprole.cgi
+echo x - rechte-mock/roleperm.cgi
+sed 's/^X//' >rechte-mock/roleperm.cgi << 'END-of-rechte-mock/roleperm.cgi'
+X#!/bin/mksh
+X# $Id$
+X#-
+X# Copyright © 2011, 2012
+X#	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
+X# Licenced under the AGPLv3
+X
+X. "$(dirname "$0")"/common
+X
+X(cd data/roles; for n in *; do
+X	[[ -s $n ]] && print -r -- "$n"
+Xdone) |&
+XIFS=$'\n' read -p -A -N-1 roles
+X
+Xparse_getparms Submit
+Xif [[ -n $parm_Submit ]]; then
+X	saveIFS=$IFS
+X	IFS='&;'
+X	set -A flds -- $QUERY_STRING
+X	IFS=$saveIFS
+X
+X	allnull=
+X	j=-1
+X	while (( ++j < ${#perm_bits[*]} )); do
+X		allnull+=' 0'
+X	done
+X
+X	j=-1
+X	for r in "${roles[@]}"; do
+X		u=role_bits_$((++j))
+X		eval set -A $u $allnull
+X	done
+X
+X	for fld in "${flds[@]}"; do
+X		k=${fld%%=*}
+X		[[ $k = 'rp%5B%5D' || $k = 'rp%5b%5d' || $k = 'rp[]' ]] || continue
+X		v=${fld#*=}
+X		v=${v//+/ }
+X		v=${v//\\/\\\\}
+X		v=${v//[%]/\\x}
+X		v=$(print -- "$v")
+X		va=${v%,*}
+X		vb=${v#*,}
+X		[[ $va = +([0-9]) ]] || continue
+X		(( va < 0 || va >= ${#perm_bits[*]} )) && continue
+X		j=-1
+X		for r in "${roles[@]}"; do
+X			u=role_bits_$((++j))
+X			[[ $r = "$vb" ]] || continue
+X			eval $u'[va]=1'
+X			break
+X		done
+X	done
+X
+X	j=-1
+X	for r in "${roles[@]}"; do
+X		u=role_bits_$((++j))
+X		eval 'print ${'$u'[*]} >data/roles/"$r"'
+X	done
+Xfi
+X
+Xi=-1
+Xfor n in "${perm_bits[@]}"; do
+X	v=role_perm_$((++i))
+X	eval set -A $v
+X	j=0
+X	for r in "${roles[@]}"; do
+X		set -A cur_perms -- $(<data/roles/$r)
+X		w=0
+X		[[ ${cur_perms[i]} = *1* ]] && w=1
+X		eval $v'[j++]=$w'
+X	done
+Xdone
+X
+Xhtml_open "Assign Permissions to Roles"
+Xprint '<form method="get" action="roleperm.cgi">'
+Xprint '<div><table border="1">'
+Xprint '<tr>'
+Xprint ' <th align="right">Permission \ Role</th>'
+Xfor r in "${roles[@]}"; do
+X	print " <th>$r</th>"
+Xdone
+Xprint '</tr>'
+Xi=-1
+Xfor n in "${perm_bits[@]}"; do
+X	v=role_perm_$((++i))
+X	print '<tr>'
+X	print " <th align=\"right\">$n</th>"
+X	j=0
+X	for r in "${roles[@]}"; do
+X		print -n ' <td><input type="checkbox" name="rp[]" value="'"$i,$r"\"
+X		eval w='${'$v'[j++]}'
+X		(( w )) && print -n ' checked="checked"'
+X		print " /></td>"
+X	done
+X	print '</tr>'
+Xdone
+Xprint '</table></div><div>'
+Xprint '<p><input type="submit" name="Submit" value="Rechte an Rollen zuweisen" /></p>'
+Xprint '</div></form>'
+Xhtml_close
+Xexit 0
+END-of-rechte-mock/roleperm.cgi
+echo x - rechte-mock/se.cgi
+sed 's/^X//' >rechte-mock/se.cgi << 'END-of-rechte-mock/se.cgi'
+X#!/bin/mksh
+X# $Id$
+X#-
+X# Copyright © Thorsten Glaser, taken from MirBSD with permission.
+X
+Xvars=$(set)
+X#set -A args -- "$0" "$@"
+X#opts=$(set -o)
+X#set -o arc4random
+Xprint Content-type: text/plain
+X#print Entropy: $RANDOM
+Xprint
+Xinteger i=0
+Xwhile (( i < ${#args[*]} )); do
+X	print -r "ARGV[$i]=${args[i]}"
+X	let i++
+Xdone
+Xprint -r -- "$vars"
+Xprint -- ------------------------------------------------------------------------------
+X#print -r -- "$opts"
+X#print -- ------------------------------------------------------------------------------
+Xif [[ $REQUEST_METHOD = POST ]]; then
+X	cat
+X	print
+X	print -- ------------------------------------------------------------------------------
+Xfi
+Xexit 0
+END-of-rechte-mock/se.cgi
+exit
