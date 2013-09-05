@@ -8,11 +8,12 @@
 #	jboss-management/jboss.sh
 #	jboss-management/taract.init
 #
+mkdir jboss-management
 echo x - jboss-management/jboss.sh
 sed 's/^X//' >jboss-management/jboss.sh << 'END-of-jboss-management/jboss.sh'
 X#!/bin/mksh
 X#-
-X# tarent-activity JBoss startup script
+X# tarent-activity WildFly startup script
 X# Copyright © 2013
 X#	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
 X#	Umer Kayani <u.kayani@tarent.de>
@@ -49,7 +50,7 @@ X		q=1
 X		shift
 X	fi
 X
-X	(( q )) || print Starting tarent-activity JBoss Application Server...
+X	(( q )) || print Starting tarent-activity WildFly Application Server...
 X	(( q )) || print
 X	(( q )) || case $what {
 X	(t)
@@ -61,6 +62,7 @@ X		print Server startup may take a while.
 X		;;
 X	}
 X	export LAUNCH_JBOSS_IN_BACKGROUND=1 JBOSS_PIDFILE=$jpid jbin
+X	mkdir -p "${jpid%/*}"
 X	rm -f "$jpid"	#XXX but the init script handles this
 X	mksh -T- -c "\"\$jbin\"/standalone.sh -b $JBOSS_BIND_ADDRESS"
 X	# wait for a maximum of five seconds until the PID file is created
@@ -70,7 +72,7 @@ X		sleep 1
 X		[[ -s $jpid ]] && break
 X	done
 X	[[ -s $jpid ]] && return 0
-X	(( q )) || print 'The JBoss standalone.sh failed to create a PID file in time.'
+X	(( q )) || print 'The WildFly standalone.sh failed to create a PID file in time.'
 X	(( q )) || print 'Startup execution inconclusive.'
 X	exit 1
 X}
@@ -101,7 +103,7 @@ X	return 1
 X}
 X
 Xfunction do_stop {
-X	print Stopping tarent-activity JBoss Application Server...
+X	print Stopping tarent-activity WildFly Application Server...
 X	print
 X	"$jbin"/jboss-cli.sh --connect :shutdown
 X	# wait for 5..20 seconds
@@ -200,8 +202,9 @@ X# X-Stop-After:      apache2
 X# Default-Start:     2 3 4 5
 X# Default-Stop:      0 1 6
 X# Short-Description: tarent-activity
-X# Description:       Init script for JBoss/Liferay used by tarent-activity
+X# Description:       Init script for WildFly/Liferay used by tarent-activity
 X### END INIT INFO
+X#-
 X# Copyright © 2013
 X#	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
 X# All rights reserved.
