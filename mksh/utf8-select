@@ -19,18 +19,20 @@
 # damage or existence of a defect, except proven that it results out
 # of said person’s immediate fault when using the work as intended.
 
+: ${XDG_DATA_HOME:=~/.local/share}
+
 if [[ $1 = install ]]; then
 	script=$(readlink -f $0)
 
-	[[ -d ~/.local/share ]] || mkdir -p ~/.local/share
-	[[ -f ~/.local/share/unidata.txt ]] || wget -O ~/.local/share/unidata.txt "https://www.mirbsd.org/cvs.cgi/~checkout~/contrib/samples/unidata.txt?content-type=text%2Fplain"
+	[[ -d $XDG_DATA_HOME ]] || mkdir -p $XDG_DATA_HOME
+	[[ -f $XDG_DATA_HOME/unidata.txt ]] || wget -O $XDG_DATA_HOME/unidata.txt "https://www.mirbsd.org/cvs.cgi/~checkout~/contrib/samples/unidata.txt?content-type=text%2Fplain"
 	[[ -x "$script" ]] || chmod +x "$script"
 
 	grep "bind ^U exec mksh $script" ~/.screenrc || print -r -- "bind ^U exec mksh $script" >>~/.screenrc
 
 	exit
 elif [[ $1 = update ]]; then
-	[[ -f ~/.local/share/unidata.txt ]] && wget -O ~/.local/share/unidata.txt "https://www.mirbsd.org/cvs.cgi/~checkout~/contrib/samples/unidata.txt?content-type=text%2Fplain"
+	[[ -f $XDG_DATA_HOME/unidata.txt ]] && wget -O $XDG_DATA_HOME/unidata.txt "https://www.mirbsd.org/cvs.cgi/~checkout~/contrib/samples/unidata.txt?content-type=text%2Fplain"
 
 	exit
 fi
@@ -42,7 +44,7 @@ if [[ $1 != do ]]; then
 fi
 
 set -U
-UNIDATA=~/.local/share/unidata.txt
+UNIDATA=$XDG_DATA_HOME/unidata.txt
 
 if ! T=$(mktemp -d /tmp/utf8-select.XXXXXXXXX); then
 	print -u2 Error creating temporary directory
