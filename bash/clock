@@ -1,0 +1,207 @@
+#!/bin/bash
+# Copyright (c) 2009 by Dominik George & Felix Falk
+#
+# Licenced under the CC-BY-SA 3.0 (unported).
+
+# Config
+
+CONFIG_DIGITAL=true
+
+# Check dependencies
+if [ ! -x $(which bc) ]; then
+	echo "bc not found, install bc!"
+
+	exit 1
+fi
+
+if [ ! -x $(which tput) ]; then
+
+	echo "tput not found, install ncurses!"
+	exit 1
+fi
+
+# Definitions
+PI=$(echo "4*a(1)" | bc -l)
+
+# Library
+function deg2rad {
+	local x=$1
+	echo $(echo "${x}/180*${PI}" | bc -l)
+
+}
+
+function sine {
+	local x=$(deg2rad $1)
+
+	echo $(echo "s(${x})" | bc -l)
+}
+
+function cosine {
+	local x=$(deg2rad $1)
+
+	echo $(echo "c(${x})" | bc -l)
+}
+
+function round {
+	local x=$1
+	local pre=$(echo ${x} | cut -d. -f1)
+
+	local post=$(echo ${x} | cut -d. -f2)
+
+	local postone=${post:1:1}
+
+	if [ "${pre}" = "-" ]; then
+
+		pre=$(echo ${pre} | sed "s/^-\$/0/")
+
+	fi
+
+	if [ -n ${postone} ]; then
+		echo ${pre}
+
+	else
+		echo $((pre + 1))
+	fi
+
+}
+
+function drawpoint {
+	local deg=$1
+	local percent=$2
+
+	local char=$3
+	local mirror=$4
+
+	radx=$(echo "${RADIUSX} * ${percent} / 100" | bc)
+
+	rady=$(echo "${RADIUSY} * ${percent} / 100" | bc)
+
+	xoff=$(round $(echo "$(sine ${deg}) * ${radx}" | bc -l))
+
+	yoff=$(round $(echo "$(cosine ${deg}) * ${rady}" | bc -l))
+
+	tput cup $((MIDDLEY + yoff)) $((MIDDLEX + xoff))
+
+	echo -n ${char}
+
+	if [ ${mirror} = true ]; then
+
+		tput cup $((MIDDLEY - yoff)) $((MIDDLEX + xoff))
+
+		echo -n ${char}
+		tput cup $((MIDDLEY + yoff)) $((MIDDLEX - xoff))
+
+		echo -n ${char}
+		tput cup $((MIDDLEY - yoff)) $((MIDDLEX - xoff))
+
+		echo -n ${char}
+	fi
+}
+
+# Clear terminal
+clear
+
+# Get terminal caps
+
+COLS=$(tput cols)
+LINES=$(tput lines)
+
+echo ${COLS}
+
+echo ${LINES}
+
+# Determine clock size from terminal size
+if [ ${COLS} -ge $((LINES * 2)) ]; then
+
+	HEIGHT=$((LINES - 2))
+	WIDTH=$((HEIGHT * 2))
+
+else
+	echo abcdefghijklmnopqrstuvwxyz
+	WIDTH=$((COLS - 2))
+	HEIGHT=$((WIDTH / 2))
+
+fi
+
+# Determine clock position
+TOP=$(((LINES - HEIGHT)/2))
+
+LEFT=$(((COLS - WIDTH)/2))
+MIDDLEX=$((COLS/2))
+
+MIDDLEY=$((LINES/2))
+RADIUSX=$((MIDDLEX - LEFT))
+
+RADIUSY=$((MIDDLEY - TOP))
+
+# Print digital clock if requested
+if [ ${CONFIG_DIGITAL} = true ]; then
+
+	tput cup $((MIDDLEY + (HEIGHT / 4))) $((MIDDLEX - 4))
+
+	date "+%H:%M:%S"
+fi
+
+# Draw border
+for deg in $(seq 0 1 90); do
+
+	if [ ${deg} -ge 0 -a ${deg} -le 5 -o ${deg} -ge 25 -a ${deg} -le 35 -o ${deg} -ge 55 -a ${deg} -le 65 -o ${deg} -ge 83 -a ${deg} -le 90 ]; then
+
+		char=x
+	else
+		char=.
+	fi
+
+	drawpoint ${deg} 100 ${char} true
+
+done
+
+# Get time
+hour=$(date "+%H" | sed "s/^0//")
+
+min=$(date "+%M" | sed "s/^0//")
+sec=$(date "+%S" | sed "s/^0//")
+
+# Hours
+for percent in $(seq 0 1 60); do
+	deg=$((180 - (((hour * 60 + min) % 720) / 2)))
+
+	if [ ${deg} -lt 0 ]; then
+		deg=$((360 + deg))
+
+	fi
+	drawpoint ${deg} ${percent} x false
+done
+
+# Minutes
+for percent in $(seq 0 1 85); do
+
+	deg=$((180 - (min * 6)))
+	if [ ${deg} -lt 0 ]; then
+
+		deg=$((360 + deg))
+	fi
+	drawpoint ${deg} ${percent} + false
+
+done
+
+# Seconds
+for percent in $(seq 0 1 85); do
+
+	deg=$((180 - (sec * 6)))
+	if [ ${deg} -lt 0 ]; then
+
+		deg=$((360 + deg))
+	fi
+	drawpoint ${deg} ${percent} . false
+
+done
+
+# Draw center
+tput cup ${MIDDLEY} ${MIDDLEX}
+echo X
+
+# Set cursor to bottom left corner
+tput cup ${LINES} 0
+
+exit 0

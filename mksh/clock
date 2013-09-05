@@ -1,0 +1,165 @@
+#!/bin/mksh
+# Copyright (c) 2009 by Dominik George & Felix Falk
+# Copyright (c) 2012 by Dominik George
+#
+# Licenced under the CC-BY-SA 3.0 (unported).
+
+# Config
+
+CONFIG_DIGITAL=true
+
+# Check dependencies
+if [ ! -x $(which bc) ]; then
+	echo "bc not found, install bc!"
+	exit 1
+fi
+
+bc -ql |&
+
+# Definitions
+PI=$(echo "4*a(1)" | bc -l)
+
+# Library
+function cobc {
+	print -p -- "${1}"
+	read -p result
+	echo "${result}"
+}
+
+function deg2rad {
+	cobc "${1}/180*${PI}"
+}
+
+function sine {
+	cobc "s($(deg2rad ${1}))"
+}
+
+function cosine {
+	cobc "c($(deg2rad ${1}))"
+}
+
+function round {
+	local x=$1
+	local pre=${x%%.*}
+	local post=${x#*.}
+	local postone=${post:1:1}
+
+	if [ "${pre}" = "-" ]; then
+		pre=${pre/#-\$/0}
+	fi
+
+	if [ -n ${postone} ]; then
+		echo ${pre}
+	else
+		echo $((pre + 1))
+	fi
+}
+
+function drawpoint {
+	local deg=$1
+	local percent=$2
+
+	local char=$3
+	local mirror=$4
+
+	radx=$(cobc "${RADIUSX} * ${percent} / 100")
+	rady=$(cobc "${RADIUSY} * ${percent} / 100")
+
+	xoff=$(round $(cobc "$(sine ${deg}) * ${radx}"))
+	yoff=$(round $(cobc "$(cosine ${deg}) * ${rady}"))
+
+	echo -ne "\033[$((MIDDLEY + yoff));$((MIDDLEX + xoff))H${char}"
+
+	if [ ${mirror} = true ]; then
+		echo -ne "\033[$((MIDDLEY - yoff));$((MIDDLEX + xoff))H${char}"
+		echo -ne "\033[$((MIDDLEY + yoff));$((MIDDLEX - xoff))H${char}"
+		echo -ne "\033[$((MIDDLEY - yoff));$((MIDDLEX - xoff))H${char}"
+	fi
+}
+
+# Clear terminal
+clear
+
+# Determine clock size from terminal size
+if [ ${COLUMNS} -ge $((LINES * 2)) ]; then
+	HEIGHT=$((LINES - 2))
+	WIDTH=$((HEIGHT * 2))
+else
+	WIDTH=$((COLUMNS - 2))
+	HEIGHT=$((WIDTH / 2))
+fi
+
+# Determine clock position
+TOP=$(((LINES - HEIGHT)/2))
+
+LEFT=$(((COLUMNS - WIDTH)/2))
+MIDDLEX=$((COLUMNS/2))
+
+MIDDLEY=$((LINES/2))
+RADIUSX=$((MIDDLEX - LEFT))
+
+RADIUSY=$((MIDDLEY - TOP))
+
+# Draw border
+for deg in $(seq 0 1 90); do
+	if [ ${deg} -ge 0 -a ${deg} -le 5 -o ${deg} -ge 25 -a ${deg} -le 35 -o ${deg} -ge 55 -a ${deg} -le 65 -o ${deg} -ge 83 -a ${deg} -le 90 ]; then
+		char=x
+	else
+		char=.
+	fi
+
+	drawpoint ${deg} 100 ${char} true
+done
+
+# Get time
+hour=$(date +"%H")
+min=$(date +"%M")
+sec=$(date +"%S")
+
+# Hours
+for percent in $(seq 0 1 60); do
+	deg=$((180 - (((hour * 60 + min) % 720) / 2)))
+
+	if [ ${deg} -lt 0 ]; then
+		deg=$((360 + deg))
+	fi
+
+	drawpoint ${deg} ${percent} x false
+done
+
+# Minutes
+for percent in $(seq 0 1 85); do
+	deg=$((180 - (min * 6)))
+
+	if [ ${deg} -lt 0 ]; then
+		deg=$((360 + deg))
+	fi
+
+	drawpoint ${deg} ${percent} + false
+done
+
+# Seconds
+for percent in $(seq 0 1 85); do
+	deg=$((180 - (sec * 6)))
+
+	if [ ${deg} -lt 0 ]; then
+		deg=$((360 + deg))
+	fi
+
+	drawpoint ${deg} ${percent} . false
+done
+
+# Draw center
+echo -ne "\033[${MIDDLEY};${MIDDLEX}HX"
+
+
+# Print digital clock if requested
+if [ ${CONFIG_DIGITAL} = true ]; then
+	echo -ne "\033[$((MIDDLEY + (HEIGHT / 4)));$((MIDDLEX - 4))H${hour}:${min}:${sec}"
+fi
+
+# Set cursor to bottom left corner
+echo -ne "\033[${LINES};1HPress any key to exit"
+read
+
+exit 0
