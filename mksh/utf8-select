@@ -1,0 +1,111 @@
+#!/bin/mksh
+#-
+# Copyright © 2013
+#       Thorsten Glaser <tg@mirbsd.org>
+#       Dominik George <nik@naturalnet.de>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+
+if [[ $1 = install ]]; then
+	script=$(readlink -f $0)
+
+	[[ -d ~/.local/share ]] || mkdir -p ~/.local/share
+	[[ -f ~/.local/share/unidata.txt ]] || wget -O ~/.local/share/unidata.txt "https://www.mirbsd.org/cvs.cgi/~checkout~/contrib/samples/unidata.txt?content-type=text%2Fplain"
+	[[ -x "$script" ]] || chmod +x "$script"
+
+	grep "bind ^U exec mksh $script" ~/.screenrc || print -r -- "bind ^U exec mksh $script" >>~/.screenrc
+
+	exit
+elif [[ $1 = update ]]; then
+	[[ -f ~/.local/share/unidata.txt ]] && wget -O ~/.local/share/unidata.txt "https://www.mirbsd.org/cvs.cgi/~checkout~/contrib/samples/unidata.txt?content-type=text%2Fplain"
+
+	exit
+fi
+
+if [[ $1 != do ]]; then
+	screen -X eval 'split' 'focus down'
+	screen -X screen mksh "$0" do
+	exit $?
+fi
+
+set -U
+UNIDATA=~/.local/share/unidata.txt
+
+if ! T=$(mktemp -d /tmp/utf8-select.XXXXXXXXX); then
+	print -u2 Error creating temporary directory
+	exit 1
+fi
+
+cd "$T"
+
+sed -n '/^.*U+\([0-9A-F][0-9A-F][0-9A-F][0-9A-F]\)  *[^ ]*  *\([^;]*\);.*$/s//\1	\2/p' \
+    <"$UNIDATA" | grep -v -e '^00[0189]' -e '^007F' -e '^D[89ABCDEF]' >U
+
+res=
+found=0
+while :; do
+	dialog \
+	    --cancel-label "No, thanks" \
+	    --output-fd 3 \
+	    --shadow \
+	    --title 'UTF-8 selector' \
+	    --inputbox "${res:+$res }Look up character?" 8 $((COLUMNS - 4)) \
+	    3>o || break
+	[[ -s o ]] || break
+	res=
+
+	fgrep -i -e "$(<o)" U >r
+	if [[ ! -s r ]]; then
+		res="No result!"
+		continue
+	fi
+
+	set -A c
+	while IFS= read -r l; do
+		typeset -i1 x=16#${l::4}
+
+		s="${x#1#} ${l: 5}"
+		c+=(${l::4} "$s")
+	done <r
+
+	dialog \
+	    --cancel-label "No, thanks" \
+	    --extra-button \
+	    --extra-label "Back" \
+	    --output-fd 3 \
+	    --shadow \
+	    --title 'UTF-8 selector' \
+	    --menu 'Select Unicode character to insert' \
+	    $((LINES-4)) $((COLUMNS-4)) $((LINES-10)) \
+	    "${c[@]}" \
+	    3>q
+	v=$?
+
+	(( v == 3 )) && continue
+	(( v )) && break
+	res="Nothing selected?"
+	[[ -s q ]] || continue
+	typeset -i1 ch=16#$(<q)
+	print -nr -- "${ch#1#}" >ch
+	screen -X readreg p "$T/ch"
+	screen -X eval 'focus up' 'paste p' 'focus down'
+	break
+done
+
+cd /
+rm -rf "$T"
+
+screen -X remove
