@@ -32,7 +32,7 @@ set -A cmd eatmydata env "DIST=$1" LANG=C LC_CTYPE=C LC_NUMERIC=C \
     LC_IDENTIFICATION=C LC_ALL=C
 shift
 while [[ $1 = *=* ]]; do
-	cmd[${#cmd[#]}]=$1
+	cmd[${#cmd[@]}]=$1
 	shift
 done
 case $1 {
@@ -40,7 +40,7 @@ case $1 {
 	shift
 	;;
 (linux32|linux64)
-	cmd[${#cmd[#]}]=$1
+	cmd[${#cmd[@]}]=$1
 	shift
 	;;
 }
