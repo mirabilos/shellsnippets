@@ -1,0 +1,49 @@
+#!/bin/mksh
+#-
+# Copyright © 2013
+#	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# Simple-to-use wrapper around eatmydata plus cowbuilder to use with
+# https://www.mirbsd.org/cvs.cgi/contrib/hosted/tg/deb/pbuilderrc to
+# select the proper build chroot.
+#
+# Example:
+# c lenny/i386 DEB_BUILD_OPTIONS=parallel=4 linux32 --build foo*.dsc
+
+unset LANGUAGE
+set -A cmd eatmydata env "DIST=$1" LANG=C LC_CTYPE=C LC_NUMERIC=C \
+    LC_TIME=C LC_COLLATE=C LC_MONETARY=C LC_MESSAGES=C LC_PAPER=C \
+    LC_NAME=C LC_ADDRESS=C LC_TELEPHONE=C LC_MEASUREMENT=C \
+    LC_IDENTIFICATION=C LC_ALL=C
+shift
+while [[ $1 = *=* ]]; do
+	cmd[${#cmd[#]}]=$1
+	shift
+done
+case $1 {
+(--)
+	shift
+	;;
+(linux32|linux64)
+	cmd[${#cmd[#]}]=$1
+	shift
+	;;
+}
+
+set -x
+exec sudo "${cmd[@]}" cowbuilder "$@"
