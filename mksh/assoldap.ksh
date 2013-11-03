@@ -52,7 +52,7 @@ function asso_setldap {
 		return 255
 	fi
 	(ldapsearch -xLLL "${ldapopts[@]}"; echo $? >"$T/err") | \
-	    tr '\n' $'\a' | sed -e $'s/\a //g' | tr $'\a' '\n' >"$T/out"
+	    tr '\n' $'\a' | sed -e $'s/\a //g' >"$T/out"
 	i=$(<"$T/err")
 	if (( i )); then
 		print -u2 'assoldap.ksh: ldapsearch returned error'
@@ -66,7 +66,7 @@ function asso_setldap {
 	fi
 
 	# parse LDIF (without linewraps)
-	while IFS= read -r line; do
+	while IFS= read -d $'\a' -r line; do
 		if [[ -z $line ]]; then
 			dn=
 			continue
