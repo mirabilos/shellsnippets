@@ -1,5 +1,5 @@
 #!/bin/sh
-# $Id: genkey-firmengebrauch.sh 3773 2013-08-28 08:01:05Z tglase $
+# $Id: genkey-firmengebrauch.sh 3856 2013-11-04 12:15:25Z tglase $
 #-
 # Copyright © 2010, 2011, 2012, 2013
 #	Thorsten Glaser <t.glaser@tarent.de>
@@ -560,7 +560,7 @@ else
 └─────────────────────────────────────────┘
 
 ╔═════════════════════════════════════════════════════════════════════╗
-║ You are responsible for backing up yout PGP secret key BY YOURSELF! ║
+║ You are responsible for backing up your PGP secret key BY YOURSELF! ║
 ║ Du mußt SELBER für Sicherungskopiën des privaten Schlüssels sorgen! ║
 ╚═════════════════════════════════════════════════════════════════════╝
 EOF

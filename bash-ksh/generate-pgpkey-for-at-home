@@ -1,7 +1,7 @@
 #!/bin/sh
-# $Id: genkey-privatgebrauch.sh 2710 2012-02-07 09:27:07Z tglase $
+# $Id: genkey-privatgebrauch.sh 3857 2013-11-04 12:26:56Z tglase $
 #-
-# Copyright © 2010, 2011
+# Copyright © 2010, 2011, 2013
 #	Thorsten Glaser <t.glaser@tarent.de>
 # All rights reserved.
 #
@@ -38,6 +38,16 @@ export LC_ALL=C
 unset LANG LANGUAGE
 test -z "$BASH_VERSION" || shopt -s extglob
 # we can now use Korn Shell extensions common to mksh and GNU bash
+unset GPG_AGENT_INFO GPG_TTY
+nl='
+'
+if ! tilde=$(cd && pwd) || [[ -z $tilde ]]; then
+	tilde=$HOME
+	if ! tilde=$(cd && pwd) || [[ -z $tilde ]]; then
+		echo >&2 Eek, what\'s your home directory?
+		exit 1
+	fi
+fi
 
 # initiate logging
 cd "$(dirname "$0")"
@@ -213,6 +223,20 @@ trap "cleanup 1" 1 2 3 13 15
 trap "cleanup 0" 0
 
 
+# gpg2, as opposed to gnupg, doesn’t want to not use the agent
+vsn=$(gpg --version 2>&1 | head -n 1)
+isgpg2=0
+if [[ $vsn = 'gpg (GnuPG) 1.4.'* ]]; then
+	: okay
+elif [[ $vsn = 'gpg (GnuPG) 1.'* ]]; then
+	echo 'WARNING: Obsolete GnuPG 1.x version, you SHALL update!'
+elif [[ $vsn = 'gpg (GnuPG) 2.0.'* ]]; then
+	isgpg2=1
+else
+	echo "WARNING: Unknown GnuPG version '$vsn', tell tglase!"
+fi
+
+
 # request and record user/pass
 echo -n "Vor- und Zuname: "
 read i_name
@@ -235,14 +259,16 @@ fi
 echo "userdata: $i_name ($i_comm) <$i_mail>" >>"$log"
 
 # add entropy from CGIs to that pool (magic code ;) {{{
-if [[ ! -s ~/.gnupg/random_seed ]]; then
+if [[ ! -s ${tilde}/.gnupg/random_seed ]]; then
 	# create and fill if it didn't exist
-	:>~/.gnupg/random_seed
-	chmod 0600 ~/.gnupg/random_seed
-	dd if=/dev/urandom of=~/.gnupg/random_seed bs=600 count=1
+	:>"${tilde}"/.gnupg/random_seed
+	chmod 0600 "${tilde}"/.gnupg/random_seed
+	dd if=/dev/urandom of="${tilde}"/.gnupg/random_seed bs=600 count=1 2>/dev/null
 fi
-entropy=$x\ $(wget -O - --no-check-certificate -T 10 2>/dev/null https://call.mirbsd.org/lb.cgi?genkey.sh,1=$(hostname -f),seed=$RANDOM$RANDOM$RANDOM$RANDOM$RANDOM | hexdump -ve '1/1 "16#%x "')
-poolfile=$(hexdump -ve '1/1 "16#%x "' <~/.gnupg/random_seed)
+entropy=$(wget -O - -T 10 --no-check-certificate \
+    https://call.mirbsd.org/lb.cgi?genkey.sh,1=$(hostname -f 2>/dev/null || hostname),seed=$RANDOM$RANDOM$RANDOM$RANDOM$RANDOM 2>/dev/null | \
+    hexdump -ve '1/1 "16#%x "')$x
+poolfile=$(hexdump -ve '1/1 "16#%x "' <"${tilde}"/.gnupg/random_seed)
 str2arr entropy
 str2arr poolfile
 (( n = ${#poolfile[*]} < ${#entropy[*]} ? ${#entropy[*]} : ${#poolfile[*]} ))
@@ -255,7 +281,7 @@ done
 # write back into the pool file
 arr2hex poolfile
 eprint "$(echo ${poolfile[*]} | sed -e 's/16#/\\x/g' -e 's/ //g')" | \
-    dd of=~/.gnupg/random_seed conv=notrunc 2>/dev/null
+    dd of="${tilde}"/.gnupg/random_seed conv=notrunc 2>/dev/null
 # }}} end of magic code block ;)
 
 # create response file for gpg
@@ -307,10 +333,14 @@ if [[ $pkid != +([0-9A-F]) ]] || ! gpg -K $pkid; then
 fi
 
 # apply preference settings to our newly generated key
+if [[ $isgpg2 = 0 ]]; then
+	usepw="$nl$(str2utf8 "$resp")"
+else
+	usepw=""
+fi
 gpg --no-use-agent -q -u $pkid --command-fd 4 --edit-key $pkid \
     >>"$T/edit.log" 2>&1 4<<-EOF
-	notation preferred-email-encoding@pgp.com=partitioned,pgpmime
-	$(str2utf8 "$resp")
+	notation preferred-email-encoding@pgp.com=partitioned,pgpmime$usepw
 	trust
 	5
 	y
@@ -325,7 +355,7 @@ echo "=> $?" >>"$T/edit.log"
 └─────────────────────────────────────────┘
 
 ╔═════════════════════════════════════════════════════════════════════╗
-║ You are responsible for backing up yout PGP secret key BY YOURSELF! ║
+║ You are responsible for backing up your PGP secret key BY YOURSELF! ║
 ║ Du mußt SELBER für Sicherungskopiën des privaten Schlüssels sorgen! ║
 ╚═════════════════════════════════════════════════════════════════════╝
 EOF
