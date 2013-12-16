@@ -42,6 +42,10 @@ case $1 {
 (linux32|linux64)
 	cmd[${#cmd[@]}]=$1
 	shift
+	if [[ $1 = --uname-2.6 ]]; then
+		cmd[${#cmd[@]}]=$1
+		shift
+	fi
 	;;
 }
 
