@@ -1,4 +1,4 @@
-# $Id: loadenv.sh 1202 2010-07-20 07:07:14Z tglase $
+# $Id: loadenv.sh 3900 2014-01-11 20:47:43Z tglase $
 #-
 # Not complicated enough for copyright.
 
@@ -17,6 +17,6 @@
 	. /etc/profile.d/agents.sh
 	export SSH_ASKPASS=/usr/bin/kwalletaskpass
 	/usr/bin/ssh-add
-) <&- >/dev/null 2>&1 &
+) </dev/null >/dev/null 2>&1 &
 
 :
