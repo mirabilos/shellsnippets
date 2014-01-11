@@ -28,3 +28,5 @@ pts() {
 		${BROWSER:-lynx} "http://packages.debian.org/sid/$p"
 	fi
 }
+
+alias doch='sudo mksh -c "$(fc -ln -1)"'
