@@ -1,0 +1,8 @@
+#!/bin/sh
+#-
+# Written by Thorsten Glaser.
+
+printf '%s' '53% [Waiting for headers]'
+while :; do
+	sleep 1000
+done
