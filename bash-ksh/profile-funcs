@@ -1,7 +1,7 @@
 # Debian Bug Tracking System
 bts() {
 	if [[ $1 = +([0-9]) ]]; then
-		${BROWSER:-lynx} "http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=$1"
+		${BROWSER:-lynx} "https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=$1"
 	elif [[ $1 = lp:+([0-9]) ]]; then
 		${BROWSER:-lynx} "https://bugs.launchpad.net/bugs/${1#lp:}"
 	else
