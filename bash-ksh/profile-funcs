@@ -10,7 +10,7 @@ bts() {
 }
 # Debian Package Tracking System, QA, buildd logs Debian, buildd logs D-Ports
 pts() {
-	local p=${1%%_*} not_slash_bksls=$'[!/\t\n\f\r ]' r=${1#*_}
+	local p=${1%%_*} not_slash_bksls=$'[!/\t\n\f\r ]' r=''
 
 	if [[ $p = src:* ]]; then
 		${BROWSER:-lynx} "http://packages.debian.org/source/sid/${p#src:}"
@@ -33,7 +33,11 @@ pts() {
 	elif [[ $p = ab:* ]]; then
 		${BROWSER:-lynx} "http://snapshot.debian.org/binary/${p#ab:}/"
 	elif [[ $p = as:* ]]; then
-		${BROWSER:-lynx} "http://snapshot.debian.org/package/${p#as:}/${r:+${r%%_*}/}"
+		if [[ $1 = *_* ]]; then
+			r=${1#*_}
+			r=${r%%_*}/
+		fi
+		${BROWSER:-lynx} "http://snapshot.debian.org/package/${p#as:}/$r"
 	else
 		${BROWSER:-lynx} "http://packages.debian.org/sid/$p"
 	fi
