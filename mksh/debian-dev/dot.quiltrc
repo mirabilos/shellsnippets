@@ -1,4 +1,15 @@
-# $MirOS: contrib/hosted/tg/deb/dot.quiltrc,v 1.3 2012/12/01 14:08:31 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/dot.quiltrc,v 1.5 2013/12/31 10:17:32 tg Exp $
+#-
+# Configuration options (set to non-empty value to enable):
+# * QUILTRC_ENABLE: generate patches in a standardised format
+#   (enabled by default if QUILT_PATCHES was empty or “-” and
+#   we find ourselves to be in a Debian 3.0 (quilt) package)
+# * QUILTRC_NO_DIFF_P: do not show C function context in diffs
+#
+# If QUILT_PATCHES is empty or a sole hyphen-minus, this ~/.quiltrc
+# checks for Debian 3.0 (quilt) source package and sets QUILT_PATCHES
+# to "debian/patches" if found; otherwise, if it was a hyphen-minus,
+# to "patches".
 
 while test -z "$QUILT_PATCHES" || test x"$QUILT_PATCHES" = x"-"; do
 	d=.
@@ -12,18 +23,22 @@ while test -z "$QUILT_PATCHES" || test x"$QUILT_PATCHES" = x"-"; do
 	# now in Debian packaging tree with unset $QUILT_PATCHES
 
 	QUILT_PATCHES="debian/patches"
+	test -d $d/debian/patches || mkdir $d/debian/patches
+	QUILTRC_ENABLE=1
+
+	# this is not a real loop, exit it always
+	break
+done
+if test -n "$QUILTRC_ENABLE"; then
+	# enable options to generate standardised patches
 	QUILT_PATCH_OPTS="--reject-format=unified"
 	QUILT_DIFF_OPTS=""
 	test -n "$QUILTRC_NO_DIFF_P" || \
 	    QUILT_DIFF_OPTS="$QUILT_DIFF_OPTS --show-c-function"
 	QUILT_DIFF_ARGS="-p ab --no-timestamps --no-index --color=auto"
-	QUILT_REFRESH_ARGS="-p ab --no-timestamps --no-index"
+	QUILT_REFRESH_ARGS="-p ab --no-timestamps --no-index --sort"
 	QUILT_PUSH_ARGS="--color=auto"
 	QUILT_COLORS="diff_hdr=1;32:diff_add=1;34:diff_rem=1;31:diff_hunk=1;33:diff_ctx=35:diff_cctx=33"
-	test -d $d/debian/patches || mkdir $d/debian/patches
-
-	# this is not a real loop, exit it always
-	break
-done
+fi
 test x"$QUILT_PATCHES" = x"-" && QUILT_PATCHES=patches
 :
