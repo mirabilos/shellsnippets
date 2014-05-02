@@ -13,7 +13,7 @@ pts() {
 	local p=${1%%_*} not_slash_bksls=$'[!/\t\n\f\r ]' r=''
 
 	if [[ $p = src:* ]]; then
-		${BROWSER:-lynx} "http://packages.debian.org/source/sid/${p#src:}"
+		${BROWSER:-lynx} "https://packages.debian.org/source/sid/${p#src:}"
 	elif [[ $p = qa:lib${not_slash_bksls}${not_slash_bksls}* ]]; then
 		${BROWSER:-lynx} "http://packages.qa.debian.org/${p:3:4}/${p#qa:}.html"
 	elif [[ $p = qa:* ]]; then
@@ -23,9 +23,9 @@ pts() {
 	elif [[ $p = bp:* ]]; then
 		${BROWSER:-lynx} "http://buildd.debian-ports.org/status/package.php?p=${p#bp:}"
 	elif [[ $p = f:* ]]; then
-		${BROWSER:-lynx} "http://packages.debian.org/search?searchon=contents&keywords=${1#f:}&mode=path&suite=unstable&arch=any"
+		${BROWSER:-lynx} "https://packages.debian.org/search?searchon=contents&keywords=${1#f:}&mode=path&suite=unstable&arch=any"
 	elif [[ $p = p:* ]]; then
-		${BROWSER:-lynx} "http://packages.debian.org/${p#p:}"
+		${BROWSER:-lynx} "https://packages.debian.org/${p#p:}"
 	elif [[ $p = ap:* ]]; then
 		${BROWSER:-lynx} "http://archive.debian.net/${p#ap:}"
 	elif [[ $p = up:* ]]; then
@@ -39,7 +39,7 @@ pts() {
 		fi
 		${BROWSER:-lynx} "http://snapshot.debian.org/package/${p#as:}/$r"
 	else
-		${BROWSER:-lynx} "http://packages.debian.org/sid/$p"
+		${BROWSER:-lynx} "https://packages.debian.org/sid/$p"
 	fi
 }
 
