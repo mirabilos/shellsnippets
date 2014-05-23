@@ -23,3 +23,8 @@ https://www.mirbsd.org/cvs.cgi/contrib/code/Snippets/
 https://www.mirbsd.org/cvs.cgi/contrib/hosted/tg/
 	Collection of (shell and other) scripts, programmes,
 	data, pbuilderrc, and other things by mirabilos
+
+https://evolvis.org/projects/useful-scripts/
+https://evolvis.org/plugins/scmgit/cgi-bin/gitweb.cgi?p=useful-scripts/useful-scripts.git
+	Similar collection, focus on just publishing internal
+	tools without quality review, also not limited to sh.
