@@ -1,7 +1,7 @@
 #!/bin/mksh
-# $Id: csrgen 2084 2011-06-09 20:54:16Z tglase $
+# $Id: csrgen 4043 2014-05-23 09:35:30Z tglase $
 #-
-# Copyright © 2010, 2011
+# Copyright © 2010, 2011, 2014
 #	Thorsten Glaser <t.glaser@tarent.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -98,15 +98,19 @@ Content-type: text/html; charset=UTF-8
  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en"><head>
  <title>Generierung eines Certificate Signing Request</title>
- <style type="text/css"><!--
+ <style type="text/css"><!--/*--><![CDATA[/*><!--*/
 	strong { background-color:#FF0000; color:#000000; }
- //--></style>
+ /*]]>*/--></style>
 </head><body>
 <h1>Generierung eines Certificate Signing Request</h1>
 EOF
 [[ -z $feedback ]] || print -r -- "<p><strong>$feedback</strong></p>"
+if [[ $HTTPS != on ]]; then
+	echo '</body></html>'
+	exit 1
+fi
 cat <<'EOF'
-<form action="https://spamfilter2.tarent.de/cgi-bin/csrgen" method="get">
+<form action="csrgen" method="get">
 <p>Hostname: <input name="fqdn" type="text" size="32" maxlength="255" /></p>
 <p>Stärke:<br />
  <input type="radio" name="strength" value="2048" checked="checked" />2048 Bit<br />

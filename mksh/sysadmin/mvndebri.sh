@@ -1,10 +1,10 @@
 #!/bin/mksh
-rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.56 2012/08/02 21:01:39 tg Exp $'
-rcsid='$Id: mvndebri.sh 3150 2012-08-15 11:17:10Z tglase $'
+rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.61 2014/05/23 09:44:30 tg Exp $'
+rcsid='$Id: mvndebri.sh 4044 2014-05-23 09:48:47Z tglase $'
 #-
-# Copyright (c) 2008, 2009, 2010, 2011, 2012
+# Copyright (c) 2008, 2009, 2010, 2011, 2012, 2013, 2014
 #	Thorsten Glaser <tg@mirbsd.org>
-# Copyright (c) 2011
+# Copyright (c) 2011, 2014
 #	Thorsten Glaser <t.glaser@tarent.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -68,9 +68,9 @@ function repo_description {
 }
 
 
-#set -A dpkgarchs -- alpha amd64 arm armel armhf avr32 hppa hurd-i386 i386 \
+#set -A dpkgarchs -- alpha amd64 arm arm64 armel armhf hppa hurd-i386 i386 \
 #    ia64 kfreebsd-amd64 kfreebsd-i386 m68k mips mipsel powerpc powerpcspe \
-#    ppc64 s390 s390x sh4 sparc sparc64
+#    ppc64 s390 s390x sh4 sparc sparc64 x32
 set -A dpkgarchs -- amd64 i386
 
 function putfile {
@@ -89,6 +89,20 @@ function sortlist {
 	for x in "$@"; do
 		print -r -- "$x"
 	done | sort $u
+}
+
+# escape XHTML characters (three mandatory XML ones plus double quotes,
+# the latter in an XML safe fashion numerically though)
+function xhtml_escape {
+	if (( $# )); then
+		print -nr -- "$@"
+	else
+		cat
+	fi | sed \
+	    -e 's&\&amp;g' \
+	    -e 's<\&lt;g' \
+	    -e 's>\&gt;g' \
+	    -e 's"\&#34;g'
 }
 
 set +U
@@ -172,10 +186,13 @@ for suite in dists/*; do
 
 	gpg -u $repo_keyid --batch --passphrase-file /etc/tarent/maven.kpw \
 	    -sab <$suite/Release-tmp >$suite/Release-sig
-	gpg -u $repo_keyid --batch --passphrase-file /etc/tarent/maven.kpw \
-	    --clearsign <$suite/Release-tmp >$suite/Release-inl
+	# Debian's fix for CVE-2013-1051 consists of disabling
+	# support for InRelease files altogether (WTF!)
+	#gpg -u $repo_keyid --batch --passphrase-file /etc/tarent/maven.kpw \
+	#    --clearsign <$suite/Release-tmp >$suite/Release-inl
 
-	mv -f $suite/Release-inl $suite/InRelease
+	rm -f $suite/InRelease
+	#mv -f $suite/Release-inl $suite/InRelease
 	mv -f $suite/Release-tmp $suite/Release
 	mv -f $suite/Release-sig $suite/Release.gpg
 	rm -f $suite/Release-*
@@ -342,8 +359,8 @@ done
 EOF
 print -r -- " <title>${repo_title} Index</title>"
 cat <<'EOF'
- <meta name="generator" content="Evolvis shellsnippets git based on $Id: mvndebri.sh 3150 2012-08-15 11:17:10Z tglase $ based on $MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.56 2012/08/02 21:01:39 tg Exp $" />
- <style type="text/css">
+ <meta name="generator" content="Evolvis shellsnippets git based on $$Id: mvndebri.sh 4044 2014-05-23 09:48:47Z tglase $ based on $MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.61 2014/05/23 09:44:30 tg Exp $" />
+ <style type="text/css"><!--/*--><![CDATA[/*><!--*/
   table {
    border: 1px solid black;
    border-collapse: collapse;
@@ -382,7 +399,7 @@ cat <<'EOF'
    color: #FFFFFF;
    font-weight: bold;
   }
- </style>
+ /*]]>*/--></style>
 </head><body>
 EOF
 print -r -- "<h1>${repo_title}</h1>"
@@ -492,7 +509,7 @@ while read -p num rest; do
 		print "<!-- bp #$i -->"
 		print "<tr class=\"binpkgline\">"
 		print " <td class=\"binpkgname\">${bp_disp[i]}</td>"
-		print " <td class=\"binpkgdesc\">${bp_desc[i]}</td>"
+		print " <td class=\"binpkgdesc\">$(xhtml_escape "${bp_desc[i]}")</td>"
 		for suitename in $allsuites; do
 			eval pv=\${bp_ver_${suitename}[i]}
 			if [[ -z $pv ]]; then
@@ -523,7 +540,7 @@ for i in ${bp_sort[*]}; do
 	print "<!-- bp #$i -->"
 	print "<tr class=\"binpkgline\">"
 	print " <td class=\"binpkgdist\">${bp_dist[i]}</td>"
-	print " <td rowspan=\"2\" class=\"binpkgdesc\">${bp_desc[i]}</td>"
+	print " <td rowspan=\"2\" class=\"binpkgdesc\">$(xhtml_escape "${bp_desc[i]}")</td>"
 	for suitename in $allsuites; do
 		eval pv=\${bp_ver_${suitename}[i]}
 		if [[ -z $pv ]]; then

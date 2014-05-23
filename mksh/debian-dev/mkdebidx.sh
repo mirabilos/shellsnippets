@@ -1,7 +1,7 @@
 #!/bin/mksh
-rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.60 2013/11/14 15:07:45 tg Exp $'
+rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.61 2014/05/23 09:44:30 tg Exp $'
 #-
-# Copyright (c) 2008, 2009, 2010, 2011, 2012, 2013
+# Copyright (c) 2008, 2009, 2010, 2011, 2012, 2013, 2014
 #	Thorsten Glaser <tg@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -462,8 +462,8 @@ done
 EOF
 print -r -- " <title>${repo_title} Index</title>"
 cat <<'EOF'
- <meta name="generator" content="$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.60 2013/11/14 15:07:45 tg Exp $" />
- <style type="text/css">
+ <meta name="generator" content="$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.61 2014/05/23 09:44:30 tg Exp $" />
+ <style type="text/css"><!--/*--><![CDATA[/*><!--*/
   table {
    border: 1px solid black;
    border-collapse: collapse;
@@ -502,7 +502,7 @@ cat <<'EOF'
    color: #FFFFFF;
    font-weight: bold;
   }
- </style>
+ /*]]>*/--></style>
 </head><body>
 EOF
 print -r -- "<h1>${repo_title}</h1>"
