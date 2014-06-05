@@ -7,7 +7,7 @@ xv() {
 		    -e 's!http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd!file:///usr/src/www/mk/xhtml11.dtd!g' \
 		    <"$i" | xmlstarlet val -e -d file:///usr/src/www/mk/xhtml11.dtd -)
 		(( rv |= $? ))
-		print -r -- "$i $s"
+		print -r -- "$i ${s#- }"
 	done
 	return $rv
 }
