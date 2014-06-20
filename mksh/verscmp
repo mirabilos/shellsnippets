@@ -1,7 +1,7 @@
 #!/bin/mksh
-# $MirOS: contrib/hosted/tg/verscmp,v 1.1 2013/01/03 22:15:00 tg Exp $
+# $MirOS: contrib/hosted/tg/verscmp,v 1.2 2014/06/20 22:50:56 tg Exp $
 #-
-# Copyright © 2013
+# Copyright © 2013, 2014
 #	Thorsten Glaser <tg@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -28,12 +28,30 @@ fa=$1; fb=$2
 py='# coding: utf-8'
 nl=$'\n'
 
+function str2python {
+	[[ -o utf8-mode ]]; local u=$?
+	set +U
+
+	local s="$*" t=\"
+	local -i i=0 n=${#s}
+	local -Uui16 -Z5 hv
+
+	while (( i < n )); do
+		hv=1#${s:(i++):1}
+		t+=\\x${hv#16#}
+	done
+	t+=\"
+	print -nr -- "$t"
+
+	(( u )) || set -U
+}
+
 function pyadd {
 	local field=$1 file=$2 cola colb rest
 
 	py+=$nl"$field = {"
 	while read cola colb rest; do
-		py+=$nl"'''${cola//\\/\\\\}''': '''${colb//\\/\\\\}''',"
+		py+=$nl"$(str2python "$cola"): $(str2python "$colb"),"
 	done <"$file"
 	py+=$nl"}"
 }
