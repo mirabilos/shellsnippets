@@ -67,6 +67,11 @@ sprunge() {
 	curl -F 'sprunge=<-' http://sprunge.us
 }
 
+# geocaching (and related) waypoint
+wp() {
+	${BROWSER:-lynx} "http://www.mirbsd.org/wp.cgi?$1"
+}
+
 # DuckDuckGo search
 ddg() {
 	local _q _IFS
