@@ -1,5 +1,5 @@
 #!/bin/mksh
-# $MirOS: contrib/hosted/tg/uhr,v 1.14 2013/02/19 18:07:46 tg Exp $
+# $MirOS: contrib/hosted/tg/uhr,v 1.15 2014/08/21 20:08:21 tg Exp $
 #-
 # Copyright © 2012, 2013
 #	Thorsten Glaser <tg@mirbsd.org>
@@ -95,7 +95,7 @@ function refresh {
 # put arrayname x y
 function put {
 	local _x=$(($2)) _y=$(($3)) _i
-	nameref _c=$4 _px=$1
+	nameref _px=$1
 
 	(( _i = (r - _y) * n + _x + r ))
 	_px+=($_i)
