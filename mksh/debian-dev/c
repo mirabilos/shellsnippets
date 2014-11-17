@@ -26,22 +26,24 @@
 # c lenny/i386 DEB_BUILD_OPTIONS=parallel=4 linux32 --build foo*.dsc
 
 unset LANGUAGE
+DIST=$1
 eatmydata=eatmydata
-case $1 {
+case $DIST {
 (sarge|sarge/i386|etch|etch/i386|etch/amd64)
 	eatmydata=
 	;;
 }
 eatmydata= #765579
-set -A cmd $eatmydata env "DIST=$1" LANG=C LC_CTYPE=C LC_NUMERIC=C \
+set -A cmd env "DIST=$DIST" LANG=C LC_CTYPE=C LC_NUMERIC=C \
     LC_TIME=C LC_COLLATE=C LC_MONETARY=C LC_MESSAGES=C LC_PAPER=C \
     LC_NAME=C LC_ADDRESS=C LC_TELEPHONE=C LC_MEASUREMENT=C \
-    LC_IDENTIFICATION=C LC_ALL=C
+    LC_IDENTIFICATION=C LC_ALL=C $eatmydata
 shift
 while [[ $1 = *=* ]]; do
 	cmd[${#cmd[@]}]=$1
 	shift
 done
+setarch_seen=0
 case $1 {
 (--)
 	shift
@@ -53,7 +55,28 @@ case $1 {
 		cmd[${#cmd[@]}]=$1
 		shift
 	fi
+	setarch_seen=1
 	;;
+}
+#XXX add more architectures
+(( setarch_seen )) || case $DIST {
+(*/amd64) cmd[${#cmd[@]}]=linux64 ;;
+(*/i386) cmd[${#cmd[@]}]=linux32 ;;
+(*/x32) cmd[${#cmd[@]}]=linux64 ;;
+(*) setarch_seen=2 ;;
+}
+(( setarch_seen )) || case ${DIST%/*} {
+(sarge|sarge-*) cmd[${#cmd[@]}]=--uname-2.6 ;;
+(etch|etch-*) cmd[${#cmd[@]}]=--uname-2.6 ;;
+(lenny|lenny-*) cmd[${#cmd[@]}]=--uname-2.6 ;;
+(squeeze|squeeze-*) cmd[${#cmd[@]}]=--uname-2.6 ;;
+(dapper|dapper-*) cmd[${#cmd[@]}]=--uname-2.6 ;;
+(hardy|hardy-*) cmd[${#cmd[@]}]=--uname-2.6 ;;
+(jaunty|jaunty-*) cmd[${#cmd[@]}]=--uname-2.6 ;;
+(karmic|karmic-*) cmd[${#cmd[@]}]=--uname-2.6 ;;
+(lucid|lucid-*) cmd[${#cmd[@]}]=--uname-2.6 ;;
+(maverick|maverick-*) cmd[${#cmd[@]}]=--uname-2.6 ;;
+(natty|natty-*) cmd[${#cmd[@]}]=--uname-2.6 ;;
 }
 
 set -x
