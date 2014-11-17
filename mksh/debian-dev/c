@@ -29,29 +29,18 @@ unset LANGUAGE
 export LC_ALL=C
 DIST=$1
 
-# attempt to divine which eatmydata method to use; cf. #765579
-# parts taken from MirBSD-contrib pbuilderrc
-BASEPATH=/var/cache/pbuilder/base.cow-${DIST%/*}
-ARCHSUFFIX=
-if [[ $DIST = */* ]]; then
-	build_ARCHITECTURE=$(dpkg --print-architecture)
-	[[ ${DIST##*/} = "$build_ARCHITECTURE" ]] || ARCHSUFFIX=-${DIST##*/}
-fi
-BASEPATH+=$ARCHSUFFIX${CUSTOM:+-$CUSTOM}/
-# look into the chroot
-if [[ -e ${BASEPATH}usr/lib/libeatmydata/libeatmydata.so ]]; then
-	# know old method (26-2)
-	eatmydata=LD_PRELOAD=/usr/lib/libeatmydata/libeatmydata.so
-else
-	# assume new method (82-3)
-	eatmydata=LD_PRELOAD=libeatmydata.so
-fi
+# workaround for supporting old and new eatmydata; cf. #765579
+eatmydata='LD_LIBRARY_PATH=/usr/lib/libeatmydata LD_PRELOAD=libeatmydata.so'
 # disable for some distros without either
 case ${DIST%/*} {
 (sarge|sarge-*|etch|etch-*)
 	eatmydata=LD_PRELOAD=
 	;;
 }
+if [[ $1 = --keepmydata ]]; then
+	eatmydata=LD_PRELOAD=
+	shift
+fi
 
 # construct command line
 set -A cmd env "DIST=$DIST" LANG=C LC_CTYPE=C LC_NUMERIC=C \
