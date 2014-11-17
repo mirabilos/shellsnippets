@@ -1,6 +1,6 @@
 #!/bin/mksh
 #-
-# Copyright © 2013
+# Copyright © 2013, 2014
 #	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -28,10 +28,11 @@
 unset LANGUAGE
 eatmydata=eatmydata
 case $1 {
-(sarge|sarge/i386)
+(sarge|sarge/i386|etch|etch/i386|etch/amd64)
 	eatmydata=
 	;;
 }
+eatmydata= #765579
 set -A cmd $eatmydata env "DIST=$1" LANG=C LC_CTYPE=C LC_NUMERIC=C \
     LC_TIME=C LC_COLLATE=C LC_MONETARY=C LC_MESSAGES=C LC_PAPER=C \
     LC_NAME=C LC_ADDRESS=C LC_TELEPHONE=C LC_MEASUREMENT=C \
