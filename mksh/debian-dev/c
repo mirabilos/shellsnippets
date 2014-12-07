@@ -68,24 +68,43 @@ case $1 {
 	;;
 }
 #XXX add more architectures
-(( setarch_seen )) || case $DIST {
-(*/amd64) cmd[${#cmd[@]}]=linux64 ;;
-(*/i386) cmd[${#cmd[@]}]=linux32 ;;
-(*/x32) cmd[${#cmd[@]}]=linux64 ;;
-(*) setarch_seen=2 ;;
+case $DIST {
+(*/amd64)	setarch_cmd=linux64 ;;
+(*/i386)	setarch_cmd=linux32 ;;
+(*/x32)		setarch_cmd=linux64 ;;
+(*/*)		setarch_cmd= ;;
+(*)		setarch_cmd=- ;;
 }
-(( setarch_seen )) || case ${DIST%/*} {
-(sarge|sarge-*) cmd[${#cmd[@]}]=--uname-2.6 ;;
-(etch|etch-*) cmd[${#cmd[@]}]=--uname-2.6 ;;
-(lenny|lenny-*) cmd[${#cmd[@]}]=--uname-2.6 ;;
-(squeeze|squeeze-*) cmd[${#cmd[@]}]=--uname-2.6 ;;
-(dapper|dapper-*) cmd[${#cmd[@]}]=--uname-2.6 ;;
-(hardy|hardy-*) cmd[${#cmd[@]}]=--uname-2.6 ;;
-(jaunty|jaunty-*) cmd[${#cmd[@]}]=--uname-2.6 ;;
-(karmic|karmic-*) cmd[${#cmd[@]}]=--uname-2.6 ;;
-(lucid|lucid-*) cmd[${#cmd[@]}]=--uname-2.6 ;;
-(maverick|maverick-*) cmd[${#cmd[@]}]=--uname-2.6 ;;
-(natty|natty-*) cmd[${#cmd[@]}]=--uname-2.6 ;;
+case ${DIST%/*} {
+(sarge|sarge-*)		setarch_26=1 ;;
+(etch|etch-*)		setarch_26=1 ;;
+(lenny|lenny-*)		setarch_26=1 ;;
+(squeeze|squeeze-*)	setarch_26=1 ;;
+(dapper|dapper-*)	setarch_26=1 ;;
+(hardy|hardy-*)		setarch_26=1 ;;
+(jaunty|jaunty-*)	setarch_26=1 ;;
+(karmic|karmic-*)	setarch_26=1 ;;
+(lucid|lucid-*)		setarch_26=1 ;;
+(maverick|maverick-*)	setarch_26=1 ;;
+(natty|natty-*)		setarch_26=1 ;;
+(*)			setarch_26=0 ;;
+}
+(( setarch_seen )) || case x$setarch_cmd {
+(x)
+	print -ru2 "W: no setarch for architecture part of '$DIST'!"
+	;;
+(x-)
+	if (( setarch_26 )); then
+		cmd[${#cmd[@]}]=setarch
+		cmd[${#cmd[@]}]=uname26
+		cmd[${#cmd[@]}]=--
+	fi
+	;;
+(*)
+	cmd[${#cmd[@]}]=$setarch_cmd
+	(( setarch_26 )) && cmd[${#cmd[@]}]=--uname-2.6
+	cmd[${#cmd[@]}]=--
+	;;
 }
 
 set -x
