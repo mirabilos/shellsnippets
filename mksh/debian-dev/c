@@ -27,6 +27,11 @@
 
 unset LANGUAGE
 export LC_ALL=C
+
+if [[ -z $1 ]]; then
+	print -u2 E: No operation specified
+	exit 1
+fi
 DIST=$1
 
 # workaround for supporting old and new eatmydata; cf. #765579
