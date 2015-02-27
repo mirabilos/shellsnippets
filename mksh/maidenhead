@@ -1,0 +1,119 @@
+#!/bin/mksh
+#-
+# Copyright © 2014, 2015
+#	Thorsten “mirabilos” Glaser <tg@mirbsd.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# Parse a Maidenhead Grid (Maidenhead Locator System) code ⇒ lat/lon
+
+typeset -u code=$1
+
+if [[ $code != [A-R][A-R]?([0-9][0-9]?([A-X][A-X]?([0-9][0-9]?([A-X][A-X]?([0-9][0-9]))))) ]]; then
+	# maybe later for the other conversion direction?
+	print -ru2 "E: not a Maidenhead Grid geocode: $code"
+	exit 1
+fi
+
+# from MirKarte
+function decmin2min {
+	local x=${1#.}0000000
+	typeset -i10 -Z9 y
+
+	x=${x::7}
+	(( y = x * 60 ))
+
+	REPLY=${y::2}.${y:2}
+}
+
+# from MirKarte
+function decmin2txt {
+	local graticule=$1 decimal=$2 plus=$3 minus=$4 places=$5 x
+	typeset -i10 -Z$places n
+
+	if [[ $graticule = -* ]]; then
+		REPLY=$minus
+	else
+		REPLY=$plus
+	fi
+	n=${graticule#-}
+	REPLY+=" ${n}° "
+
+	x=${|decmin2min $decimal;}
+	typeset -i10 -Z2 n=${x%.*}
+	x=${x#*.}
+	typeset -i10 -Z4 m=${x::4}
+	if (( ${x:4:1} >= 5 )); then
+		if (( ++m > 9999 )); then
+			(( ++n ))
+			m=0
+		fi
+	fi
+	REPLY+=$n.$m
+}
+
+lats=
+lons=
+
+function divlatlon {
+	local fac=$1 lat=$2 lon=$3
+
+	if [[ -n $lats ]]; then
+		lats="($lats)/$fac+$lat"
+		lons="($lons)/$fac+$lon"
+	else
+		lats=".5+$lat"
+		lons=".5+$lon"
+	fi
+}
+
+function dolatlon {
+	local olat="$1-1" olon="$1-2" osiz=$2 fac=$3
+
+	divlatlon $fac $((1#${code:$olat:1} - $osiz)) \
+	    $((1#${code:$olon:1} - $osiz))
+}
+
+case ${#code} {
+(12)
+	dolatlon 12 1#0 24
+	;&
+(10)
+	dolatlon 10 1#A 10
+	;&
+(8)
+	dolatlon 8 1#0 24
+	;&
+(6)
+	dolatlon 6 1#A 10
+	;&
+(4)
+	dolatlon 4 1#0 24
+	;&
+(2)
+	dolatlon 2 1#A 10
+	;&
+}
+divlatlon 18 '(-.5)' '(-.5)'
+print -ru2 -- "↑ $lats"
+print -ru2 -- "→ $lons"
+print "scale=20\n($lats)*180\n($lons)*360" | bc |&
+read -p lat
+read -p lon
+print ": $lat / $lon"
+lattxt=${|decmin2txt ${lat%.*} .${lat#*.} N S 2;}
+lontxt=${|decmin2txt ${lon%.*} .${lon#*.} E W 3;}
+print -r -- "$lattxt $lontxt"
