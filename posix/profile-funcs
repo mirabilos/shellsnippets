@@ -23,9 +23,6 @@
 # convenience
 test -n "$BASH_VERSION" && shopt -s extglob
 
-# speedup
-test -n "$KSH_VERSION" && alias which='whence -p'
-
 # clear screen
 cls() {
 	local esc=''
@@ -150,11 +147,11 @@ if /usr/bin/ftp -h 2>&1 | fgrep http:// >/dev/null 2>&1; then
 	loadfile() {
 		/usr/bin/ftp -Vo - "$@"
 	}
-elif which curl >/dev/null 2>&1; then
+elif command -v curl >/dev/null 2>&1; then
 	loadfile() {
 		curl "$@"
 	}
-elif which wget >/dev/null 2>&1; then
+elif command -v wget >/dev/null 2>&1; then
 	loadfile() {
 		wget -qO - "$@"
 	}
@@ -181,13 +178,13 @@ gman() {
 }
 
 # hexdump -C in look-better
-which hd >/dev/null 2>&1 || hd() {
+command -v hd >/dev/null 2>&1 || hd() {
 	hexdump -e '"%08.8_ax  " 8/1 "%02X " " - " 8/1 "%02X "' \
 	    -e '"  |" "%_p"' -e '"|\n"' "$@"
 }
 
 # rot13 for those who do not have it
-which rot13 >/dev/null 2>&1 || rot13() {
+command -v rot13 >/dev/null 2>&1 || rot13() {
 	tr \
 	    abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ \
 	    nopqrstuvwxyzabcdefghijklmNOPQRSTUVWXYZABCDEFGHIJKLM
