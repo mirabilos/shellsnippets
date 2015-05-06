@@ -1,6 +1,6 @@
 #!/bin/mksh
 #-
-# Copyright © 2014
+# Copyright © 2014, 2015
 #	Thorsten Glaser <t.glaser@tarent.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -18,22 +18,61 @@
 # damage or existence of a defect, except proven that it results out
 # of said person’s immediate fault when using the work as intended.
 
+function die {
+	print -r -- E: "$@"
+	exit 1
+}
+
+cr=$'\r'
 nl=$'\n'
-set -o pipefail
-msg=$(cat; print x)
-if [[ $msg = *'> -----BEGIN'* ]]; then
-	msg=${msg//"${nl}> "/"$nl"}
-	repl="sed 's/^/> /'"
-else
-	repl=cat
-fi
-cs=${msg##*-----BEGIN PGP MESSAGE-----}
-cs=${cs%%-----END PGP MESSAGE-----*}
-if [[ $cs != *"${nl}Charset: "*$nl* ]]; then
-	print -nr -- "${msg%x}" | gpg "$@" | eval "$repl"
-	exit $?
-fi
-cs=${cs#*"${nl}Charset:"}
-cs=${cs%%"$nl"*}
-cs=${cs##+([	 ])}
-print -nr -- "${msg%x}" | gpg "$@" | iconv -f "$cs" -t utf-8 | eval "$repl"
+s=
+st=0
+while IFS= read -r line; do
+	case $st,${line%"$cr"} {
+	(0,*-----BEGIN\ PGP\ MESSAGE-----)
+		p=${line%-----BEGIN\ PGP\ MESSAGE-----?("$cr")}
+		c=${line#"$p"}$nl
+		cs=
+		st=1
+		;;
+	(0,*)
+		s+=$line$nl
+		;;
+	(1,"$p"-----END\ PGP\ MESSAGE-----)
+		die pgp message invalid
+		;;
+	(1,"$p"?(\ ))
+		# switch from header to body; Enigmail bogusly adds a space
+		st=2
+		;|
+	(2,"$p"-----END\ PGP\ MESSAGE-----)
+		c+=${line#"$p"}
+		c=$(print -r -- "$c" | gpg "$@") || die gpg failed
+		x=
+		[[ -z $cs ]] || if x=$(print -r -- "$c" | \
+		    iconv -f "$cs" -t utf-8); then
+			c=$x
+			x=
+		else
+			x="‣‣‣ WARNING: iconv from ${cs@Q} failed!$nl$nl"
+		fi
+		c=$nl$c
+		c=${c//"$nl"/"$nl$p"}
+		s+=$x${c#"$nl"}$nl
+		st=0
+		;;
+	(1,"$p"Charset:*)
+		cs=${line#"$p"Charset:}
+		cs=${cs##+([	 ])}
+		cs=${cs%%+([	 ])}
+		;&
+	([12],"$p"*)
+		c+=${line#"$p"}$nl
+		;;
+	([12],*)
+		die pgp message not indented consistently
+		;;
+	}
+done
+print -nr -- "$s"
+exit 0
