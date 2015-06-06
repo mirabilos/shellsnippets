@@ -1,0 +1,87 @@
+#!/bin/mksh
+#-
+# Copyright © 2015
+#	Thorsten “mirabilos” Glaser <tg@mirbsd.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+
+function die {
+	print -ru2 -- "E: $*"
+	exit 1
+}
+
+function chkdir {
+	local i x
+
+	[[ -s debian-binary ]] || return 1
+	[[ $(<debian-binary) = 2.0 ]] || return 1
+	[[ -d c && -d d ]] || return 1
+	i=0; for x in control.*; do
+		[[ $x = *.tar@(|.gz|.xz) ]] || return 1
+		let i++
+	done
+	(( i == 1 )) || return 1
+	i=0; for x in data.*; do
+		[[ $x = *.tar@(|.bz2|.gz|.xz) ]] || return 1
+		let i++
+	done
+	(( i == 1 )) || return 1
+	[[ -s c/control ]]
+}
+
+while ! chkdir; do
+	[[ $(realpath .) = +(/) ]] && die cannot find top-level dir
+	cd ..
+done
+
+for cf in control.*; do
+	case $cf {
+	(*.tar) cc=cat ;;
+	(*.tar.gz) cc='gzip -n9' ;;
+	(*.tar.xz) cc='xz -2' ;;
+	(*) die "huh? control.* = $cf" ;;
+	}
+	break
+done
+for df in data.*; do
+	case $df {
+	(*.tar) dc=cat ;;
+	(*.tar.bz2) dc='bzip2' ;;
+	(*.tar.gz) dc='gzip -n9' ;;
+	(*.tar.xz) dc='xz' ;;
+	(*) die "huh? data.* = $df" ;;
+	}
+	break
+done
+
+fp=$(sed -n '/^Package: /s///p' c/control)
+fv=$(sed -n '/^Version: /s///p' c/control)
+fa=$(sed -n '/^Architecture: /s///p' c/control)
+[[ $fp = +([a-zA-Z0-9.+~:-]) ]] || die "huh? fp $fp"
+[[ $fv = +([a-zA-Z0-9.+~:-]) ]] || die "huh? fv $fv"
+[[ $fa = +([a-zA-Z0-9.+~:-]) ]] || die "huh? fa $fa"
+
+set -o pipefail
+set -ex
+
+(cd d && find . -type f | sed s,^./,, | sort | xargs md5sum --) >c/md5sums
+(cd d && find . | sort | paxcpio -oC512 -Hustar -Minodes -Mlinks -Muidgid -Mgslash) | \
+    $dc >"$df"
+(cd c && chmod 644 *)
+(cd c && find . | sort | paxcpio -oC512 -Hustar -Minodes -Mlinks -Muidgid -Mgslash) | \
+    $cc >"$cf"
+
+paxtar -A -M dist -cf "${fp}_${fv}_${fa}.deb" debian-binary "$cf" "$df"
