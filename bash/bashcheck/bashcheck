@@ -1,0 +1,91 @@
+#!/bin/bash
+
+warn() {
+	if [ "$scary" == "1" ]; then
+		echo -e "\033[91mVulnerable to $1\033[39m"
+	else
+		echo -e "\033[93mFound non-exploitable $1\033[39m"
+	fi
+}
+
+good() {
+	echo -e "\033[92mNot vulnerable to $1\033[39m"
+}
+
+tmpdir=`mktemp -d -t tmp.XXXXXXXX`
+
+[ -n "$1" ] && bash=$(which $1) || bash=$(which bash)
+echo -e "\033[95mTesting $bash ..."
+$bash -c 'echo "Bash version $BASH_VERSION"'
+echo -e "\033[39m"
+
+#r=`a="() { echo x;}" $bash -c a 2>/dev/null`
+if [ -n "$(env 'a'="() { echo x;}" $bash -c a 2>/dev/null)" ]; then
+	echo -e "\033[91mVariable function parser active, maybe vulnerable to unknown parser bugs\033[39m"
+	scary=1
+elif [ -n "$(env 'BASH_FUNC_a%%'="() { echo x;}" $bash -c a 2>/dev/null)" ]; then
+	echo -e "\033[92mVariable function parser pre/suffixed [%%, upstream], bugs not exploitable\033[39m"
+	scary=0
+elif [ -n "$(env 'BASH_FUNC_a()'="() { echo x;}" $bash -c a 2>/dev/null)" ]; then
+	echo -e "\033[92mVariable function parser pre/suffixed [(), redhat], bugs not exploitable\033[39m"
+	scary=0
+elif [ -n "$(env '__BASH_FUNC<a>()'="() { echo x;}" $bash -c a 2>/dev/null)" ]; then
+	echo -e "\033[92mVariable function parser pre/suffixed [__BASH_FUNC<..>(), apple], bugs not exploitable\033[39m"
+	scary=0
+else
+	echo -e "\033[92mVariable function parser inactive, bugs not exploitable\033[39m"
+	scary=0
+fi
+
+
+r=`env x="() { :; }; echo x" $bash -c "" 2>/dev/null`
+if [ -n "$r" ]; then
+	warn "CVE-2014-6271 (original shellshock)"
+else
+	good "CVE-2014-6271 (original shellshock)"
+fi
+
+pushd $tmpdir > /dev/null
+env x='() { function a a>\' $bash -c echo 2>/dev/null > /dev/null
+if [ -e echo ]; then
+	warn "CVE-2014-7169 (taviso bug)"
+else
+	good "CVE-2014-7169 (taviso bug)"
+fi
+popd > /dev/null
+
+$($bash -c "true $(printf '<<EOF %.0s' 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80)" 2>$tmpdir/bashcheck.tmp)
+ret=$?
+grep AddressSanitizer $tmpdir/bashcheck.tmp > /dev/null
+if [ $? == 0 ] || [ $ret == 139 ]; then
+	warn "CVE-2014-7186 (redir_stack bug)"
+else
+	good "CVE-2014-7186 (redir_stack bug)"
+fi
+
+
+$bash -c "`for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100 101 102 103 104 105 106 107 108 109 110 111 112 113 114 115 116 117 118 119 120 121 122 123 124 125 126 127 128 129 130 131 132 133 134 135 136 137 138 139 140 141 142 143 144 145 146 147 148 149 150 151 152 153 154 155 156 157 158 159 160 161 162 163 164 165 166 167 168 169 170 171 172 173 174 175 176 177 178 179 180 181 182 183 184 185 186 187 188 189 190 191 192 193 194 195 196 197 198 199 200; do echo -n "for x$i in; do :;"; done; for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100 101 102 103 104 105 106 107 108 109 110 111 112 113 114 115 116 117 118 119 120 121 122 123 124 125 126 127 128 129 130 131 132 133 134 135 136 137 138 139 140 141 142 143 144 145 146 147 148 149 150 151 152 153 154 155 156 157 158 159 160 161 162 163 164 165 166 167 168 169 170 171 172 173 174 175 176 177 178 179 180 181 182 183 184 185 186 187 188 189 190 191 192 193 194 195 196 197 198 199 200; do echo -n "done;";done`" 2>/dev/null
+if [ $? != 0 ]; then
+	warn "CVE-2014-7187 (nested loops off by one)"
+else
+	echo -e "\033[96mTest for CVE-2014-7187 not reliable without address sanitizer\033[39m"
+fi
+
+$($bash -c "f(){ x(){ _;};x(){ _;}<<a;}" 2>/dev/null)
+if [ $? != 0 ]; then
+	warn "CVE-2014-6277 (lcamtuf bug #1)"
+else
+	good "CVE-2014-6277 (lcamtuf bug #1)"
+fi
+
+if [ -n "$(env x='() { _;}>_[$($())] { echo x;}' $bash -c : 2>/dev/null)" ]; then
+	warn "CVE-2014-6278 (lcamtuf bug #2)"
+elif [ -n "$(env BASH_FUNC_x%%='() { _;}>_[$($())] { echo x;}' $bash -c : 2>/dev/null)" ]; then
+	warn "CVE-2014-6278 (lcamtuf bug #2)"
+elif [ -n "$(env 'BASH_FUNC_x()'='() { _;}>_[$($())] { echo x;}' $bash -c : 2>/dev/null)" ]; then
+	warn "CVE-2014-6278 (lcamtuf bug #2)"
+else
+	good "CVE-2014-6278 (lcamtuf bug #2)"
+fi
+
+rm -rf $tmpdir
