@@ -1,4 +1,6 @@
 #!/bin/bash
+#
+# see LICENCES/CC0_1.0.txt for legal terms
 
 warn() {
 	if [ "$scary" == "1" ]; then

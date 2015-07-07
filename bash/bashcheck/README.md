@@ -3,6 +3,8 @@ bashcheck
 
 Test script for Shellshock and related vulnerabilities
 
+See ../../LICENCES/CC0_1.0.txt for legal terms.
+
 background
 ==========
 
