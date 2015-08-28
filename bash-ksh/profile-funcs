@@ -18,10 +18,8 @@ pts() {
 		${BROWSER:-lynx} "http://packages.qa.debian.org/${p:3:4}/${p#qa:}.html"
 	elif [[ $p = qa:* ]]; then
 		${BROWSER:-lynx} "http://packages.qa.debian.org/${p:3:1}/${p#qa:}.html"
-	elif [[ $p = bd:* ]]; then
+	elif [[ $p = b[dp]:* ]]; then
 		${BROWSER:-lynx} "https://buildd.debian.org/status/package.php?p=${p#bd:}"
-	elif [[ $p = bp:* ]]; then
-		${BROWSER:-lynx} "http://buildd.debian-ports.org/status/package.php?p=${p#bp:}"
 	elif [[ $p = f:* ]]; then
 		${BROWSER:-lynx} "https://packages.debian.org/search?searchon=contents&keywords=${1#f:}&mode=path&suite=unstable&arch=any"
 	elif [[ $p = p:* ]]; then
