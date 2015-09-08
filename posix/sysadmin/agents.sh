@@ -1,10 +1,24 @@
-# $Id: agents.sh 3654 2013-05-22 12:22:54Z tglase $
+# $Id: agents.sh 4522 2015-09-08 12:36:52Z tglase $
 #-
-# Copyright © 2009, 2012
+# Copyright © 2009, 2012, 2015
 #	Thorsten Glaser <t.glaser@tarent.de>
-# Licenced under the AGPLv3
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
 #-
-# /etc/profile.d/agents.sh (sourced by /etc/profile on *buntu)
+# /etc/profile.d/agents.sh (sourced by /etc/profile on Debian and derivates)
 # • install gpg and ssh skeleton files
 # • load gpg-agent and ssh-agent, unless already there
 
@@ -79,7 +93,7 @@ else
 fi
 if test -d "$PID_FILE/." && test -O "$PID_FILE/."; then
 	rm -f "$PID_FILE/info"
-	: >"$PID_FILE/info"
+	:>"$PID_FILE/info"
 	chmod 0600 "$PID_FILE/info"
 fi
 if test -f "$PID_FILE/info" && test -O "$PID_FILE/info" &&
@@ -92,32 +106,41 @@ else
 	unset SSH_AUTH_SOCK SSH_AGENT_PID
 fi
 
-: ${GNUPGHOME=$HOME/.gnupg}
-PID_FILE="$GNUPGHOME/gpg-agent-info-$(hostname)"
+: "${GNUPGHOME:=$HOME/.gnupg}"
 GPG_TTY=$(tty); export GPG_TTY
-if test -n "$GPG_AGENT_INFO" && test -S "${GPG_AGENT_INFO%%:*}" && \
-    gpg-agent 2>/dev/null; then
-	: wonderful
-else
+find_gpg_agent() {
+	local PID_FILE="$GNUPGHOME/gpg-agent-info-$(hostname)"
+
+	test -d "$GNUPGHOME" || return 0
+	export GNUPGHOME
+
+	test -n "$GPG_AGENT_INFO" && test -S "${GPG_AGENT_INFO%%:*}" && \
+	    gpg-agent 2>/dev/null && return 0
+
 	unset GPG_AGENT_INFO
-	test -s "$PID_FILE" && . "$PID_FILE"
+	if test -s "$PID_FILE"; then
+		. "$PID_FILE"
+		export GPG_AGENT_INFO
+		test -n "$GPG_AGENT_INFO" && \
+		    test -S "${GPG_AGENT_INFO%%:*}" && \
+		    gpg-agent 2>/dev/null && return 0
+		rm -f "$PID_FILE"
+	fi
+
+	unset GPG_AGENT_INFO
+	eval $(gpg-agent --daemon --sh)
+	: "${GPG_AGENT_INFO:=$GNUPGHOME/S.gpg-agent:0:1}"
 	export GPG_AGENT_INFO
 	if test -n "$GPG_AGENT_INFO" && test -S "${GPG_AGENT_INFO%%:*}" && \
 	    gpg-agent 2>/dev/null; then
-		: wonderful
-	else
-		unset GPG_AGENT_INFO
-		eval $(gpg-agent --daemon --sh "--write-env-file=$PID_FILE")
-		export GPG_AGENT_INFO
-		if test -n "$GPG_AGENT_INFO" && \
-		    test -S "${GPG_AGENT_INFO%%:*}" && \
-		    gpg-agent 2>/dev/null; then
-			: works now
-		else
-			unset GPG_AGENT_INFO
-		fi
+		echo "GPG_AGENT_INFO=$GPG_AGENT_INFO" >"$PID_FILE"
+		return 0
 	fi
-fi
 
-unset PID_FILE
+	unset GPG_AGENT_INFO
+	return 0
+}
+find_gpg_agent
+unset -f find_gpg_agent
+
 :
