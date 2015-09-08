@@ -1,30 +1,33 @@
 #!/bin/mksh
-# $MirOS: contrib/hosted/tg/deb/BuildDSC.sh,v 1.14 2011/11/17 15:27:53 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/BuildDSC.sh,v 1.16 2015/05/23 16:57:58 tg Exp $
 #-
 # Copyright (c) 2010, 2011
 #	Thorsten Glaser <t.glaser@tarent.de>
+# Copyright © 2015
+#	Thorsten “mirabilos” Glaser <tg@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission
-# is granted to deal in this work without restriction, including un-
+# is granted to deal in this work without restriction, including un‐
 # limited rights to use, publicly perform, distribute, sell, modify,
 # merge, give away, or sublicence.
 #
-# This work is provided "AS IS" and WITHOUT WARRANTY of any kind, to
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
 # the utmost extent permitted by applicable law, neither express nor
 # implied; without malicious intent or gross negligence. In no event
 # may a licensor, author or contributor be held liable for indirect,
 # direct, other damage, loss, or other issues arising in any way out
 # of dealing in the work, even if advised of the possibility of such
 # damage or existence of a defect, except proven that it results out
-# of said person's immediate fault when using the work as intended.
+# of said person’s immediate fault when using the work as intended.
 #-
 # The current working directory, or else the directory in which this
 # script resides, must be the root directory of a (extracted) Debian
 # source package. It will then be renamed to the proper dirname, and
 # a source package (*.dsc + others) will be created, then it will be
 # renamed back.
-# -s arg: make a snapshot with "arg" being the version number suffix
+# -d: pass -d to dpkg-buildpackage
+# -s arg: make a snapshot with “arg” being the version number suffix
 # -S: build a snapshot with snapshot.YYYYMMDD.HHMMSS (UTC) as suffix
 # Any further arguments will be passed to debian/rules via MAKEFLAGS
 
@@ -39,10 +42,13 @@ date >/dev/null
 stime_rfc=$(date +"%a, %d %b %Y %H:%M:%S %z")
 stime_vsn=$(date -u +"%Y%m%d.%H%M%S")
 
+optd=
 snap=0
 ssuf=
-while getopts "Ss:" ch; do
+while getopts "dSs:" ch; do
 	case $ch {
+	(d)	optd=-d
+		;;
 	(S)	snap=1
 		ssuf=snapshot.$stime_vsn
 		;;
@@ -124,7 +130,7 @@ curname=${mydir##*/}
 newname=$pkgstem-$upstreamversion
 [[ $newname = $curname ]] || mv "$curname" "$newname"
 cd "$newname"
-dpkg-buildpackage -rfakeroot -S -I -i
+dpkg-buildpackage -rfakeroot -S -I -i $optd
 rv=$?
 fakeroot debian/rules clean
 cd ..
