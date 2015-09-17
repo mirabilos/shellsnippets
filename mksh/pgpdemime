@@ -1,0 +1,94 @@
+#!/bin/mksh
+#-
+# Copyright © 2015
+#	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# Pipe a raw RFC822 message which is PGP/MIME encrypred through this
+# script; optional argument is the target folder (‘+’ auto-prepended
+# for dmail, otherwise dmail delivers to the INBOX) which uses dmail
+# from uw-imapd; if not found, delivery is to #driver.unix/mail/x in
+# unix/mbox format by hand, without locking.
+
+rawinput=$(cat)
+nl=$'\n'
+unixpfx=$(date -u +'From MAILER-DAEMON %a %b %e %H:%M:%S %Y')
+
+function die {
+	print -ru2 -- E: $*
+	exit 1
+}
+
+[[ $rawinput = *$nl$nl* ]] || die no RFC822 message
+rawheader=$unixpfx$nl${rawinput%%$nl$nl*}
+rawheader=${rawheader//$nl[	 ]/ }
+typeset -l loheader=$rawheader
+rawbody=${rawinput#*$nl$nl}
+rawbody=${rawbody//$'\r'}
+[[ $loheader = *${nl}content-type:*([	 ])multipart/encrypted*application/pgp-encrypted* ]] || \
+    die no PGP/MIME encrypted message content type
+[[ $rawbody = *$nl'-----BEGIN PGP MESSAGE-----'$nl*$nl'-----END PGP MESSAGE-----'$nl* ]] || \
+    die no PGP/MIME encrypted message body
+
+decoded=${rawbody#*$nl'-----BEGIN PGP MESSAGE-----'$nl}
+decoded=${decoded%%$nl'-----END PGP MESSAGE-----'$nl*}
+decoded=$(print -r -- "-----BEGIN PGP MESSAGE-----$nl$decoded$nl-----END PGP MESSAGE-----" | gpg)
+[[ $decoded = *$nl$nl* ]] || die decoded message not RFC822
+
+set -A transforms -- \
+    -e '/^[Cc][Oo][Nn][Tt][Ee][Nn][Tt]-/d' \
+    -e '/^[Ss][Uu][Bb][Jj][Ee][Cc][Tt]:/s//& **DECRYPTED**/'
+set -A extraheaders
+msgid=
+[[ $loheader = *${nl}message-id:* ]] && msgid=$(print -r -- "$rawheader" | \
+    sed -n '/^[Mm][Ee][Ss][Ss][Aa][Gg][Ee]-[Ii][Dd]:[	 ]*\(<.*>\)[	 ]*$/s//\1/p')
+if [[ -n $msgid ]]; then
+	transforms+=(-e '/^[Mm][Ee][Ss][Ss][Aa][Gg][Ee]-[Ii][Dd]:/s/>/.by.pgpdemime.mirbsd.org>/')
+	if [[ $loheader = *${nl}references:* ]]; then
+		transforms+=(-e '/^[Rr][Ee][Ff][Ee][Rr][Ee][Nn][Cc][Ee][Ss]:/s$'" $msgid")
+	else
+		extraheaders+=("References: $msgid")
+	fi
+fi
+
+mda=$(whence -p dmail) || mda=
+[[ -z $mda && -x /usr/mpkg/libexec/dmail ]] && mda=/usr/mpkg/libexec/dmail
+
+if [[ -n $mda ]]; then
+	transforms+=(-e '1d')
+	target='your INBOX'
+	[[ -n $1 ]] && mda="$mda ${1@Q}"
+	[[ -n $1 ]] && target="the selected folder $1"
+else
+	decoded+=$nl
+	target='“x” folder'
+	mda='cat >>~/mail/x'
+fi
+
+if {
+	print -r -- "$rawheader" | sed "${transforms[@]}" | tr '' '\n'
+	for x in "${extraheaders[@]}"; do
+		print -r -- "$x"
+	done
+	print -r -- "$decoded"
+    } | eval "$mda"; then
+	print I: decoded message written to $target
+else
+	print W: decoded message maybe not written, error code $?
+	exit 1
+fi
+exit 0
