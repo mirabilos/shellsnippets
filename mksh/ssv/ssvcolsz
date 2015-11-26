@@ -1,0 +1,59 @@
+#!/bin/mksh
+#-
+# Copyright © 2015
+#	mirabilos <mirabilos@evolvis.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# Filter (pipe) to determine maximum width of SSV fields – first row
+# is assumed to hold column names, not counted.
+#
+# A PostgreSQL database created with UTF8 encoding counts characters
+# (not bytes) for a VARCHAR field, so we default to Unicode mode.
+
+usage() {
+	print -u2 "Usage: $0 [±U] [file ...]"
+	exit ${1:-1}
+}
+
+utfmode=-U
+while getopts "hU" ch; do
+	case $ch {
+	(h)	usage 0 ;;
+	(U)	utfmode=-U ;;
+	(+U)	utfmode=+U ;;
+	(*)	usage ;;
+	}
+done
+shift $((OPTIND - 1))
+
+set $utfmode
+
+cat "$@" |&
+IFS=$'\x1C' read -pA headline
+set -A sizes
+while IFS=$'\x1C' read -pA line; do
+	for x in ${!line[*]}; do
+		y=${#line[x]}
+		((# sizes[x] = sizes[x] < y ? y : sizes[x] ))
+	done
+done
+
+((# y = ${#sizes[*]} < ${#headline[*]} ? ${#headline[*]} : ${#sizes[*]} ))
+x=-1
+while ((# ++x < y )); do
+	print -r -- "$((#sizes[x]))	${headline[x]}"
+done
