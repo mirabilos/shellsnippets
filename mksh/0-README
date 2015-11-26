@@ -4,3 +4,7 @@ See also:
 
 https://www.mirbsd.org/kwalletcli.htm
 	Three useful mksh scripts included.
+
+https://www.teckids.org/gitweb/?p=verein.git;a=tree;f=intern/schulexport;hb=HEAD
+	Couple of scripts using, mostly, xmlstarlet
+	to extract information from scraped HTML.
