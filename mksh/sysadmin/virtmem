@@ -1,0 +1,56 @@
+#!/bin/mksh
+# $Id: virtmem 4638 2015-11-27 10:28:12Z tglase $
+#-
+# Copyright © 2015
+#	mirabilos <t.glaser@tarent.de>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# Display memory usage of all running VMs on a wirrtualisation host.
+#
+# Syntax: virtmem host1 user@host2 …
+
+function getlist {
+	srv=$1
+
+	[[ $srv = *@* ]] || srv=root@$srv
+
+	set -A vmlist -- $(ssh "$srv" virsh list | tail -n +3 | \
+	    while read a b c; do echo $b; done)
+}
+
+function getmem {
+	ssh "$srv" cat /proc/meminfo | awk '/^MemTotal:/ { print $2 }'
+}
+
+function getone {
+	local what=$1
+
+	print $(for machine in "${vmlist[@]}"; do
+		ssh "$srv" virsh dumpxml "${machine@Q}" | \
+		    fgrep "<$what "
+	done | sed -e 's/<[^>]*>//g' -e 's/ //g' | tr \\n +)0 | bc
+}
+
+for server in "$@"; do
+	getlist "$server"
+	if [[ -z $vmlist ]]; then
+		print -r -- server="$server" error=no-VMs-found
+		continue
+	fi
+	print -r -- server="$server" memory=$(getone memory) \
+	    currentMemory=$(getone currentMemory) total=$(getmem)
+done
