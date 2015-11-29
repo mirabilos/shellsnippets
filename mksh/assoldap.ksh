@@ -202,15 +202,23 @@ function asso_setldap_internal_ldif {
 	LDAPTLS_CACERT=/etc/ssl/certs/dc.lan.tarent.de.cer \
 	    asso_setldap_plain users -- \
 	    -H ldaps://dc.lan.tarent.de -b cn=users,dc=tarent,dc=de -s one \
-	    isJabberAccount=1 cn uid
+	    isJabberAccount=1 cn uid mail
 	if (( $? )); then
 		print -u2 An error occurred: $?
 		exit 1
 	fi
 	print "uid (dn) = cn"
 	asso_loadk users
-	for user_dn in "${asso_y[@]}"; do
-		print -r -- "$(asso_getv users "$user_dn" uid)" \
+	set -A dns -- "${asso_y[@]}"
+	for user_dn in "${dns[@]}"; do
+		print -nr -- "$(asso_getv users "$user_dn" uid)" \
 		    "($user_dn) = $(asso_getv users "$user_dn" cn)"
+		asso_loadk users "$user_dn" mail
+		for user_mail in "${asso_y[@]}"; do
+			[[ $user_mail = count ]] && continue
+			print -nr -- " <$(asso_getv users "$user_dn" \
+			    mail "$user_mail")>"
+		done
+		print
 	done | sort
 }
