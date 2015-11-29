@@ -166,7 +166,7 @@ function asso_setldap_internal {
 	return 0
 }
 function asso_setldap_internal_ldif {
-	local line dn value x c
+	local line dn value x c newb
 
 	# input is never fully empty (see above)
 	IFS= read -r line
@@ -190,9 +190,30 @@ function asso_setldap_internal_ldif {
 		fi
 		[[ $x = dn ]] && dn=$value
 
-		c=$(asso_getv "$@" "$dn" "$x" count)
-		asso_sets "$value" "$@" "$dn" "$x" $((# c))
-		asso_seti $((# ++c)) "$@" "$dn" "$x" count
+		# look up and store parent of count/values
+		asso__lookup 1 "$@" "$dn" "$x"
+		newb=${asso_b}${asso_k#16#}
+		# make parent associative
+		asso__r_setf $ASSO_AASS
+		# get count member, if any
+		asso_b=$newb
+		c=0
+		if asso__lookup_once count && \
+		    (( (asso_f & ASSO_MASK_TYPE) < ASSO_NULL )); then
+			nameref _Av=${asso_b}_v
+			c=${_Av[asso_k]}
+			[[ $c = +([0-9]) ]] || c=0
+		fi
+		# set value
+		asso_b=$newb
+		asso__lookup_once $((# c))
+		asso__r_setk $((# c))
+		asso__r_setfv $ASSO_STR "$value"
+		# set count
+		asso_b=$newb
+		asso__lookup_once count
+		asso__r_setk count
+		asso__r_setfv $ASSO_INT $((# ++c))
 	done
 }
 
