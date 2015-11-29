@@ -1,0 +1,80 @@
+# -*- mode: sh -*-
+#-
+# Copyright © 2015
+#	mirabilos <thorsten.glaser@teckids.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# Shell library for easy display of a progress bar
+#
+# Usage:
+# – before:	init_progress_bar $n
+# – $n times:	draw_progress_bar
+# – after:	done_progress_bar
+#
+# init_progress_bar trashes the EXIT signal handler!
+
+# global variables used by this library
+_cnt_progress_bar=0
+_cur_progress_bar=0
+isin_progress_bar=0
+nlin_progress_bar=0
+
+# args: $1 = number of draw_progress_bar calls to make up 100%
+function init_progress_bar {
+	global -i _cnt_progress_bar=$1 _cur_progress_bar=0
+	global -i nlin_progress_bar=$LINES isin_progress_bar=1
+
+	trap 'done_progress_bar' EXIT
+	# newline; up one line (to ensure we are not in the last line);
+	# save position; set scrolling region; restore position
+	print -n "\\n\\e[A\\e7\\e[1;$((# nlin_progress_bar - 1))r\\e8"
+}
+
+function done_progress_bar {
+	(( isin_progress_bar )) || return 0
+	# save position; clear scrolling region;
+	# go to last line; delete line; restore position
+	print "\\e7\\e[0;0r\\e[$nlin_progress_bar;0H\\e[M\\e8"
+	isin_progress_bar=0
+}
+
+function draw_progress_bar {
+	local bar num w=$COLUMNS
+
+	((# num = (++_cur_progress_bar * w * 8) / _cnt_progress_bar ))
+	while ((# num >= 8 )); do
+		bar+=█
+		((# num -= 8 ))
+	done
+	case $num {
+	(7) bar+=▉ ;;
+	(6) bar+=▊ ;;
+	(5) bar+=▋ ;;
+	(4) bar+=▌ ;;
+	(3) bar+=▍ ;;
+	(2) bar+=▎ ;;
+	(1) bar+=▏ ;;
+	}
+	# fill complete line, right-align completion percentage display
+	local -R$w spc="$((# _cur_progress_bar * 100 / _cnt_progress_bar))%"
+	# elide percentage when it stops fitting
+	((# (_cur_progress_bar * w / _cnt_progress_bar) > (w - 4) )) && spc=
+	# save position; go to last line; set colours;
+	# output a line full of spaces (and completion percentage);
+	# jump to first column; output bar (line præfix); restore position
+	print -n -- "\\e7\\e[$nlin_progress_bar;0H\\e[0;1;33;44m$spc\\r$bar\\e8"
+}
