@@ -35,21 +35,24 @@ function asso_setldap {
 	local arrpath ldapopts x i=0 T dn line value
 	set -A arrpath
 	while (( $# )); do
-		[[ $1 = -- ]] && break
+		[[ $1 = -- || $1 = -+ ]] && break
 		arrpath[i++]=$1
 		shift
 	done
-	if [[ $1 != -- ]]; then
+	if [[ $1 != -- && $1 != -+ ]]; then
 		print -u2 'assoldap.ksh: syntax: asso_setldap arraypath -- ldappath'
 		return 255
 	fi
+	[[ $1 = -+ ]]; do_free=$?
 	shift
 	set -A ldapopts -- "$@"
 
-	# just in case, unset the target array and create it as associative
-	asso__lookup 1 "${arrpath[@]}"
-	asso__r_free
-	asso__r_setf $ASSO_AASS
+	if (( do_free )); then
+		# just in case, unset the target array and create it as associative
+		asso__lookup 1 "${arrpath[@]}"
+		asso__r_free
+		asso__r_setf $ASSO_AASS
+	fi
 
 	# call ldapsearch with decent output format
 	if ! T=$(mktemp -d /tmp/assoldap.XXXXXXXXXX); then
