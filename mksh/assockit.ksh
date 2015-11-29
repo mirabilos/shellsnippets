@@ -1,4 +1,5 @@
-# $MirOS: contrib/hosted/tg/assockit.ksh,v 1.4 2013/04/26 17:20:33 tg Exp $
+# $MirOS: contrib/hosted/tg/assockit.ksh,v 1.6 2014/11/02 18:05:19 tg Exp $
+# -*- mode: sh -*-
 #-
 # Copyright © 2011, 2013
 #	Thorsten “mirabilos” Glaser <tg@mirbsd.org>
@@ -158,6 +159,7 @@ function asso_loadk {
 		return 2
 	fi
 
+	set -A asso_y
 	asso__lookup 0 "$@" || return 1
 	(( asso_f & ASSO_MASK_ARR )) || return 1
 	nameref _keys=${asso_b}${asso_k#16#}_k
