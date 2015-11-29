@@ -441,7 +441,6 @@ function asso__lookup_once {
 		asso_k=$((_e))
 	else
 		asso_k=16#${_e@#}
-#		asso_k=$(somehash "$_e")
 		while :; do
 			asso_f=${_Af[asso_k]}
 			(( asso_f & ASSO_ALLOC )) || break
