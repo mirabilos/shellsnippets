@@ -64,7 +64,7 @@ function asso_setldap_sasl {
 }
 function asso_setldap_internal {
 	# parse options
-	local arrpath ldapopts x i=0 T dn line value
+	local arrpath ldapopts x i=0 T dn line value found=0
 	set -A arrpath
 	while (( $# )); do
 		[[ $1 = -- || $1 = -+ ]] && break
@@ -78,6 +78,15 @@ function asso_setldap_internal {
 	[[ $1 = -+ ]]; do_free=$?
 	shift
 	set -A ldapopts -- "$@"
+
+	# Add default host URI if none is given
+	for x in "${ldapopts[@]}"; do
+		[[ $x = -H ]] && found=1 && break
+	done
+	if (( !found )); then
+		ldapopts+=-H
+		ldapopts+=ldapi://
+	fi
 
 	if (( do_free )); then
 		# just in case, unset the target array and create it as associative
