@@ -24,10 +24,65 @@
 #-
 # Generic LDAP (LDIF) parser into associative arrays.
 
-# include assockit and pure-mksh base64 decoder, unless already done
+# include assockit, unless already done
 mydir=$(realpath "$(dirname "$0")")
 [[ -n $ASSO_VAL ]] || PATH="$mydir:$mydir/..:$PATH" . assockit.ksh
-typeset -f Lb64decode >/dev/null || PATH="$mydir:$mydir/..:$PATH" . base64
+
+# not NUL-safe
+set -A Tb64decode_tbl -- \
+    -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 \
+    -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 \
+    -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 62 -1 -1 -1 63 \
+    52 53 54 55 56 57 58 59 60 61 -1 -1 -1 -1 -1 -1 \
+    -1  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 \
+    15 16 17 18 19 20 21 22 23 24 25 -1 -1 -1 -1 -1 \
+    -1 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 \
+    41 42 43 44 45 46 47 48 49 50 51 -1 -1 -1 -1 -1 \
+    -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 \
+    -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 \
+    -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 \
+    -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 \
+    -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 \
+    -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 \
+    -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 \
+    -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+function Tb64decode {
+	[[ -o utf8-mode ]]; local u=$? s
+	set +U
+	read -raN-1 s <<<"$*"
+	local -i i=0 n=${#s[*]} v x
+	unset s[--n]
+	local -i1 o
+
+	while (( i < n )); do
+		(( (x = Tb64decode_tbl[s[i++]]) == -1 )) && continue
+		while (( (v = Tb64decode_tbl[s[i++]]) == -1 )); do
+			if (( i > n )); then
+				(( u )) || set -U
+				return 0
+			fi
+		done
+		(( o = ((x = (x << 6) | v) >> 4) & 255 ))
+		REPLY+=${o#1#}
+		while (( (v = Tb64decode_tbl[s[i++]]) == -1 )); do
+			if (( i > n )); then
+				(( u )) || set -U
+				return 0
+			fi
+		done
+		(( o = ((x = (x << 6) | v) >> 2) & 255 ))
+		REPLY+=${o#1#}
+		while (( (v = Tb64decode_tbl[s[i++]]) == -1 )); do
+			if (( i > n )); then
+				(( u )) || set -U
+				return 0
+			fi
+		done
+		(( o = ((x << 6) | v) & 255 ))
+		REPLY+=${o#1#}
+	done
+	(( u )) || set -U
+}
 
 # Syntax: asso_setldap arrayname index ... -- ldapsearch-options
 function asso_setldap_plain {
@@ -81,11 +136,13 @@ function asso_setldap_internal {
 
 	# Add default host URI if none is given
 	for x in "${ldapopts[@]}"; do
-		[[ $x = -H ]] && found=1 && break
+		if [[ $x = -H ]]; then
+			found=1
+			break
+		fi
 	done
 	if (( !found )); then
-		ldapopts+=-H
-		ldapopts+=ldapi://
+		set -A ldapopts+ -- -H ldapi://
 	fi
 
 	if (( do_free )); then
@@ -96,68 +153,47 @@ function asso_setldap_internal {
 	fi
 
 	# call ldapsearch with decent output format
-	if ! T=$(mktemp -d /tmp/assoldap.XXXXXXXXXX); then
-		print -u2 'assoldap.ksh: could not create temporary directory'
+	if ! T=$(mktemp /tmp/assoldap.XXXXXXXXXX); then
+		print -u2 'assoldap.ksh: could not create temporary file'
 		return 255
 	fi
-	(ldapsearch -LLL "${ldapopts[@]}"; echo $? >"$T/err") | \
-	    tr '\n' $'\a' | sed -e $'s/\a //g' >"$T/out"
-	i=$(<"$T/err")
-	if (( i )); then
-		print -u2 'assoldap.ksh: ldapsearch returned error'
-		rm -rf "$T"
+	if ! ldapsearch -LLL "${ldapopts[@]}" >"$T"; then
+		print -ru2 "assoldap.ksh: error from: ldapsearch -LLL ${ldapopts[*]}"
+		rm -f "$T"
 		return $i
 	fi
-	if [[ ! -s $T/out ]]; then
+	if [[ ! -s $T ]]; then
 		# empty output
-		rm -rf "$T"
+		rm -f "$T"
 		return 0
 	fi
 
-	# parse LDIF (without linewraps)
-	while IFS= read -d $'\a' -r line; do
+	# parse LDIF
+	{ IFS= read -r line && while :; do
 		if [[ -z $line ]]; then
 			dn=
+			IFS= read -r line || break
 			continue
 		fi
-		value=${line##+([!:]):?(:)*( )}
-		if [[ $value = "$line" ]]; then
-			print -ru2 "assoldap.ksh: malformed line: $line"
-			rm -rf "$T"
-			return 255
+		if [[ $line = ' '* ]]; then
+			value+=${line# }
+		else
+			x=${line%%: *}
+			value=${line: ${#x}+2}
 		fi
-		x=${line%%*( )"$value"}
-		if [[ $x = "$line" ]]; then
-			print -ru2 "assoldap.ksh: malformed line: $line"
-			rm -rf "$T"
-			return 255
+		IFS= read -r line || break
+		[[ $line = ' '* ]] && continue
+		if [[ $x = *: ]]; then
+			x=${x%:}
+			[[ $x = jpegPhoto ]] || value=${|Tb64decode "$value";}
 		fi
-		[[ $x = *:: && $x != jpegPhoto:: ]] && \
-		    value=$(Lb64decode "$value")
-		x=${x%%+(:)}
-		if [[ -z $dn ]]; then
-			if [[ $x = dn ]]; then
-				dn=$value
-			else
-				print -ru2 "assoldap.ksh: not dn: $line"
-				rm -rf "$T"
-				return 255
-			fi
-		elif [[ $x = dn ]]; then
-			print -ru2 "assoldap.ksh: unexpected dn ($dn): $line"
-			rm -rf "$T"
-			return 255
-		fi
+		[[ $x = dn ]] && dn=$value
 
 		c=$(asso_getv "${arrpath[@]}" "$dn" "$x" count)
 		asso_sets "$value" "${arrpath[@]}" "$dn" "$x" $((c))
 		asso_seti $((++c)) "${arrpath[@]}" "$dn" "$x" count
-	done <"$T/out"
-	rm -rf "$T"
-	if [[ -n $dn ]]; then
-		print -u2 'assoldap.ksh: missing empty line at EOT'
-		return 255
-	fi
+	done; } <"$T"
+	rm -f "$T"
 	return 0
 }
 
