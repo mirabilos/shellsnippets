@@ -104,7 +104,10 @@ function asso_setldap {
 			rm -rf "$T"
 			return 255
 		fi
-		asso_sets "$value" "${arrpath[@]}" "$dn" "$x"
+
+		c=$(asso_getv "${arrpath[@]}" "$dn" "$x" count)
+		asso_sets "$value" "${arrpath[@]}" "$dn" "$x" $((c))
+		asso_seti $((++c)) "${arrpath[@]}" "$dn" "$x" count
 	done <"$T/out"
 	rm -rf "$T"
 	if [[ -n $dn ]]; then
