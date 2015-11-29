@@ -1,11 +1,9 @@
 # -*- mode: sh -*-
 #-
-# Copyright © 2013
-#	mirabilos <t.glaser@tarent.de>
+# Copyright © 2013, 2014, 2015
+#	mirabilos <m@mirbsd.org>
 # Copyright © 2014, 2015
 #	Dominik George <dominik.george@teckids.org>
-# Copyright © 2014, 2015
-#	mirabilos <thorsten.glaser@teckids.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission
@@ -119,17 +117,13 @@ function asso_setldap_sasl {
 }
 function asso_setldap_internal {
 	# parse options
-	local arrpath ldapopts x i=0 T dn line value found=0
+	local arrpath ldapopts x i=0 T found=0
 	set -A arrpath
 	while (( $# )); do
-		[[ $1 = -- || $1 = -+ ]] && break
+		[[ $1 = -[-+] ]] && break
 		arrpath[i++]=$1
 		shift
 	done
-	if [[ $1 != -- && $1 != -+ ]]; then
-		print -u2 'assoldap.ksh: syntax: asso_setldap arraypath -- ldappath'
-		return 255
-	fi
 	[[ $1 = -+ ]]; do_free=$?
 	shift
 	set -A ldapopts -- "$@"
@@ -141,9 +135,7 @@ function asso_setldap_internal {
 			break
 		fi
 	done
-	if (( !found )); then
-		set -A ldapopts+ -- -H ldapi://
-	fi
+	(( found )) || ldapopts+=(-H ldapi://)
 
 	if (( do_free )); then
 		# just in case, unset the target array and create it as associative
@@ -169,7 +161,16 @@ function asso_setldap_internal {
 	fi
 
 	# parse LDIF
-	{ IFS= read -r line && while :; do
+	asso_setldap_internal_ldif "${arrpath[@]}" <"$T"
+	rm -f "$T"
+	return 0
+}
+function asso_setldap_internal_ldif {
+	local line dn value x c
+
+	# input is never fully empty (see above)
+	IFS= read -r line
+	while :; do
 		if [[ -z $line ]]; then
 			dn=
 			IFS= read -r line || break
@@ -189,12 +190,10 @@ function asso_setldap_internal {
 		fi
 		[[ $x = dn ]] && dn=$value
 
-		c=$(asso_getv "${arrpath[@]}" "$dn" "$x" count)
-		asso_sets "$value" "${arrpath[@]}" "$dn" "$x" $((c))
-		asso_seti $((++c)) "${arrpath[@]}" "$dn" "$x" count
-	done; } <"$T"
-	rm -f "$T"
-	return 0
+		c=$(asso_getv "$@" "$dn" "$x" count)
+		asso_sets "$value" "$@" "$dn" "$x" $((# c))
+		asso_seti $((# ++c)) "$@" "$dn" "$x" count
+	done
 }
 
 :||\
