@@ -1,10 +1,8 @@
-# $MirOS: contrib/hosted/tg/assockit.ksh,v 1.6 2014/11/02 18:05:19 tg Exp $
+# $MirOS: contrib/hosted/tg/assockit.ksh,v 1.6+wip 2014/11/02 18:05:19 tg Exp $
 # -*- mode: sh -*-
 #-
-# Copyright © 2011, 2013
-#	Thorsten “mirabilos” Glaser <tg@mirbsd.org>
-# Copyright © 2013
-#	Thorsten Glaser <t.glaser@tarent.de>
+# Copyright © 2011, 2013, 2015
+#	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission
@@ -98,7 +96,7 @@ function asso_setv {
 	# look up the item, creating paths as needed
 	asso__lookup 1 "$@"
 	# if it’s an array, free that recursively
-	if (( (_f = asso_f) & ASSO_MASK_ARR )); then
+	if (( ((_f = asso_f) & ASSO_MASK_ARR) == ASSO_MASK_ARR )); then
 		asso__r_free 1
 		(( _f &= ~ASSO_MASK_TYPE ))
 	fi
@@ -161,7 +159,7 @@ function asso_loadk {
 
 	set -A asso_y
 	asso__lookup 0 "$@" || return 1
-	(( asso_f & ASSO_MASK_ARR )) || return 1
+	(( (asso_f & ASSO_MASK_ARR) == ASSO_MASK_ARR )) || return 1
 	nameref _keys=${asso_b}${asso_k#16#}_k
 	set -A asso_y -- "${_keys[@]}"
 }
@@ -277,7 +275,7 @@ function asso_setidx {
 	local _f _v
 
 	asso__lookup 1 "$@"
-	if (( !((_f = asso_f) & ASSO_MASK_ARR) )); then
+	if (( ((_f = asso_f) & ASSO_MASK_ARR) != ASSO_MASK_ARR )); then
 		nameref _Av=${asso_b}_v
 		_v=${_Av[asso_k]}
 	elif (( (_f & ASSO_MASK_TYPE) == ASSO_AIDX )); then
@@ -285,7 +283,7 @@ function asso_setidx {
 	fi
 	asso__r_free 1
 	asso__r_setf $ASSO_AIDX
-	if (( !(_f & ASSO_MASK_ARR) )); then
+	if (( (_f & ASSO_MASK_ARR) != ASSO_MASK_ARR )); then
 		asso__lookup 1 "$@" 0
 		asso__r_setfv $_f "$_v"
 	fi
@@ -303,7 +301,7 @@ function asso_setasso {
 	local _f
 
 	asso__lookup 1 "$@"
-	if (( !((_f = asso_f) & ASSO_MASK_ARR) )); then
+	if (( ((_f = asso_f) & ASSO_MASK_ARR) != ASSO_MASK_ARR )); then
 		asso__r_free 1
 		asso__r_setf $ASSO_AASS
 	elif (( (_f & ASSO_MASK_TYPE) == ASSO_AIDX )); then
@@ -322,7 +320,7 @@ function asso__settv {
 	# look up the item, creating paths as needed
 	asso__lookup 1 "$@"
 	# if it’s an array, free that recursively
-	if (( (_f = asso_f) & ASSO_MASK_ARR )); then
+	if (( ((_f = asso_f) & ASSO_MASK_ARR) == ASSO_MASK_ARR )); then
 		asso__r_free 1
 	fi
 	(( _f = (_f & ~ASSO_MASK_TYPE) | _t ))
@@ -372,7 +370,7 @@ function asso__typeck {
 		(( $? < 2 ))
 		return
 	fi
-	(( _t & ASSO_MASK_ARR )) && return 1
+	(( (_t & ASSO_MASK_ARR) == ASSO_MASK_ARR )) && return 1
 	# ASSO_REAL
 	[[ $_v = ?(-)@(0|[1-9]*([0-9]))?(.+([0-9]))?([Ee]?([+-])+([0-9])) ]]
 }
@@ -386,7 +384,7 @@ function asso__lookup {
 	_r=0
 	asso_f=$ASSO_AASS
 	for _k in "$@"; do
-		if (( _r || !(asso_f & ASSO_MASK_ARR) )); then
+		if (( _r || (asso_f & ASSO_MASK_ARR) != ASSO_MASK_ARR )); then
 			(( _r )) || asso__r_free 1
 			asso__r_setf $ASSO_AASS
 		elif (( (asso_f & ASSO_MASK_TYPE) == ASSO_AIDX )); then
@@ -480,7 +478,7 @@ function asso__r_free {
 	asso_f=${_Af[asso_k]}
 	(( asso_f & ASSO_ALLOC )) || return
 	if (( asso_f & ASSO_ISSET )); then
-		if (( asso_f & ASSO_MASK_ARR )); then
+		if (( (asso_f & ASSO_MASK_ARR) == ASSO_MASK_ARR )); then
 			local _ob=$asso_b _ok=$asso_k
 			asso_b=$asso_b${asso_k#16#}
 			nameref _s=${asso_b}_f
