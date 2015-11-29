@@ -88,7 +88,8 @@ function asso_setldap {
 			rm -rf "$T"
 			return 255
 		fi
-		[[ $x = *:: ]] && value=$(Lb64decode "$value")
+		[[ $x = *:: && $x != jpegPhoto:: ]] && \
+		    value=$(Lb64decode "$value")
 		x=${x%%+(:)}
 		if [[ -z $dn ]]; then
 			if [[ $x = dn ]]; then
