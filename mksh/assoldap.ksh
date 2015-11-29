@@ -26,6 +26,16 @@
 # contract: path to this script is in $PATH
 [[ -n $ASSO_VAL ]] || . assockit.ksh
 
+asso_x=${KSH_VERSION#????MIRBSD KSH R}
+asso_x=${asso_x%% *}
+if (( asso_x < 51 )); then
+	alias asso_ustore='[[ -o utf8-mode ]]; local u=$?'
+	alias asso_urestore='(( u )) || set -U'
+else
+	alias asso_ustore=
+	alias asso_urestore=
+fi
+
 # not NUL-safe
 set -A Tb64decode_tbl -- \
     -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 \
@@ -45,8 +55,9 @@ set -A Tb64decode_tbl -- \
     -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 \
     -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 function Tb64decode {
-	[[ -o utf8-mode ]]; local u=$? s
+	asso_ustore
 	set +U
+	local s
 	read -raN-1 s <<<"$*"
 	local -i i=0 n=${#s[*]} v x
 	unset s[--n]
@@ -56,7 +67,7 @@ function Tb64decode {
 		(( (x = Tb64decode_tbl[s[i++]]) == -1 )) && continue
 		while (( (v = Tb64decode_tbl[s[i++]]) == -1 )); do
 			if (( i > n )); then
-				(( u )) || set -U
+				asso_urestore
 				return 0
 			fi
 		done
@@ -64,7 +75,7 @@ function Tb64decode {
 		REPLY+=${o#1#}
 		while (( (v = Tb64decode_tbl[s[i++]]) == -1 )); do
 			if (( i > n )); then
-				(( u )) || set -U
+				asso_urestore
 				return 0
 			fi
 		done
@@ -72,15 +83,17 @@ function Tb64decode {
 		REPLY+=${o#1#}
 		while (( (v = Tb64decode_tbl[s[i++]]) == -1 )); do
 			if (( i > n )); then
-				(( u )) || set -U
+				asso_urestore
 				return 0
 			fi
 		done
 		(( o = ((x << 6) | v) & 255 ))
 		REPLY+=${o#1#}
 	done
-	(( u )) || set -U
+	asso_urestore
 }
+unalias asso_ustore
+unalias asso_urestore
 
 # Syntax: asso_setldap arrayname index ... -- ldapsearch-options
 function asso_setldap_plain {
@@ -116,9 +129,10 @@ function asso_setldap_sasl {
 	asso_setldap_internal "${opts[@]}"
 }
 function asso_setldap_internal {
-	# parse options
-	local arrpath ldapopts x i=0 T found=0
+	local arrpath ldapopts x i=0 T found=0 do_free
 	set -A arrpath
+
+	# parse options
 	while (( $# )); do
 		[[ $1 = -[-+] ]] && break
 		arrpath[i++]=$1

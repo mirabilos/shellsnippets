@@ -1,4 +1,4 @@
-# $MirOS: contrib/hosted/tg/assockit.ksh,v 1.6+wip 2014/11/02 18:05:19 tg Exp $
+# $MirOS: contrib/hosted/tg/assockit.ksh,v 1.7 2015/11/29 20:24:19 tg Exp $
 # -*- mode: sh -*-
 #-
 # Copyright © 2011, 2013, 2015
@@ -161,7 +161,7 @@ function asso_loadk {
 	asso__lookup 0 "$@" || return 1
 	(( (asso_f & ASSO_MASK_ARR) == ASSO_MASK_ARR )) || return 1
 	nameref _keys=${asso_b}${asso_k#16#}_k
-	set -A asso_y -- "${_keys[@]}"
+	set -sA asso_y -- "${_keys[@]}"
 }
 
 # set a string value
