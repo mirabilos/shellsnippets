@@ -140,7 +140,7 @@ function asso_loadv {
 		return 2
 	fi
 
-	asso__lookup 0 "$@" || return 1
+	asso__lookup 2 "$@" || return 1
 	if (( (asso_f & ASSO_MASK_TYPE) < ASSO_NULL )); then
 		nameref _Av=${asso_b}_v
 		asso_x=${_Av[asso_k]}
@@ -375,7 +375,7 @@ function asso__typeck {
 	[[ $_v = ?(-)@(0|[1-9]*([0-9]))?(.+([0-9]))?([Ee]?([+-])+([0-9])) ]]
 }
 
-# look up an item ($1=1: create paths as necessary)
+# look up an item ($1 &1: create paths as necessary; &2: only scalar values)
 function asso__lookup {
 	local _c=$1 _k _n _r
 	shift
@@ -394,12 +394,18 @@ function asso__lookup {
 		asso__lookup_once "$_k"
 		if (( _r = $? )); then
 			# not found. not create?
-			(( _c )) || return 1
+			(( _c & 1 )) || return 1
 			asso__r_setk "$_k"
 		fi
 		_n=$_n${asso_k#16#}
 	done
-	return 0
+	(( _c & 2 )) || return 0
+	# assume $1==3 does not happen
+	while (( (asso_f & ASSO_MASK_ARR) == ASSO_MASK_ARR )); do
+		asso_b=$_n
+		asso__lookup_once 0 || return 1
+		_n=$_n${asso_k#16#}
+	done
 }
 
 # set flags for asso_b[asso_k] and update asso_f
