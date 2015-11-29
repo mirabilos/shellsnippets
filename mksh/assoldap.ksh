@@ -25,8 +25,8 @@
 # Generic LDAP (LDIF) parser into associative arrays.
 
 # include assockit, unless already done
-mydir=$(realpath "$(dirname "$0")")
-[[ -n $ASSO_VAL ]] || PATH="$mydir:$mydir/..:$PATH" . assockit.ksh
+# contract: path to this script is in $PATH
+[[ -n $ASSO_VAL ]] || . assockit.ksh
 
 # not NUL-safe
 set -A Tb64decode_tbl -- \
