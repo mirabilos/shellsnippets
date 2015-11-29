@@ -1,6 +1,11 @@
+# -*- mode: sh -*-
 #-
 # Copyright © 2013
-#	Thorsten Glaser <t.glaser@tarent.de>
+#	mirabilos <t.glaser@tarent.de>
+# Copyright © 2014, 2015
+#	Dominik George <dominik.george@teckids.org>
+# Copyright © 2014, 2015
+#	mirabilos <thorsten.glaser@teckids.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission
