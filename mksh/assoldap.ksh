@@ -30,7 +30,39 @@ mydir=$(realpath "$(dirname "$0")")
 typeset -f Lb64decode >/dev/null || PATH="$mydir:$mydir/..:$PATH" . base64
 
 # Syntax: asso_setldap arrayname index ... -- ldapsearch-options
-function asso_setldap {
+function asso_setldap_plain {
+	local opts x n=0 found=0
+
+	for x in "$@"; do
+		opts[n++]=$x
+		if [[ $x = -[-+] ]]; then
+			opts[n++]=-x
+			found=1
+		fi
+	done
+	if (( !found )); then
+		opts[n++]=--
+		opts[n++]=-x
+	fi
+	asso_setldap_internal "${opts[@]}"
+}
+function asso_setldap_sasl {
+	local opts x n=0 found=0
+
+	for x in "$@"; do
+		opts[n++]=$x
+		if [[ $x = -[-+] ]]; then
+			opts[n++]=-Q
+			found=1
+		fi
+	done
+	if (( !found )); then
+		opts[n++]=--
+		opts[n++]=-Q
+	fi
+	asso_setldap_internal "${opts[@]}"
+}
+function asso_setldap_internal {
 	# parse options
 	local arrpath ldapopts x i=0 T dn line value
 	set -A arrpath
@@ -59,7 +91,7 @@ function asso_setldap {
 		print -u2 'assoldap.ksh: could not create temporary directory'
 		return 255
 	fi
-	(ldapsearch -xLLL "${ldapopts[@]}"; echo $? >"$T/err") | \
+	(ldapsearch -LLL "${ldapopts[@]}"; echo $? >"$T/err") | \
 	    tr '\n' $'\a' | sed -e $'s/\a //g' >"$T/out"
 	i=$(<"$T/err")
 	if (( i )); then
@@ -124,7 +156,7 @@ function asso_setldap {
 {
 	# for testing
 	LDAPTLS_CACERT=/etc/ssl/certs/dc.lan.tarent.de.cer \
-	    asso_setldap users -- \
+	    asso_setldap_plain users -- \
 	    -H ldaps://dc.lan.tarent.de -b cn=users,dc=tarent,dc=de -s one \
 	    isJabberAccount=1 cn uid
 	if (( $? )); then
