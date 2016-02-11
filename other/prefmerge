@@ -1,0 +1,39 @@
+# Copyright © 2016
+#	Thorsten Glaser <t.glaser@tarent.de>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# Shell-and-Perl snippet to merge M*zilla Firef*x preferences files.
+
+eval 'cat "$@" | perl "$0"; exit $?'
+if 0;
+
+my %foo = ();
+
+while (<>) {
+	chomp;
+	next unless /^(?:user_)?pref\("([^"]+)",\s+(.*)\);$/;
+
+	print "# overriding $1 from " . $foo{$1} . " to $2\n"
+	    if (exists $foo{$1}) && ($foo{$1} ne $2);
+	#print "# $1 = $2\n";
+
+	$foo{$1} = $2;
+}
+
+for (sort keys %foo) {
+	print "user_pref(\"$_\", " . $foo{$_} . ");\n";
+}
