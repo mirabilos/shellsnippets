@@ -1,0 +1,32 @@
+#!/bin/mksh
+#-
+# Copyright © 2016
+#	mirabilos <m@mirbsd.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# Call translate-shell to use the Google Translate service; make its
+# output legible without scrolling.
+
+langs=
+if [[ $1 = ?([a-z][a-z]?([a-z]|-CN|-TW))[:=]?([a-z][a-z]?([a-z]|-CN|-TW))*('+'?([a-z][a-z]?([a-z]|-CN|-TW))) ]]; then
+	langs=$1
+	shift
+fi
+unset BROWSER DISPLAY
+trans -show-original n -show-dictionary n -no-view $langs -- "$*" | \
+    sed -ne '1,/^$/H' -e '1,/^$/!p' -e '${x;s/\n$//;p;}'
+exit ${PIPESTATUS[0]}
