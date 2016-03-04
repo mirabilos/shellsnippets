@@ -1,0 +1,497 @@
+# This is a shell archive.  Save it in a file, remove anything before
+# this line, and then unpack it by entering "sh file".  Note, it may
+# create directories; files and directories will be owned by you and
+# have default permissions.
+#
+# This archive contains:
+#
+#	jdmerge.sh
+#	munge.sh
+#	testcheck.sh
+#	tl2jd.sh
+#
+echo x - jdmerge.sh
+sed 's/^X//' >jdmerge.sh << 'END-of-jdmerge.sh'
+X#!/bin/mksh
+X# -*- mode: sh -*-
+X#-
+X# Copyright © 2016
+X#	mirabilos <t.glaser@tarent.de>
+X#
+X# Provided that these terms and disclaimer and all copyright notices
+X# are retained or reproduced in an accompanying document, permission
+X# is granted to deal in this work without restriction, including un‐
+X# limited rights to use, publicly perform, distribute, sell, modify,
+X# merge, give away, or sublicence.
+X#
+X# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+X# the utmost extent permitted by applicable law, neither express nor
+X# implied; without malicious intent or gross negligence. In no event
+X# may a licensor, author or contributor be held liable for indirect,
+X# direct, other damage, loss, or other issues arising in any way out
+X# of dealing in the work, even if advised of the possibility of such
+X# damage or existence of a defect, except proven that it results out
+X# of said person’s immediate fault when using the work as intended.
+X
+Xexport LC_ALL=C.UTF-8
+X
+Xlog() {
+X	print -r -- "$*"
+X	print -ru2 -- "I: $*"
+X}
+X
+Xwarn() {
+X	print -ru2 -- "W: $*"
+X}
+X
+Xdie() {
+X	print -ru2 -- "E: $*"
+X	exit 1
+X}
+X
+Xmode=$1
+Xif [[ $mode != @(1|2|3) ]]; then
+X	print -ru2 -- "N: mode 1 = check class names"
+X	print -ru2 -- "N: mode 2 = check method names"
+X	print -ru2 -- "N: mode 3 = apply changes (WARNING, writes to files)"
+X	die "syntax error, usage: mksh jdmerge.sh <mode> [<target directory>]"
+Xfi
+X
+X[[ -d testlink.out ]] || die input directory testlink.out not found
+X
+Xtargdir=$(realpath "${2:-.}")
+Xwhile [[ ! -d $targdir/.git ]]; do
+X	[[ $targdir = +(/) ]] && die target directory "${2:-$PWD}" not found
+X	targdir=$(realpath "$targdir/..")
+Xdone
+Xset -A files
+Xnfiles=0
+X(cd "$targdir" && git ls-tree -r --name-only -z HEAD | grep -z '\.java$' | LC_ALL=C sort -z) |&
+Xwhile IFS= read -prd '' fn; do
+X	files[nfiles++]=$fn
+Xdone
+X
+Xcd testlink.out
+Xfor cls in *; do
+X	[[ -d $cls ]] || die not a directory: "testlink.out/$cls"
+X	for x in $cls/*; do
+X		[[ -s $x ]] && continue
+X		die empty or broken directory: "testlink.out/$cls"
+X	done
+Xdone
+X
+Xfunction method_check {
+X	local found state i n=${#methods[*]} fn line
+X	set -A found
+X
+X	for fn in "${classes[@]}"; do
+X		state=0
+X		while IFS= read -r line; do
+X			line=${line%%//*}
+X			line=${line##*([	 ])}
+X			[[ -n $line ]] || continue
+X			case $state:$line {
+X			(0:'@Test'*)
+X				state=1
+X				;;
+X			(1:'@'+([A-Za-z0-9_])*)
+X				;;
+X			(1:'public void '+([A-Za-z0-9_])'()'?( *))
+X				state=0
+X				line=${line#public void }
+X				line=${line%%'('*}
+X				i=-1
+X				while (( ++i < n )); do
+X					[[ ${methods[i]} = "$line" ]] || continue
+X					found[i]=1
+X					break
+X				done
+X				;;
+X			}
+X		done <"$targdir/$fn"
+X	done
+X
+X	i=-1
+X	while (( ++i < n )); do
+X		[[ -n ${found[i]} ]] || log "no method $cls.${methods[i]}()"
+X	done
+X}
+X
+Xfunction method_patch {
+X	local lns state i k l n=${#methods[*]} pfx fn line
+X
+X	for fn in "${classes[@]}"; do
+X		tr '\n' $'\1' <"$targdir/$fn" |&
+X		IFS=$'\1' read -ArpN-1 -d '' lns
+X		l=${#lns[*]}
+X		state=0
+X		i=-1
+X		while (( ++i < l )); do
+X			line=${lns[i]%%//*}
+X			line=${line##*([	 ])}
+X			[[ -n $line ]] || continue
+X			case $state:$line {
+X			(0:'@Test'*)
+X				k=$i
+X				pfx=${lns[i]%%'@'*}
+X				state=1
+X				;;
+X			(1:'@'+([A-Za-z0-9_])*)
+X				;;
+X			(1:'public void '+([A-Za-z0-9_])'()'?( *))
+X				state=0
+X				line=${line#public void }
+X				line=${line%%'('*}
+X				if [[ -s $cls/$line ]]; then
+X					log "patching $fn.$line()"
+X					lns[k]=$(sed "s^$pfx" "$cls/$line")$'\n'${lns[k]}
+X				fi
+X				;;
+X			}
+X		done
+X		i=-1
+X		while (( ++i < l )); do
+X			print -r -- "${lns[i]}"
+X		done >"$targdir/$fn"
+X	done
+X}
+X
+X# preliminary checks done
+X
+Xexec >../jdmerge.log
+Xfor cls in *; do
+X	set -A classes
+X	nclasses=0
+X	i=-1
+X	while (( ++i < nfiles )); do
+X		[[ ${files[i]} = */"$cls.java" ]] && classes[nclasses++]=${files[i]}
+X	done
+X	case $nclasses {
+X	(0)
+X		log "no classes for $cls, skipping"
+X		continue
+X		;;
+X	(1)
+X		;;
+X	(*)
+X		log "multiple ($nclasses) classes for $cls: ${classes[*]}"
+X		;;
+X	}
+X	[[ $mode = 1 ]] && continue
+X
+X	cd "$cls"
+X	set -A methods -- *
+X	cd ..
+X	if [[ $mode = 2 ]]; then
+X		method_check
+X	else
+X		method_patch
+X	fi
+Xdone
+END-of-jdmerge.sh
+echo x - munge.sh
+sed 's/^X//' >munge.sh << 'END-of-munge.sh'
+X#!/bin/mksh
+X# -*- mode: sh -*-
+X#-
+X# Copyright © 2016
+X#	mirabilos <t.glaser@tarent.de>
+X#
+X# Provided that these terms and disclaimer and all copyright notices
+X# are retained or reproduced in an accompanying document, permission
+X# is granted to deal in this work without restriction, including un‐
+X# limited rights to use, publicly perform, distribute, sell, modify,
+X# merge, give away, or sublicence.
+X#
+X# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+X# the utmost extent permitted by applicable law, neither express nor
+X# implied; without malicious intent or gross negligence. In no event
+X# may a licensor, author or contributor be held liable for indirect,
+X# direct, other damage, loss, or other issues arising in any way out
+X# of dealing in the work, even if advised of the possibility of such
+X# damage or existence of a defect, except proven that it results out
+X# of said person’s immediate fault when using the work as intended.
+X
+Xexport LC_ALL=C.UTF-8
+X
+Xdie() {
+X	print -ru2 -- "E: $*"
+X	exit 1
+X}
+X
+Xcd "$(dirname "$0")"/testlink.out
+Xset -A entries -- *
+Xnentries=${#entries[*]}
+Xfor ent in "${entries[@]}"; do
+X	cd "$ent"
+X	eval "set -A sub_$ent -- *"
+X	cd ..
+Xdone
+Xset -A cmds
+Xncmds=0
+X
+Xfindent() {
+X	local -i i=-1
+X
+X	while (( ++i < nentries )); do
+X		[[ ${entries[i]} = "$1" ]] || continue
+X		print -r -- "$i"
+X		return 0
+X	done
+X	return 1
+X}
+X
+Xfindsub() {
+X	nameref s=sub_$2
+X	local -i i=-1 n=${#s[*]}
+X
+X	while (( ++i < n )); do
+X		[[ ${s[i]} = "$1" ]] || continue
+X		print -r -- "$i"
+X		return 0
+X	done
+X	return 1
+X}
+X
+Xdrop() {
+X	local ent
+X
+X	ent=$(findent "$1") || return 0
+X	unset entries[ent]
+X	eval "unset sub_$1"
+X	set -A entries -- "${entries[@]}"
+X	nentries=${#entries[*]}
+X	cmds[ncmds++]="rm -rf ${1@Q}"
+X}
+X
+Xdsub() {
+X	local ent c=$2 m=$1
+X
+X	if [[ -z $c ]]; then
+X		c=${m%.*}
+X		m=${m#*.}
+X	fi
+X
+X	ent=$(findent "$c") || return 0
+X	ent=$(findsub "$m" "$c") || return 0
+X	eval "unset sub_$c[ent]"
+X	eval "set -A sub_$c -- \"\${sub_$c[@]}\""
+X	cmds[ncmds++]="rm -f ${c@Q}/${m@Q}"
+X}
+X
+Xmove() {
+X	local src dst
+X
+X	src=$(findent "$1") || return 0
+X	dst=$(findent "$2") && die "move ${1@Q} ${2@Q}: target already exists"
+X	entries[src]=$2
+X	eval "set -A -- sub_$2 -- \"\${sub_$1[@]}\""
+X	eval "unset sub_$1"
+X	cmds[ncmds++]="mv -f ${1@Q} ${2@Q}"
+X}
+X
+Xmsub() {
+X	local src dst
+X
+X	src=$(findent "$2") || return 0
+X	src=$(findsub "$1" "$2") || return 0
+X	dst=$(findent "$4") || die "moving to new subdir not implemented yet"
+X	dst=$(findsub "$3" "$4") && die "msub ${1@Q} ${2@Q} ${3@Q} ${4@Q}: target already exists"
+X	eval "unset sub_$2[src]"
+X	eval "set -A sub_$2 -- \"\${sub_$2[@]}\""
+X	eval "set -A sub_$4 -- \"\${sub_$4[@]}\" \"\$3\""
+X	cmds[ncmds++]="mv -f ${2@Q}/${1@Q} ${4@Q}/${3@Q}"
+X}
+X
+Xdoit() {
+X	local i=-1
+X
+X	while (( ++i < ncmds )); do
+X		print -r -- "+ ${cmds[i]}"
+X		eval "${cmds[i]}"
+X	done
+X}
+X
+X# insert here commands to munge the descriptions
+Xmove OldTestClassName NewTestClassName
+Xdrop RemovedTestClassName
+Xdsub TestClassName.removedTestMethodName
+Xmsub oldTestMethodName OldTestClassName newTestMethodName NewTestClassName
+X
+Xdoit
+END-of-munge.sh
+echo x - testcheck.sh
+sed 's/^X//' >testcheck.sh << 'END-of-testcheck.sh'
+X#!/bin/mksh
+X# -*- mode: sh -*-
+X#-
+X# Copyright © 2016
+X#	mirabilos <t.glaser@tarent.de>
+X#
+X# Provided that these terms and disclaimer and all copyright notices
+X# are retained or reproduced in an accompanying document, permission
+X# is granted to deal in this work without restriction, including un‐
+X# limited rights to use, publicly perform, distribute, sell, modify,
+X# merge, give away, or sublicence.
+X#
+X# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+X# the utmost extent permitted by applicable law, neither express nor
+X# implied; without malicious intent or gross negligence. In no event
+X# may a licensor, author or contributor be held liable for indirect,
+X# direct, other damage, loss, or other issues arising in any way out
+X# of dealing in the work, even if advised of the possibility of such
+X# damage or existence of a defect, except proven that it results out
+X# of said person’s immediate fault when using the work as intended.
+X
+Xexport LC_ALL=C.UTF-8
+X
+Xdie() {
+X	print -ru2 -- "E: $*"
+X	exit 1
+X}
+X
+Xclr() {
+X	local -R$((COLUMNS - 1)) x=''
+X
+X	print -n "\r$x\r"
+X}
+X
+Xtargdir=$(realpath "${1:-.}")
+Xwhile [[ ! -d $targdir/.git ]]; do
+X	[[ $targdir = +(/) ]] && die target directory "${1:-$PWD}" not found
+X	targdir=$(realpath "$targdir/..")
+Xdone
+Xcd "$targdir"
+Xgit grep -F -z -l '@Test' |&
+Xwhile IFS= read -prd '' fn; do
+X	[[ $fn = *.java ]] || continue
+X	clr
+X	print -nr -- "Checking $fn ..."
+X	state=0
+X	while IFS= read -r line; do
+X		line=${line%%//*}
+X		line=${line##*([	 ])}
+X		[[ -n $line ]] || continue
+X		case $state:$line {
+X		(0:'@Test'?('('*([!\)])')'))
+X			state=1
+X			;;
+X		(0:*'@Test'*)
+X			print -r -- "Error found in $fn"
+X			die "WTF? 0 $line"
+X			;;
+X		(0:'@'+([A-Za-z0-9_])?('('*([!\)])')'))
+X			state=2
+X			;;
+X		(1:'@'+([A-Za-z0-9_])?('('*([!\)])')'))
+X			;;
+X		(1:'public void '+([A-Za-z0-9_])'()'?( *))
+X			state=0
+X			;;
+X		(1:*)
+X			print -r -- "Error found in $fn"
+X			die "WTF? 1 $line"
+X			;;
+X		(2:*'@Test'*)
+X			print -r -- "Error found in $fn"
+X			die "@Test is not the first annotation"
+X			;;
+X		(2:'@'+([A-Za-z0-9_])?('('*([!\)])')'))
+X			;;
+X		(2:*)
+X			state=0
+X			;;
+X		}
+X	done <"$fn"
+X	if [[ $state != 0 ]]; then
+X		print -r -- "Error found in $fn"
+X		die "State $state at EOF"
+X	fi
+Xdone
+Xclr
+Xprint All files checked successfully.
+END-of-testcheck.sh
+echo x - tl2jd.sh
+sed 's/^X//' >tl2jd.sh << 'END-of-tl2jd.sh'
+X#!/bin/mksh
+X# -*- mode: sh -*-
+X#-
+X# Copyright © 2016
+X#	mirabilos <t.glaser@tarent.de>
+X# Copyright © 2015
+X#	mirabilos <thorsten.glaser@teckids.org>
+X# Copyright © 2007, 2008, 2012, 2013, 2014
+X#	mirabilos <m@mirbsd.org>
+X#
+X# Provided that these terms and disclaimer and all copyright notices
+X# are retained or reproduced in an accompanying document, permission
+X# is granted to deal in this work without restriction, including un‐
+X# limited rights to use, publicly perform, distribute, sell, modify,
+X# merge, give away, or sublicence.
+X#
+X# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+X# the utmost extent permitted by applicable law, neither express nor
+X# implied; without malicious intent or gross negligence. In no event
+X# may a licensor, author or contributor be held liable for indirect,
+X# direct, other damage, loss, or other issues arising in any way out
+X# of dealing in the work, even if advised of the possibility of such
+X# damage or existence of a defect, except proven that it results out
+X# of said person’s immediate fault when using the work as intended.
+X
+Xexport LC_ALL=C.UTF-8
+X
+Xwarn() {
+X	print -ru2 -- "W: $*"
+X}
+X
+Xdie() {
+X	print -ru2 -- "E: $*"
+X	exit 1
+X}
+X
+X[[ -s testlink.html ]] || die input file testlink.html not found
+X[[ -e testlink.out || -h testlink.out ]] && die output directory testlink.out already exists
+Xmkdir testlink.out || die cannot create output directory testlink.out
+X
+X<testlink.html \
+X    tidy -q -asxhtml -w 0 -utf8 --quote-nbsp no 2>/dev/null | \
+X    sed -e 's! xmlns="http://www.w3.org/1999/xhtml"!!' -e 's/ / /g' | \
+X    xmlstarlet sel -B -T -t -m '//table[@class="tc"]/tbody' -o $'\2' \
+X    -v 'tr/td[.="Java Class:"]/following-sibling::td' -o $'\1' \
+X    -v 'tr[1]/th' -o $'\1' \
+X    -v 'tr/td[.="Refenz:"]/following-sibling::td' -o $'\1' \
+X    -m 'tr/td/table/tbody' \
+X    -v 'tr/td[contains(.,"Beschreibung")]/following-sibling::td' -o $'\1' \
+X    -v 'tr/td[contains(.,"Getestete Funktion")]/following-sibling::td' -o $'\1' \
+X    -v 'tr/td[contains(.,"Vorbedingung")]/following-sibling::td' -o $'\1' \
+X    -v 'tr/td[contains(.,"Nachbedingung")]/following-sibling::td' -o $'\1' \
+X    -t -o $'\2' \
+X    | tr $'\t\n\2' $' \3\n' \
+X    | sed -e 1d -e $'s! *\1 *!\1!g' -e 's!&!\&amp;!g' -e 's!<!\&lt;!g' -e 's!>!\&gt;!g' -e $'s!\3!<br />!g' \
+X    | tee testlink.log \
+X    | while IFS=$'\1' read -r jp tf ref bes fn vb nb rest; do
+X	[[ -n $rest ]] && warn "ignoring nonzero rest in record ||$jp|$tf|$ref|$bes|$fn|$vb|$nb||$rest||"
+X	if [[ $jp != +([A-Za-z0-9_]).+([A-Za-z0-9_])'()' ]]; then
+X		warn "skipping line, invalid java class name: $jp"
+X		continue
+X	fi
+X	jp=${jp%'()'}
+X	jc=${jp%.*}
+X	jm=${jp#*.}
+X	mkdir -p testlink.out/$jc
+X	[[ -e testlink.out/$jc/$jm ]] && warn "multiple entries for $jp()"
+X	exec >>testlink.out/$jc/$jm
+X	print -r -- "/**"
+X	print -r -- " * $tf"
+X	[[ -n $bes$fn$vb$nb ]] && print -r -- " * <ul>"
+X	[[ -n $bes ]] && print -r -- " * <li><b>Beschreibung:</b> $bes</li>"
+X	[[ -n $fn ]] && print -r -- " * <li><b>Getestete Funktion:</b> $fn</li>"
+X	[[ -n $vb ]] && print -r -- " * <li><b>Vorbedingung:</b> $vb</li>"
+X	[[ -n $nb ]] && print -r -- " * <li><b>Nachbedingung:</b> $nb</li>"
+X	[[ -n $bes$fn$vb$nb ]] && print -r -- " * </ul>"
+X	[[ -n $ref ]] && print -r -- " * <b>Referenz:</b> $ref"
+X	print -r -- " */"
+X	exec >/dev/null
+Xdone
+END-of-tl2jd.sh
+exit
