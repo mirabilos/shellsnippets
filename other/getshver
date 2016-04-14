@@ -1,7 +1,7 @@
-# $MirOS: contrib/code/Snippets/getshver,v 1.15 2012/09/23 15:50:16 tg Exp $
+# $MirOS: contrib/code/Snippets/getshver,v 1.18 2016/04/14 11:55:42 tg Exp $
 #-
-# Copyright (c) 2009, 2010, 2011, 2012
-#	Thorsten Glaser <tg@mirbsd.org>
+# Copyright (c) 2009, 2010, 2011, 2012, 2013, 2014, 2016
+#	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission
@@ -94,10 +94,14 @@ case $YASH_VERSION in
 *.*) echo "yash $YASH_VERSION"; exit 0 ;;
 esac
 
+case $NETBSD_SHELL in
+2*) echo "nbsh $NETBSD_SHELL"; exit 0 ;;
+esac
+
 case x$SHELL_VERSION in
 x) ;;
 *[0-9]*build*)
-	if ( (set -o korn) && (set -o bash) ) >&- 2>&-; then
+	if ( (set -o korn) && (set -o bash) ) >/dev/null 2>/dev/null; then
 		# MKS {,Korn,Bash} Shell (fixed by Michael Langguth)
 		( # subshell, just in case
 		typeset _o
@@ -131,13 +135,24 @@ if test x"$x" != x""; then
 	exit 0
 fi
 
+# AT&T ksh93
+x=.sh.version
+(eval x=\$\{$x\}) 2>/dev/null || x=fail
+if test fail != "$x"; then
+	if builtin XBell >/dev/null 2>&1; then
+		eval echo 'dtksh ${.sh.version#Version }'
+	else
+		eval echo 'ksh93 ${.sh.version#Version }'
+	fi
+	exit 0
+fi
 # lksh, mksh, mirbsdksh (pre-mksh), oksh (3.7+), pdksh
 case $KSH_VERSION in
 *LEGACY\ KSH*) echo "mksh-legacy ${KSH_VERSION#*KSH }" ; exit 0 ;;
 *MIRBSD\ KSH*) echo "mksh ${KSH_VERSION#*KSH }" ; exit 0 ;;
 *PD\ KSH*MirOS*) echo "pdksh-mbsd${KSH_VERSION#*PD KSH}"; exit 0 ;;
 *PD\ KSH*)
-	if test x"`typeset -i10 x=0x10 2>&-; echo $x`" = x"16"; then
+	if test x"`typeset -i10 x=0x10 2>/dev/null; echo $x`" = x"16"; then
 		# printing KSH_VERSION here is rather useless though
 		echo "pdksh-obsd ${KSH_VERSION#*KSH }"
 	else
@@ -150,7 +165,7 @@ esac
 case $SH_VERSION in
 *PD\ KSH*MirOS*) echo "pdksh-binsh-mbsd${SH_VERSION#*PD KSH}"; exit 0 ;;
 *PD\ KSH*)
-	if test x"`typeset -i10 x=0x10 2>&-; echo $x`" = x"16"; then
+	if test x"`typeset -i10 x=0x10 2>/dev/null; echo $x`" = x"16"; then
 		# printing SH_VERSION here is rather useless though
 		echo "pdksh-binsh-obsd ${SH_VERSION#*KSH }"
 	else
@@ -160,32 +175,23 @@ case $SH_VERSION in
 	fi
 	exit 0 ;;
 esac
-
-x=.sh.version
-(eval x=\$\{$x\}) 2>&- || x=fail
-if test fail != "$x"; then
-	if builtin XBell >/dev/null 2>&1; then
-		eval echo 'dtksh ${.sh.version#Version }'
-	else
-		eval echo 'ksh93 ${.sh.version#Version }'
-	fi
-	exit 0
-fi
+# AT&T ksh88
 if (
 	typeset _p
 
 	_p='f+([ o])bar'
 	eval [[ foobar = $_p '&&' \"foo bar\" = $_p ]]
-) 2>&-; then
+) 2>/dev/null; then
 	echo ksh88
 	exit 0
 fi
 
+# posh (pdksh without Korn shell)
 if test x"$POSH_VERSION" != x""; then
 	echo "posix-posh $POSH_VERSION"
 	exit 0
 fi
-if ( [[ 0 < 1 ]] ) 2>&-; then
+if ( [[ 0 < 1 ]] ) 2>/dev/null; then
 	echo posix-ext
 	exit 0
 fi
@@ -203,7 +209,7 @@ if test x"`
 	if test x"$(PATH=/nonexistent; export PATH
 	    printf 'f%so' o 2>/dev/null)" = x"foo"; then
 		# probably, but not certain
-		# also: NetBSD /bin/sh on MirBSD; dash on Debian
+		# also: (old) NetBSD /bin/sh (e.g. on MirBSD); dash on Debian
 		echo posix-dash
 		exit 0
 	fi
