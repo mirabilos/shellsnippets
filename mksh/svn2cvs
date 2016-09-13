@@ -1,7 +1,7 @@
 #!/usr/bin/env mksh
-id='$MirOS: contrib/hosted/tg/svn2cvs.sh,v 1.3 2009/05/17 13:10:42 tg Exp $'
+id='$MirOS: contrib/hosted/tg/svn2cvs.sh,v 1.4 2014/02/10 00:36:12 tg Exp $'
 #-
-# Copyright (c) 2008
+# Copyright (c) 2008, 2014
 #	Thorsten Glaser <tg@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -33,19 +33,20 @@ bo='[0m'
 
 print -n $bo\\r
 i=0
-if ! whence -p cmp >&-; then
+if ! whence -p cmp >/dev/null; then
 	print -u2 ${be}Error${bo}: you must install cmp to continue.
 	i=1
 fi
-if ! whence -p cvs >&-; then
+if ! whence -p cvs >/dev/null; then
 	print -u2 ${be}Error${bo}: you must install GNU CVS to continue.
 	i=1
 fi
-if ! whence -p rcs >&- || ! whence -p ci >&- || ! whence -p co >&-; then
+if ! whence -p rcs >/dev/null || ! whence -p ci >/dev/null || \
+    ! whence -p co >/dev/null; then
 	print -u2 ${be}Error${bo}: you must install GNU RCS to continue.
 	i=1
 fi
-if ! whence -p svn >&-; then
+if ! whence -p svn >/dev/null; then
 	print -u2 ${be}Error${bo}: you must install Subversion to continue.
 	i=1
 fi
