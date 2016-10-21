@@ -1,8 +1,8 @@
 #!/bin/mksh
-# $MirOS: contrib/hosted/tg/deb/cvs/debian/cvs-switchroot,v 1.1 2011/06/10 23:44:12 tg Exp $
+# $MirOS: src/scripts/mnt-cvsroot,v 1.19 2016/10/21 21:09:59 tg Exp $
 #-
 # Copyright © 2005, 2008, 2011
-#	Thorsten “mirabilos” Glaser <tg@mirbsd.org>
+#	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission
@@ -23,6 +23,11 @@
 # With option -T: change Tag instead of Root
 
 me=${0##*/}
+function die {
+	print -ru2 -- "$me: $*"
+	exit 1
+}
+
 if [[ $1 = -T ]]; then
 	tagmode=-T
 	fn=Tag
@@ -51,23 +56,21 @@ if [[ -z $newroot || $newroot = -? ]]; then
 fi
 shift
 
-[[ -z $1 ]] && set -- .
+[[ -n $1 ]] || set -- .
 
 # realpath(2)ise arguments
 set -A arg
-let i=0
+i=0
 for name in "$@"; do
 	arg[i++]=$(realpath "$name")
 done
 
-if ! T="$(mktemp ${arg[0]}/$me.XXXXXXXXXX)"; then
-	print -u2 "$me: fatal: cannot mktemp"
-	exit 1
-fi
+T="$(mktemp ${arg[0]}/$me.XXXXXXXXXX)" || die fatal: cannot mktemp
 
 if (( useroot )); then
 	rm -f "$T"
-	ln "$newroot" "$T" || cp "$newroot" "$T"
+	ln "$newroot" "$T" || cp "$newroot" "$T" || \
+	    die "fatal: cannot copy '$newroot' to temporary '$T'"
 fi
 
 trap 'rm -f "$T"; exit 0' 0
@@ -81,10 +84,7 @@ fi
 let rv=0
 find "${arg[@]}" -path \*/CVS/$fn -print0 |&
 while IFS= read -d '' -pr name; do
-	if ! rm "$name"; then
-		print -u2 "$me: error: cannot rm <$name>"
-		exit 1
-	fi
+	rm "$name" || die "error: cannot rm <$name>"
 	ln -f "$T" "$name" || if ! U="$(mktemp ${arg[0]}/$me.XXXXXXXXXX)"; then
 		cp "$T" "$name"
 	elif cat "$T" >"$U" && ln -f "$U" "$name"; then
