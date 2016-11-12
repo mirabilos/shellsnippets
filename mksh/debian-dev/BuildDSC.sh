@@ -1,10 +1,10 @@
 #!/bin/mksh
-# $MirOS: contrib/hosted/tg/deb/BuildDSC.sh,v 1.16 2015/05/23 16:57:58 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/BuildDSC.sh,v 1.19 2016/02/23 18:05:35 tg Exp $
 #-
 # Copyright (c) 2010, 2011
 #	Thorsten Glaser <t.glaser@tarent.de>
-# Copyright © 2015
-#	Thorsten “mirabilos” Glaser <tg@mirbsd.org>
+# Copyright © 2015, 2016
+#	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission
@@ -26,7 +26,8 @@
 # source package. It will then be renamed to the proper dirname, and
 # a source package (*.dsc + others) will be created, then it will be
 # renamed back.
-# -d: pass -d to dpkg-buildpackage
+# -d: pass -d to dpkg-buildpackage (ignore B-D absence)
+# -N: pass -nc to dpkg-buildpackage (do not clean)
 # -s arg: make a snapshot with “arg” being the version number suffix
 # -S: build a snapshot with snapshot.YYYYMMDD.HHMMSS (UTC) as suffix
 # Any further arguments will be passed to debian/rules via MAKEFLAGS
@@ -43,17 +44,30 @@ stime_rfc=$(date +"%a, %d %b %Y %H:%M:%S %z")
 stime_vsn=$(date -u +"%Y%m%d.%H%M%S")
 
 optd=
+optN=
 snap=0
 ssuf=
-while getopts "dSs:" ch; do
+while getopts "dNSs:" ch; do
 	case $ch {
 	(d)	optd=-d
+		;;
+	(+d)	optd=
+		;;
+	(N)	optN=-nc
+		;;
+	(+N)	optN=
 		;;
 	(S)	snap=1
 		ssuf=snapshot.$stime_vsn
 		;;
+	(+S)	snap=0
+		ssuf=
+		;;
 	(s)	snap=1
 		ssuf=$OPTARG
+		;;
+	(+s)	snap=0
+		ssuf=
 		;;
 	(*)	print -u2 Syntax error.
 		exit 1
@@ -63,7 +77,7 @@ done
 shift $((OPTIND - 1))
 export MAKEFLAGS="$*"
 
-if (( snap )) && [[ -z $DEBEMAIL ]]; then
+if (( snap )) && [[ $DEBEMAIL != +([A-Za-z])*' <'*'>' ]]; then
 	print -u2 'Please set $DEBEMAIL to "First M. Last <email@domain.com>"'
 	exit 1
 fi
@@ -130,9 +144,9 @@ curname=${mydir##*/}
 newname=$pkgstem-$upstreamversion
 [[ $newname = $curname ]] || mv "$curname" "$newname"
 cd "$newname"
-dpkg-buildpackage -rfakeroot -S -I -i $optd
+dpkg-buildpackage -rfakeroot -S -I -i $optd $optN -us -uc
 rv=$?
-fakeroot debian/rules clean
+[[ -n $optN ]] || fakeroot debian/rules clean
 cd ..
 [[ $newname = $curname ]] || mv "$newname" "$curname"
 
