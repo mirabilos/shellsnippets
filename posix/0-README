@@ -1,2 +1,5 @@
 Shell snippets that run with a POSIX shell.
 GNU bash, dash, AT&T ksh93, mksh. Maybe pdksh, posh, zsh in “emulate sh” mode.
+
+Some snippets assume that functions can have local variables;
+those won’t work with AT&T ksh but any /bin/sh in Debian (Policy §10.4).
