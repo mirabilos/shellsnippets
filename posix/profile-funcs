@@ -69,6 +69,57 @@ wp() {
 	${BROWSER:-lynx} "http://www.mirbsd.org/wp.cgi?$1"
 }
 
+# Benefind search
+bf() {
+	local _q _IFS _b=${BROWSER:-lynx}
+
+	case $_b in
+	(lynx) _b="$_b -accept_all_cookies -cmd_script=/dev/fd/5" ;;
+	(*/lynx) test -x "$_b" && _b="$_b -accept_all_cookies -cmd_script=/dev/fd/5" ;;
+	esac
+
+	_IFS=$IFS
+	IFS=+
+	_q="$*"
+	IFS=$_IFS
+	$_b "https://www.benefind.de/web.php?org=1647&q=$_q" 5<<-\EOF
+		set NO_PAUSE=TRUE
+		set SET_COOKIES=TRUE
+		set FORCE_COOKIE_PROMPT=yes
+		key /
+		key y
+		key h
+		key s
+		key /
+		key s
+		key e
+		key a
+		key r
+		key c
+		key h
+		key ^J
+		key E
+		key &
+		key e
+		key i
+		key =
+		key U
+		key T
+		key F
+		key -
+		key 8
+		key &
+		key n
+		key o
+		key j
+		key s
+		key =
+		key 1
+		key ^J
+		set NO_PAUSE=FALSE
+	EOF
+}
+
 # DuckDuckGo search
 ddg() {
 	local _q _IFS
