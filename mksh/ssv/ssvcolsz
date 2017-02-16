@@ -43,9 +43,9 @@ shift $((OPTIND - 1))
 set $utfmode
 
 cat "$@" |&
-IFS=$'\x1C' read -pA headline
+IFS=$'\x1C' read -prA headline
 set -A sizes
-while IFS=$'\x1C' read -pA line; do
+while IFS=$'\x1C' read -prA line; do
 	for x in ${!line[*]}; do
 		y=${#line[x]}
 		((# sizes[x] = sizes[x] < y ? y : sizes[x] ))
