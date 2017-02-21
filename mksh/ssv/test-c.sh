@@ -98,7 +98,8 @@ third,abc
 fourth,"ab
 
 c
-d"
+d
+e"
 fifth,a
 sixth,"a
 b"
@@ -107,7 +108,7 @@ KeyValue
 first1\234"5,678\
 secondab
 thirdabc
-fourthabcd
+fourthabcde
 fiftha
 sixthab
 EOO
@@ -122,7 +123,8 @@ third,abc
 fourth,"ab
 
 c
-d"
+d
+e"
 fifth,a
 EOI
 KeyValue
@@ -133,7 +135,8 @@ thirdabc
 fourth"ab
 
 c
-d"
+d
+e"
 fiftha
 EOO
 
