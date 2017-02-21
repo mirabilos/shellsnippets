@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015
+ * Copyright (c) 2015, 2017
  *	mirabilos <mirabilos@evolvis.org>
  *
  * Provided that these terms and disclaimer and all copyright notices
@@ -97,11 +97,14 @@ main(int argc, char *argv[])
 	setlinebuf(stdout);
 
 	while (cp <= ep) {
+ normal:
 		switch ((c = *cp++)) {
 		case 0x00:
 		case 0x1C:
 			errx(1, "\\x%02X found at offset %zu",
 			    (unsigned int)c, (size_t)(cp - mp) - 1);
+		case 0x0D:
+			break;
 		case 0x0A:
 			if (cp > ep)
 				goto nl_out;
@@ -118,6 +121,24 @@ main(int argc, char *argv[])
 		bp = cp;
 		if (c == cs) {
 			fputc(0x1C, stdout);
+			continue;
+		}
+
+		if (c != cq) {
+			/* 0x0D */
+			while (cp <= ep) {
+				switch ((c = *cp++)) {
+				case 0x0A:
+					bp = cp;
+					/* FALLTHROUGH */
+				default:
+					--cp;
+					--bp;
+					goto normal;
+				case 0x0D:
+					break;
+				}
+			}
 			continue;
 		}
 
