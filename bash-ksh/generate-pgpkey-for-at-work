@@ -1,11 +1,25 @@
 #!/bin/sh
-# $Id: genkey-firmengebrauch.sh 3856 2013-11-04 12:15:25Z tglase $
+# $Id: genkey-firmengebrauch.sh 5123 2017-01-16 16:10:38Z tglase $
 #-
-# Copyright © 2010, 2011, 2012, 2013
-#	Thorsten Glaser <t.glaser@tarent.de>
-# All rights reserved.
+# Copyright © 2010, 2011, 2012, 2013, 2015, 2017
+#	mirabilos <t.glaser@tarent.de>
+# Copyright (c) 2008
+#	Thorsten Glaser <tg@mirbsd.org>
 #
-# Licenced under the GNU AGPLv3.
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
 #-
 # Generate a new GnuPG (PGP) key, for company use.
 # The keys are revokable by the company key and use LDAP user/password.
@@ -68,6 +82,8 @@ for tool in gpg wget; do
 	echo >&2 You must install $tool to continue.
 	exit 1
 done
+# pre-create/populate ~/.gnupg/ unless it exists
+gpg -k >/dev/null 2>&1
 
 # subroutine for converting a string into an array
 # taking into account Korn Shell vs GNU bash syntax
@@ -113,23 +129,6 @@ else
 fi
 
 ### BEGIN imported code {{{
-# Copyright (c) 2008
-#	Thorsten Glaser <tg@mirbsd.org>
-#
-# Provided that these terms and disclaimer and all copyright notices
-# are retained or reproduced in an accompanying document, permission
-# is granted to deal in this work without restriction, including un-
-# limited rights to use, publicly perform, distribute, sell, modify,
-# merge, give away, or sublicence.
-#
-# This work is provided "AS IS" and WITHOUT WARRANTY of any kind, to
-# the utmost extent permitted by applicable law, neither express nor
-# implied; without malicious intent or gross negligence. In no event
-# may a licensor, author or contributor be held liable for indirect,
-# direct, other damage, loss, or other issues arising in any way out
-# of dealing in the work, even if advised of the possibility of such
-# damage or existence of a defect, except proven that it results out
-# of said person's immediate fault when using the work as intended.
 
 # read a password without echoing
 askpass() {
@@ -272,14 +271,35 @@ EOF
 
 
 # gpg2, as opposed to gnupg, doesn’t want to not use the agent
-vsn=$(gpg --version 2>&1 | head -n 1)
+vsn=$(gpg --version 2>&1 | grep -v \
+    -e 'option .* is unknown' \
+    -e 'is an obsolete option - it has no effect' \
+    -e 'server .* is older than us' | \
+    head -n 1)
 isgpg2=0
 if [[ $vsn = 'gpg (GnuPG) 1.4.'* ]]; then
-	: okay
+	echo "Using gnupg 1.x version $vsn"
 elif [[ $vsn = 'gpg (GnuPG) 1.'* ]]; then
 	echo 'WARNING: Obsolete GnuPG 1.x version, you SHALL update!'
-elif [[ $vsn = 'gpg (GnuPG) 2.0.'* ]]; then
+elif [[ $vsn = 'gpg (GnuPG) 2.'[01]'.'* ]]; then
 	isgpg2=1
+	echo "Using gpg2 2.x version $vsn"
+	echo "
+Warnung / Warning
+=================
+
+GnuPG 2.x does not allow us to disable the gpg-agent; therefore, you
+will likely be asked for the key password at least once by a, usually
+graphical, pop-up; just re-enter the LDAP password!
+
+GnuPG 2.x erlaubt es uns nicht, den gpg-agent nicht zu benutzen; daher
+wirst Du wahrscheinlich mindestens einmal in einem (normalerweise gra‐
+phischen) Pop-Up nach einem Schlüsselpaßwort gefragt werden; gib dann
+einfach Dein LDAP-Paßwort ein!
+
+Press Return to continue / Drücke Enter, um fortzusetzen!
+"
+	read egal
 else
 	echo "WARNING: Unknown GnuPG version '$vsn', tell tglase!"
 fi
@@ -324,27 +344,52 @@ EOF
 # create CA “bundle”
 cat >"$T/ca.cer" <<'EOF'
 -----BEGIN CERTIFICATE-----
-MIIC5zCCAlACAQEwDQYJKoZIhvcNAQEFBQAwgbsxJDAiBgNVBAcTG1ZhbGlDZXJ0
-IFZhbGlkYXRpb24gTmV0d29yazEXMBUGA1UEChMOVmFsaUNlcnQsIEluYy4xNTAz
-BgNVBAsTLFZhbGlDZXJ0IENsYXNzIDIgUG9saWN5IFZhbGlkYXRpb24gQXV0aG9y
-aXR5MSEwHwYDVQQDExhodHRwOi8vd3d3LnZhbGljZXJ0LmNvbS8xIDAeBgkqhkiG
-9w0BCQEWEWluZm9AdmFsaWNlcnQuY29tMB4XDTk5MDYyNjAwMTk1NFoXDTE5MDYy
-NjAwMTk1NFowgbsxJDAiBgNVBAcTG1ZhbGlDZXJ0IFZhbGlkYXRpb24gTmV0d29y
-azEXMBUGA1UEChMOVmFsaUNlcnQsIEluYy4xNTAzBgNVBAsTLFZhbGlDZXJ0IENs
-YXNzIDIgUG9saWN5IFZhbGlkYXRpb24gQXV0aG9yaXR5MSEwHwYDVQQDExhodHRw
-Oi8vd3d3LnZhbGljZXJ0LmNvbS8xIDAeBgkqhkiG9w0BCQEWEWluZm9AdmFsaWNl
-cnQuY29tMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDOOnHK5avIWZJV16vY
-dA757tn2VUdZZUcOBVXc65g2PFxTXdMwzzjsvUGJ7SVCCSRrCl6zfN1SLUzm1NZ9
-WlmpZdRJEy0kTRxQb7XBhVQ7/nHk01xC+YDgkRoKWzk2Z/M/VXwbP7RfZHM047QS
-v4dk+NoS/zcnwbNDu+97bi5p9wIDAQABMA0GCSqGSIb3DQEBBQUAA4GBADt/UG9v
-UJSZSWI4OB9L+KXIPqeCgfYrx+jFzug6EILLGACOTb2oWH+heQC1u+mNr0HZDzTu
-IYEZoDJJKPTEjlbVUjP9UNV+mWwD5MlM/Mtsq2azSiGM5bUMMj4QssxsodyamEwC
-W/POuZ6lcg5Ktz885hZo+L7tdEy8W9ViH0Pd
+MIIHkTCCBXmgAwIBAgIJAPLL6CFCINaEMA0GCSqGSIb3DQEBBQUAMGoxCzAJBgNV
+BAYTAkRFMQswCQYDVQQIDAJOVzENMAsGA1UEBwwEQm9ubjEPMA0GA1UECgwGTWly
+QlNEMRAwDgYDVQQDDAdNQ0Eg4oWjMRwwGgYJKoZIhvcNAQkBFg1jYUBtaXJic2Qu
+b3JnMB4XDTE0MDMyOTEyNDkyN1oXDTM0MDMyOTEyNDkyN1owajELMAkGA1UEBhMC
+REUxCzAJBgNVBAgMAk5XMQ0wCwYDVQQHDARCb25uMQ8wDQYDVQQKDAZNaXJCU0Qx
+EDAOBgNVBAMMB01DQSDihaMxHDAaBgkqhkiG9w0BCQEWDWNhQG1pcmJzZC5vcmcw
+ggIiMA0GCSqGSIb3DQEBAQUAA4ICDwAwggIKAoICAQDf3lyNc0qHHsznBMm8j68G
+dzCVS8w90GLz1W/X3HFTKdtW8JpJbO9X2pQS1bUJfh6ONlKd5LfbgAxQXZODmLFe
+xqEuihpTizXCY+w2wylZpr2aICAdYEHaSGwNfsoL3UYWePNB/yVyCA2l02EGdi7s
+sxnjhGop5iVupSi7DMdoRyZ+fHG8igY+tQJ0zZlV52tzss9qITIfxRuFmaqPJ2AC
+PU0Jq2dFqtf4zHoqXzSJwGlhiwQLtcBtOdtkRXZAgpVe0ZWJKHh6wNmfDpnlm/PS
+NW5GIfbsP3FMTvu8YZQB+qlV20NDy+5oWWcePAnjIlJNfnR4eNsO36bJPOfJyWk7
+2Df8KvYOKdwjMGSHtKxDUscOAST3uK2AWNSn566SyGThz3rlpKl72qkFJhTggZN7
+FssUA172qmbOhbij0R/Waa5vxiNn1MROWz6luFQPJsPwcfQfV3K/nfVr8KPZw1Xq
+wvP8wGJU38xNPkuSNg87Ik7uzG7murMpF8RgrAoV8TO4LQSqODGqqEx1hmJipW9W
+sWXbqxXWaXZOIghew0QIFAJ+80L/NKQvNcEgfiZkKXSmqnmhMHMcI1+Wq9BHy2Ml
+Wxep4WXvr0//skPAQa619C/61DiNv1aEnySrEN3pM/dtJwvgza3alxQ8waqeh6eS
+KL1NJ8l+zTwpmhWX1KNWIQIDAQABo4ICODCCAjQwEgYDVR0TAQH/BAgwBgEB/wIB
+ADBmBgNVHR8EXzBdMCOgIaAfhh1odHRwczovL3d3dy5taXJic2Qub3JnL0NBLmNy
+bDA2oDSgMoYwaHR0cDovL3VzZXJzLnVuaXhmb3JnZS5kZS9+dGdsYXNlci9NaXJC
+U0QvQ0EuY3JsMIHpBgNVHSUEgeEwgd4GCCsGAQUFBwMCBggrBgEFBQcDAwYIKwYB
+BQUHAwQGCCsGAQUFBwMFBggrBgEFBQcDBgYIKwYBBQUHAwcGCisGAQQBgjcKAwEG
+CisGAQQBgjcCARYGCisGAQQBgjcCARUGCisGAQQBgjcKAwQGCisGAQQBgjcKAwMG
+CWCGSAGG+EIEAQYIKwYBBQUHAwEGCCsGAQUFBwMIBgsrBgEEAYI3CgMEAQYKKwYB
+BAGCNwoDBQYKKwYBBAGCNwoDBgYKKwYBBAGCNwoDBwYKKwYBBAGCNwoDCAYIKwYB
+BQUIAgIwDgYDVR0PAQH/BAQDAgH2MCwGCWCGSAGG+EIBCAQfFh1odHRwczovL3d3
+dy5taXJic2Qub3JnL0NBLmh0bTARBglghkgBhvhCAQEEBAMCAPcwWgYDVR0RBFMw
+UYYdaHR0cHM6Ly93d3cubWlyYnNkLm9yZy9DQS5odG2GMGh0dHA6Ly91c2Vycy51
+bml4Zm9yZ2UuZGUvfnRnbGFzZXIvTWlyQlNEL0NBLmh0bTAdBgNVHQ4EFgQUPEeU
+UNDh5NPRoQGm9aXE8bLSLFYwDQYJKoZIhvcNAQEFBQADggIBADZqFQDP6Kd6TWSf
+ECj3ZrxJe8Wn0G6CoX9XqBVpuuRnDBPcXm/OnJpW4Be0ESybtQaenGx/yQ1qzOhF
+TmZXJ6DuZZUXkzZPioSq4JLdusXHiNKQ6rJmN2MUq48L7zeUM/2cGPDEBpi3AkAf
+jYfjw9osNbe+i03EK/d8cKtDeulGcbD+br9nO80OdzhaOjkBqJmW4rKJ/XN66IGo
+ZrGBM1MCpZV+XWF6IejS3f9Ht+sQ7ihDPWV90QNq5s5lvxub9MM68dAMubBe8UN8
+KvaiVvb/fYbaq+dRPj9lFHWOK57/7Q63hRj5Z0iqmApDjr5ZsoNLDfvdjDrxGXmY
+TgcqRTMO4PF8g0oMlHcFllYUL1Uw1SJygcHTSFkH2nwySYHum4PggtrGbH1Z93NT
+SEIOHY448EIMnnhon9wdfvEGMf6A5/RO2VSRHrr7FO+Hq68l53sn33eibfW/Rtx8
+eckhSBuxbgHWIiYlTVN3wBLYKi2G65z4Oqh7PlwvKrkDzwma04WZqendvA4tdRr4
+nSkfH3T2JYaORyokbap2BnXay0sUeCNlE2/xvSTJG40oi+YUgVworih+gIjUt5/q
+1brdO58Wpmx2ZBulu1nLFdraPK5T3DpzqASeL2wpiV+E2waAWWWVsogRtF7tiHcb
+EZd7swRO81cROYaOI65cAI2xhrW3
 -----END CERTIFICATE-----
 EOF
 
 # get user information from LDAP
-x=$(wget -O "$T/ui" --ca-certificate="$T/ca.cer" -S https://tarentpgp.tarent.de/ui.cgi 2>&1 | \
+x=$(wget -O "$T/ui" --ca-certificate="$T/ca.cer" -S https://tarentpgp.tarent.de/ui2.cgi 2>&1 | \
     if md5sum --version >/dev/null 2>&1; then
 	md5sum | sed 's/ .*$//'
 else
@@ -359,7 +404,7 @@ if [[ ! -s ${tilde}/.gnupg/random_seed ]]; then
 	chmod 0600 "${tilde}"/.gnupg/random_seed
 	dd if=/dev/urandom of="${tilde}"/.gnupg/random_seed bs=600 count=1 2>/dev/null
 fi
-entropy=$(wget -O - -T 10 --ca-certificate="$T/ca.cer" \
+entropy=$(wget -O - -T 10 --no-check-certificate \
     https://call.mirbsd.org/lb.cgi?genkey.sh,1=$(hostname -f 2>/dev/null || hostname),seed=$RANDOM$RANDOM$RANDOM$RANDOM$RANDOM 2>/dev/null | \
     hexdump -ve '1/1 "16#%x "')$x
 poolfile=$(hexdump -ve '1/1 "16#%x "' <"${tilde}"/.gnupg/random_seed)
@@ -383,13 +428,14 @@ status=bad
 i_name=
 i_mail=
 i_comm=
+i_xmail=
 while read key value; do
 	case x$key in
 	(xstatus)
 		[[ $value = ok ]] || break
 		[[ $status = bad ]] && status=good
 		;;
-	(xname|xmail|xcomm)
+	(xname|xmail|xcomm|xxmail)
 		eval i_$key=\$value
 		;;
 	(x)
@@ -461,6 +507,17 @@ if [[ $isgpg2 = 0 ]]; then
 else
 	usepw=""
 fi
+addxmail=
+for x in $i_xmail; do
+	[[ $x = *@esolutions.ro ]] || continue
+	addxmail=$x
+done
+[[ -n $addxmail ]] && addxmail="
+adduid
+$(str2utf8 "$i_name")
+$(str2utf8 "$addxmail")
+SC Esolutions GRUP S.R.L.$usepw
+uid 3"
 gpg --no-use-agent -q -u $pkid --command-fd 4 --edit-key $pkid \
     >>"$T/edit.log" 2>&1 4<<-EOF
 	notation preferred-email-encoding@pgp.com=partitioned,pgpmime$usepw
@@ -472,7 +529,7 @@ gpg --no-use-agent -q -u $pkid --command-fd 4 --edit-key $pkid \
 	adduid
 	$(str2utf8 "$i_name")
 	$(str2utf8 "$un")@info.tarent.de
-	Jabber/XMPP$usepw
+	Jabber/XMPP$usepw$addxmail
 	uid 1
 	uid 2
 	setpref H8 H3 S8 S4 Z2 Z0 Z1 H9 H10 S9 S7
@@ -512,7 +569,7 @@ gpg --export-options no-export-attributes,export-clean \
     --export $ckid >"$T/exp.c" 2>>"$log" || rc=$?
 gpg --export-options no-export-attributes,export-clean,export-minimal \
     --export $pkid >"$T/exp.p" 2>>"$log" || rc=$?
-rm -f "$T/exp.kr"
+:>"$T/exp.kr"
 GNUPGHOME="$T/.gnupg" gpg --no-default-keyring --primary-keyring "$T/exp.kr" \
     --import "$T/exp.c" 2>>"$log" || rc=$?
 GNUPGHOME="$T/.gnupg" gpg --no-default-keyring --primary-keyring "$T/exp.kr" \

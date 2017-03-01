@@ -1,11 +1,25 @@
 #!/bin/sh
-# $Id: genkey-privatgebrauch.sh 3857 2013-11-04 12:26:56Z tglase $
+# $Id: genkey-privatgebrauch.sh 5123 2017-01-16 16:10:38Z tglase $
 #-
-# Copyright © 2010, 2011, 2013
-#	Thorsten Glaser <t.glaser@tarent.de>
-# All rights reserved.
+# Copyright © 2010, 2011, 2013, 2015, 2017
+#	mirabilos <t.glaser@tarent.de>
+# Copyright (c) 2008
+#	Thorsten Glaser <tg@mirbsd.org>
 #
-# Licenced under the GNU AGPLv3.
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
 #-
 # Generate a new GnuPG (PGP) key, for private use.
 
@@ -67,6 +81,8 @@ for tool in gpg wget; do
 	echo >&2 You must install $tool to continue.
 	exit 1
 done
+# pre-create/populate ~/.gnupg/ unless it exists
+gpg -k >/dev/null 2>&1
 
 # subroutine for converting a string into an array
 # taking into account Korn Shell vs GNU bash syntax
@@ -112,23 +128,6 @@ else
 fi
 
 ### BEGIN imported code {{{
-# Copyright (c) 2008
-#	Thorsten Glaser <tg@mirbsd.org>
-#
-# Provided that these terms and disclaimer and all copyright notices
-# are retained or reproduced in an accompanying document, permission
-# is granted to deal in this work without restriction, including un-
-# limited rights to use, publicly perform, distribute, sell, modify,
-# merge, give away, or sublicence.
-#
-# This work is provided "AS IS" and WITHOUT WARRANTY of any kind, to
-# the utmost extent permitted by applicable law, neither express nor
-# implied; without malicious intent or gross negligence. In no event
-# may a licensor, author or contributor be held liable for indirect,
-# direct, other damage, loss, or other issues arising in any way out
-# of dealing in the work, even if advised of the possibility of such
-# damage or existence of a defect, except proven that it results out
-# of said person's immediate fault when using the work as intended.
 
 # read a password without echoing
 askpass() {
@@ -224,14 +223,35 @@ trap "cleanup 0" 0
 
 
 # gpg2, as opposed to gnupg, doesn’t want to not use the agent
-vsn=$(gpg --version 2>&1 | head -n 1)
+vsn=$(gpg --version 2>&1 | grep -v \
+    -e 'option .* is unknown' \
+    -e 'is an obsolete option - it has no effect' \
+    -e 'server .* is older than us' | \
+    head -n 1)
 isgpg2=0
 if [[ $vsn = 'gpg (GnuPG) 1.4.'* ]]; then
-	: okay
+	echo "Using gnupg 1.x version $vsn"
 elif [[ $vsn = 'gpg (GnuPG) 1.'* ]]; then
 	echo 'WARNING: Obsolete GnuPG 1.x version, you SHALL update!'
-elif [[ $vsn = 'gpg (GnuPG) 2.0.'* ]]; then
+elif [[ $vsn = 'gpg (GnuPG) 2.'[01]'.'* ]]; then
 	isgpg2=1
+	echo "Using gpg2 2.x version $vsn"
+	echo "
+Warnung / Warning
+=================
+
+GnuPG 2.x does not allow us to disable the gpg-agent; therefore, you
+will likely be asked for the key password at least once by a, usually
+graphical, pop-up; just re-enter the LDAP password!
+
+GnuPG 2.x erlaubt es uns nicht, den gpg-agent nicht zu benutzen; daher
+wirst Du wahrscheinlich mindestens einmal in einem (normalerweise gra‐
+phischen) Pop-Up nach einem Schlüsselpaßwort gefragt werden; gib dann
+einfach Dein LDAP-Paßwort ein!
+
+Press Return to continue / Drücke Enter, um fortzusetzen!
+"
+	read egal
 else
 	echo "WARNING: Unknown GnuPG version '$vsn', tell tglase!"
 fi
