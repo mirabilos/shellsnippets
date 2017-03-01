@@ -15,6 +15,7 @@
 #	rechte-mock/roleperm.cgi
 #	rechte-mock/se.cgi
 #
+mkdir rechte-mock
 echo x - rechte-mock/.htaccess
 sed 's/^X//' >rechte-mock/.htaccess << 'END-of-rechte-mock/.htaccess'
 X# $Id$
@@ -29,7 +30,21 @@ X# $Id$
 X#-
 X# Copyright © 2011, 2012
 X#	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
-X# Licenced under the AGPLv3
+X#
+X# Provided that these terms and disclaimer and all copyright notices
+X# are retained or reproduced in an accompanying document, permission
+X# is granted to deal in this work without restriction, including un‐
+X# limited rights to use, publicly perform, distribute, sell, modify,
+X# merge, give away, or sublicence.
+X#
+X# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+X# the utmost extent permitted by applicable law, neither express nor
+X# implied; without malicious intent or gross negligence. In no event
+X# may a licensor, author or contributor be held liable for indirect,
+X# direct, other damage, loss, or other issues arising in any way out
+X# of dealing in the work, even if advised of the possibility of such
+X# damage or existence of a defect, except proven that it results out
+X# of said person’s immediate fault when using the work as intended.
 X
 X. "$(dirname "$0")"/common
 X
@@ -62,7 +77,21 @@ X# $Id$
 X#-
 X# Copyright © 2011, 2012
 X#	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
-X# Licenced under the AGPLv3
+X#
+X# Provided that these terms and disclaimer and all copyright notices
+X# are retained or reproduced in an accompanying document, permission
+X# is granted to deal in this work without restriction, including un‐
+X# limited rights to use, publicly perform, distribute, sell, modify,
+X# merge, give away, or sublicence.
+X#
+X# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+X# the utmost extent permitted by applicable law, neither express nor
+X# implied; without malicious intent or gross negligence. In no event
+X# may a licensor, author or contributor be held liable for indirect,
+X# direct, other damage, loss, or other issues arising in any way out
+X# of dealing in the work, even if advised of the possibility of such
+X# damage or existence of a defect, except proven that it results out
+X# of said person’s immediate fault when using the work as intended.
 X
 Xexport LC_ALL=C
 Xunset LANGUAGE
@@ -268,7 +297,21 @@ X# $Id$
 X#-
 X# Copyright © 2011, 2012
 X#	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
-X# Licenced under the AGPLv3
+X#
+X# Provided that these terms and disclaimer and all copyright notices
+X# are retained or reproduced in an accompanying document, permission
+X# is granted to deal in this work without restriction, including un‐
+X# limited rights to use, publicly perform, distribute, sell, modify,
+X# merge, give away, or sublicence.
+X#
+X# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+X# the utmost extent permitted by applicable law, neither express nor
+X# implied; without malicious intent or gross negligence. In no event
+X# may a licensor, author or contributor be held liable for indirect,
+X# direct, other damage, loss, or other issues arising in any way out
+X# of dealing in the work, even if advised of the possibility of such
+X# damage or existence of a defect, except proven that it results out
+X# of said person’s immediate fault when using the work as intended.
 X
 X. "$(dirname "$0")"/common
 X
@@ -360,7 +403,21 @@ X# $Id$
 X#-
 X# Copyright © 2011, 2012
 X#	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
-X# Licenced under the AGPLv3
+X#
+X# Provided that these terms and disclaimer and all copyright notices
+X# are retained or reproduced in an accompanying document, permission
+X# is granted to deal in this work without restriction, including un‐
+X# limited rights to use, publicly perform, distribute, sell, modify,
+X# merge, give away, or sublicence.
+X#
+X# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+X# the utmost extent permitted by applicable law, neither express nor
+X# implied; without malicious intent or gross negligence. In no event
+X# may a licensor, author or contributor be held liable for indirect,
+X# direct, other damage, loss, or other issues arising in any way out
+X# of dealing in the work, even if advised of the possibility of such
+X# damage or existence of a defect, except proven that it results out
+X# of said person’s immediate fault when using the work as intended.
 X
 X. "$(dirname "$0")"/common
 X
@@ -438,7 +495,21 @@ X# $Id$
 X#-
 X# Copyright © 2011, 2012
 X#	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
-X# Licenced under the AGPLv3
+X#
+X# Provided that these terms and disclaimer and all copyright notices
+X# are retained or reproduced in an accompanying document, permission
+X# is granted to deal in this work without restriction, including un‐
+X# limited rights to use, publicly perform, distribute, sell, modify,
+X# merge, give away, or sublicence.
+X#
+X# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+X# the utmost extent permitted by applicable law, neither express nor
+X# implied; without malicious intent or gross negligence. In no event
+X# may a licensor, author or contributor be held liable for indirect,
+X# direct, other damage, loss, or other issues arising in any way out
+X# of dealing in the work, even if advised of the possibility of such
+X# damage or existence of a defect, except proven that it results out
+X# of said person’s immediate fault when using the work as intended.
 X
 X. "$(dirname "$0")"/common
 X

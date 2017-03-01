@@ -17,9 +17,21 @@ X# tarent-activity WildFly startup script
 X# Copyright © 2013
 X#	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
 X#	Umer Kayani <u.kayani@tarent.de>
-X# All rights reserved.
 X#
-X# Licenced under the GNU AGPLv3.
+X# Provided that these terms and disclaimer and all copyright notices
+X# are retained or reproduced in an accompanying document, permission
+X# is granted to deal in this work without restriction, including un‐
+X# limited rights to use, publicly perform, distribute, sell, modify,
+X# merge, give away, or sublicence.
+X#
+X# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+X# the utmost extent permitted by applicable law, neither express nor
+X# implied; without malicious intent or gross negligence. In no event
+X# may a licensor, author or contributor be held liable for indirect,
+X# direct, other damage, loss, or other issues arising in any way out
+X# of dealing in the work, even if advised of the possibility of such
+X# damage or existence of a defect, except proven that it results out
+X# of said person’s immediate fault when using the work as intended.
 X
 X# Settings (paths replaced by the installer)
 XJBOSS_HOME='$INSTALL_PATH/bundles/jboss-7.1.1'
@@ -207,9 +219,21 @@ X### END INIT INFO
 X#-
 X# Copyright © 2013
 X#	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
-X# All rights reserved.
 X#
-X# Licenced under the GNU AGPLv3.
+X# Provided that these terms and disclaimer and all copyright notices
+X# are retained or reproduced in an accompanying document, permission
+X# is granted to deal in this work without restriction, including un‐
+X# limited rights to use, publicly perform, distribute, sell, modify,
+X# merge, give away, or sublicence.
+X#
+X# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+X# the utmost extent permitted by applicable law, neither express nor
+X# implied; without malicious intent or gross negligence. In no event
+X# may a licensor, author or contributor be held liable for indirect,
+X# direct, other damage, loss, or other issues arising in any way out
+X# of dealing in the work, even if advised of the possibility of such
+X# damage or existence of a defect, except proven that it results out
+X# of said person’s immediate fault when using the work as intended.
 X
 X# Absolute basic settings
 XLC_ALL=C
