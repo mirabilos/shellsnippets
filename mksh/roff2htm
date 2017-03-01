@@ -1,8 +1,9 @@
-# $MirOS: src/scripts/roff2htm,v 1.77 2013/01/01 20:49:09 tg Exp $
+roff2htm_rcsid='$MirOS: src/scripts/roff2htm,v 1.88 2017/01/29 00:51:06 tg Exp $'
 # $ekkoBSD: catman2html.sh,v 1.2 2004/03/07 03:02:53 stephen Exp $
 #-
-# Copyright (c) 2004, 2005, 2006, 2007, 2011, 2012
-#	Thorsten “mirabilos” Glaser <tg@mirbsd.org>
+# Copyright (c) 2004, 2005, 2006, 2007, 2011, 2012, 2014, 2015,
+#		2016, 2017
+#	mirabilos <m@mirbsd.org>
 # Original version for ekkoBSD by:
 # Copyright (c) 2004
 #	Stephen Paskaluk <sap@mirbsd.org>
@@ -18,7 +19,7 @@
 #
 # Advertising materials mentioning features or use of this work must
 # display the following acknowledgement:
-#	This product includes material provided by Thorsten Glaser.
+#	This product includes material provided by mirabilos.
 #
 # This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
 # the utmost extent permitted by applicable law, neither express nor
@@ -36,7 +37,7 @@
 # Note: this script assumes MirBSD filesystem interna: ino_t=uint32_t
 
 # check if mksh R31:2007/10/18 or up
-if [[ $KSH_VERSION = @(\@\(#\)MIRBSD KSH R)@(3[2-9]|[4-9][0-9]|[1-9][0-9][0-9])\ +([0-9])/+([0-9])/+([0-9])?(\ *) ]]; then
+if [[ $KSH_VERSION = @(\@\(#\)MIRBSD KSH R)@(3[2-9]|[4-9][0-9]|[1-9][0-9]+([0-9]))\ +([0-9])/+([0-9])/+([0-9])?(\ *) ]]; then
 	i=0
 elif [[ $KSH_VERSION = @(\@\(#\)MIRBSD KSH R31)* ]]; then
 	eval $(print "$KSH_VERSION" | sed 's#^.*R31 \([0-9]*\)/\([0-9]*\)/\([0-9]*\)\( .*\)*$#y=\1 m=\2 d=\3#')
@@ -84,7 +85,7 @@ set_target_relative
 
 function do_convert_man {
 	local -i _nl=0
-	col -x | sed							\
+	col -x | sed \
 	    -e '/-$/N
 {
 s/\([0-9A-z][-.,0-9A-z:]*\)-\n\(  *\)\([0-9A-z][-.,0-9A-z:]*([1-9][A-z]*)\)\([^ ]*\) /\1\3\4\
@@ -113,7 +114,8 @@ s/\([0-9A-z][-.,0-9A-z:]*\)-\n\(  *\)\([0-9A-z][-.,0-9A-z:]*([1-9][A-z]*)\)\([^ 
 	    -e 's#</\([biG]\)><\1>##g'					\
 	    -e 's#</\([biG]\)>\([- -*./:;?@^_~]*\)<\1>#\2#g'		\
 	    -e 's#\([- 0-9A-z]\)\([$/_-]*\)\(<[biG]>\)#\1\3\2#g'	\
-	    -e 's#\(</[biG]>\)\([)$/_-]*\)\([- 0-9A-z]\)#\2\1\3#g'	\
+	    -e 's#\(</[biG]>\)\([$/_-]*\)\([- 0-9A-z]\)#\2\1\3#g'	\
+	    -e 's#\(</[biG]>\))\([- ,.0-9A-z]\)#)\1\2#g'		\
 									\
 	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(\(3p\))#<a href="'$roff2htm_rel'man\2/\1.htm">&</a>#g' \
 	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(\([1-9]\)\(/[/0-9A-Za-z]*\)*)#<a href="'$roff2htm_rel'man\2/\1.htm">&</a>#g' \
@@ -146,7 +148,7 @@ s/\([0-9A-z][-.,0-9A-z:]*\)-\n\(  *\)\([0-9A-z][-.,0-9A-z:]*([1-9][A-z]*)\)\([^ 
 
 function do_convert_paper {
 	local -i _nl=0
-	col -x | sed							\
+	col -x | sed \
 	    -e '/-$/N
 {
 s/\([0-9A-z][-.,0-9A-z:]*\)-\n\(  *\)\([0-9A-z][-.,0-9A-z:]*([1-9][A-z]*)\)\([^ ]*\) /\1\3\4\
@@ -171,7 +173,8 @@ s/\([0-9A-z][-.,0-9A-z:]*\)-\n\(  *\)\([0-9A-z][-.,0-9A-z:]*([1-9][A-z]*)\)\([^ 
 	    -e 's#</\([biG]\)><\1>##g'					\
 	    -e 's#</\([biG]\)>\([- -*./:;?@^_~]*\)<\1>#\2#g'		\
 	    -e 's#\([- 0-9A-z]\)\([$/_-]*\)\(<[biG]>\)#\1\3\2#g'	\
-	    -e 's#\(</[biG]>\)\([)$/_-]*\)\([- 0-9A-z]\)#\2\1\3#g'	\
+	    -e 's#\(</[biG]>\)\([$/_-]*\)\([- 0-9A-z]\)#\2\1\3#g'	\
+	    -e 's#\(</[biG]>\))\([- ,.0-9A-z]\)#)\1\2#g'		\
 									\
 	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(\([1-9]\)[/0-9A-Za-z]*)#<a href="'$roff2htm_rel'man\2/\1.htm">&</a>#g' \
 	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(\([PSU][MS][DM]\))#<a href="'$roff2htm_rel'man\2/\1.htm">&</a>#g' \
@@ -206,11 +209,11 @@ function output_header {
  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en"><head>
  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+ <meta name="MSSmartTagsPreventParsing" content="TRUE" />
  <title>RTFM '$1\($2')</title>
  <meta name="robots" content="index, follow" />
  <link rel="canonical" href="https://www.mirbsd.org/man'$roff2htm_machine/$1.$2'" />
- <style type="text/css">
-	/* <![CDATA[ */
+ <style type="text/css"><!--/*--><![CDATA[/*><!--*/
 	body {
 		background-color:#000000;
 		color:#666666;
@@ -230,7 +233,7 @@ function output_header {
 		border-bottom:1px double;
 	}
 	pre {
-		line-height:112%;
+		line-height:1.12;
 		color:#FFBF00;
 	}
 	b {
@@ -262,26 +265,25 @@ function output_header {
 		font-size:large;
 		font-family:sans-serif;
 	}
-	/* ]]> */
- </style>
+ /*]]>*/--></style>
 </head><body>
 <h1>MirOS Manual: <a href="'$roff2htm_rel'man'$2/$1'.htm">'$1\($2')</a></h1>'
 }
 
 function output_footer {
 	print '
-<hr /><p style="font-size:xx-small;">Generated on' $roff2htm_gendate 'by
- <tt>$MirOS: src/scripts/roff2htm,v 1.77 2013/01/01 20:49:09 tg Exp $</tt></p>
+<hr /><p style="font-size:xx-small;">Generated on' $roff2htm_gendate by \
+ '<tt>'$roff2htm_rcsid'</tt></p>
 <p>These manual pages and other documentation are <a
  href="'$roff2htm_rel'man7/BSD-Licence.htm">copyrighted</a> by their respective writers;
  their source is available at our <a href="http://cvs.mirbsd.de/">CVSweb</a>,
- AnonCVS, and other mirrors. The rest is Copyright © 2002‒2013 <a
+ AnonCVS, and other mirrors. The rest is Copyright © 2002–2017 <a
  href="https://www.mirbsd.org/">The MirOS Project</a>, Germany.<br /><span
  style="font-size:3pt; font-style:italic;">This product includes material
- provided by Thorsten Glaser.</span></p>
+ provided by <b>mirabilos</b>.</span></p>
 <p style="font-size:x-small;">This manual page’s HTML representation
  is supposed to be <a href="http://validator.w3.org/check/referer">valid
- XHTML/1.1</a>; if not, please send a bug report – diffs preferred.</p>
+ XHTML/1.1</a>; if not, please send a bug report — diffs preferred.</p>
 </body></html>'
 }
 
@@ -337,7 +339,8 @@ function convert_all {
 	local tp=${2:-$(pwd)/mbsdman}		# target basepath
 	local x f
 
-	(find ${1:-/usr/share/man}/cat{[1-9],3p} -name \*.0 2>&- | sort -f) |&
+	(find ${1:-/usr/share/man}/cat{[1-9],3p} -name \*.0 2>/dev/null | \
+	    sort -f) |&
 	for x in 1 2 3 3p 4 5 6 7 8 9; do
 		mkdir -p $tp/man$x	# one per section
 		output_htaccess >$tp/man$x/.htaccess
