@@ -68,7 +68,7 @@ function done_progress_bar {
 	(( isin_progress_bar )) || return 0
 	# save position; clear scrolling region;
 	# go to last line; delete line; restore position
-	print "\\e7\\e[0;0r\\e[$nlin_progress_bar;0H\\e[M\\e8"
+	print -n "\\e7\\e[0;0r\\e[$nlin_progress_bar;0H\\e[M\\e8"
 	isin_progress_bar=0
 	trap - WINCH
 	trap - EXIT
