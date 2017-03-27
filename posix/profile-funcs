@@ -1,4 +1,4 @@
-# Copyright (c) 2011, 2012, 2013
+# Copyright (c) 2011, 2012, 2013, 2017
 #	Thorsten Glaser <tg@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -71,53 +71,13 @@ wp() {
 
 # Benefind search
 bf() {
-	local _q _IFS _b=${BROWSER:-lynx}
-
-	case $_b in
-	(lynx) _b="$_b -accept_all_cookies -cmd_script=/dev/fd/5" ;;
-	(*/lynx) test -x "$_b" && _b="$_b -accept_all_cookies -cmd_script=/dev/fd/5" ;;
-	esac
+	local _q _IFS
 
 	_IFS=$IFS
 	IFS=+
 	_q="$*"
 	IFS=$_IFS
-	$_b "https://www.benefind.de/web.php?org=1647&q=$_q" 5<<-\EOF
-		set NO_PAUSE=TRUE
-		set SET_COOKIES=TRUE
-		set FORCE_COOKIE_PROMPT=yes
-		key /
-		key y
-		key h
-		key s
-		key /
-		key s
-		key e
-		key a
-		key r
-		key c
-		key h
-		key ^J
-		key E
-		key &
-		key e
-		key i
-		key =
-		key U
-		key T
-		key F
-		key -
-		key 8
-		key &
-		key n
-		key o
-		key j
-		key s
-		key =
-		key 1
-		key ^J
-		set NO_PAUSE=FALSE
-	EOF
+	${BROWSER:-lynx} "https://www.benefind.de/web.php?org=1647&q=$_q"
 }
 
 # DuckDuckGo search
