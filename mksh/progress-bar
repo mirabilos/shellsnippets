@@ -65,7 +65,7 @@ function sigwinch_progress_bar {
 	# save position; clear scrolling region; restore position; newline;
 	# up one line (to ensure we are not in the last line); save position;
 	# clear rest of screen; set new scrolling region; restore position
-	print -n "\\e7\\e[0;0r\\e8\\n\\e[A\\e7\\e[J\\e[1;$((# nlin_progress_bar - 1))r\\e8"
+	print -nu2 "\\e7\\e[0;0r\\e8\\n\\e[A\\e7\\e[J\\e[1;$((# nlin_progress_bar - 1))r\\e8"
 
 	# redraw progress bar
 	draw_progress_bar_internal
@@ -76,7 +76,7 @@ function done_progress_bar {
 	isin_progress_bar=0
 	# save position; clear scrolling region; restore position;
 	# save position; clear rest of screen; restore position
-	print -n "\\e7\\e[0;0r\\e8\\e7\\e[J\\e8"
+	print -nu2 "\\e7\\e[0;0r\\e8\\e7\\e[J\\e8"
 	trap - WINCH
 	trap - EXIT
 }
@@ -112,5 +112,5 @@ function draw_progress_bar_internal {
 	# save position; go to last line; set colours;
 	# output a line full of spaces (and completion percentage);
 	# jump to first column; output bar (line præfix); restore position
-	print -n -- "\\e7\\e[$nlin_progress_bar;1H\\e[0;1;33;44m$spc\\r$bar\\e8"
+	print -nu2 -- "\\e7\\e[$nlin_progress_bar;1H\\e[0;1;33;44m$spc\\r$bar\\e8"
 }
