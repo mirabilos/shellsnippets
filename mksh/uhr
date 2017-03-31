@@ -1,7 +1,7 @@
 #!/bin/mksh
-# $MirOS: contrib/hosted/tg/uhr,v 1.17 2015/11/29 21:34:06 tg Exp $
+# $MirOS: contrib/hosted/tg/uhr,v 1.21 2017/03/31 02:49:41 tg Exp $
 #-
-# Copyright © 2012, 2013, 2015
+# Copyright © 2012, 2013, 2015, 2017
 #	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -27,28 +27,48 @@ if [[ $KSH_VERSION != @(\@\(#\)MIRBSD KSH R)@(4[1-9]|[5-9][0-9]|[1-9][0-9]+([0-9
 	print -u2 Uhr requires mksh R41 or newer.
 	exit 1
 fi
-typeset -Z6 tosleep
+set -U
+print '\r\e[K\rLoading…'
 
-# stupid GNU idiots breaking everything by default… grml…
-bcopt=
-bc --help >/dev/null 2>&1 && bcopt=-q
+function graceful {
+	print -n '\033[;H\033[J'
+	exit 0
+}
+trap graceful INT TERM HUP
 
-# global variables used by progress bar
+# Shell library for easy display of a progress bar, modified for Uhr
+#
+# Usage:
+# – before:	init_progress_bar $n
+# – $n times:	draw_progress_bar
+# – after:	done_progress_bar
+#
+# init_progress_bar trashes the EXIT trap, done_progress_bar clears it.
+
+# global variables used by this library
 _cnt_progress_bar=0
 _cur_progress_bar=0
 isin_progress_bar=0
 nlin_progress_bar=0
+
+if [[ $KSH_VERSION = @(\@\(#\)MIRBSD KSH R)@(5[5-9]|[6-9][0-9]|[1-9][0-9][0-9])\ * ]]; then
+	alias global='typeset -g'
+else
+	alias global=global
+fi
 
 # args: $1 = number of draw_progress_bar calls to make up 100%
 function init_progress_bar {
 	global -i _cnt_progress_bar=$1 _cur_progress_bar=0
 	global -i nlin_progress_bar=$LINES isin_progress_bar=1
 
-	trap 'done_progress_bar' EXIT
-	# newline; up one line (to ensure we are not in the last line);
-	# save position; set scrolling region; restore position
-	print -n "\\n\\e[A\\e7\\e[1;$((# nlin_progress_bar - 1))r\\e8"
+	trap 'done_progress_bar 1' EXIT
+	# set up scrolling region, draw initial empty bar
+	sigwinch_uhr
+	got_sigwinch=0
 }
+
+unalias global
 
 function sigwinch_uhr {
 	got_sigwinch=1
@@ -56,24 +76,42 @@ function sigwinch_uhr {
 
 	# get new terminal size
 	nlin_progress_bar=$LINES
-	# newline; up one line (to ensure we are not in the last line);
-	# save position; set scrolling region; restore position
-	print -n "\\n\\e[A\\e7\\e[1;$((# nlin_progress_bar - 1))r\\e8"
+
+	# save position; clear scrolling region; restore position; newline;
+	# up one line (to ensure we are not in the last line); save position;
+	# clear rest of screen; set new scrolling region; restore position
+	print -nu2 "\\e7\\e[0;0r\\e8\\n\\e[A\\e7\\e[J\\e[1;$((# nlin_progress_bar - 1))r\\e8"
+
+	# redraw progress bar
+	draw_progress_bar_internal
 }
 
 function done_progress_bar {
 	(( isin_progress_bar )) || return 0
-	# save position; clear scrolling region;
-	# go to last line; delete line; restore position
-	print "\\e7\\e[0;0r\\e[$nlin_progress_bar;0H\\e[M\\e8"
 	isin_progress_bar=0
+	# save position; clear scrolling region; restore position;
+	# save position; clear rest of screen; restore position
+	print -nu2 "\\e7\\e[0;0r\\e8\\e7\\e[J\\e8"
 	trap - EXIT
+	[[ -n $1 ]] || (( _cur_progress_bar == _cnt_progress_bar )) || \
+	    print -ru2 W: expected $_cnt_progress_bar draw_progress_bar calls, \
+	    got only $_cur_progress_bar
 }
 
 function draw_progress_bar {
+	# increment current progress
+	if (( ++_cur_progress_bar > _cnt_progress_bar )); then
+		print -ru2 "W: too many draw_progress_bar calls"
+		_cur_progress_bar=$_cnt_progress_bar
+	fi
+	# remaining drawing code
+	draw_progress_bar_internal
+}
+
+function draw_progress_bar_internal {
 	local bar num w=$COLUMNS
 
-	((# num = (++_cur_progress_bar * w * 8) / _cnt_progress_bar ))
+	((# num = (_cur_progress_bar * w * 8) / _cnt_progress_bar ))
 	while ((# num >= 8 )); do
 		bar+=█
 		((# num -= 8 ))
@@ -94,39 +132,14 @@ function draw_progress_bar {
 	# save position; go to last line; set colours;
 	# output a line full of spaces (and completion percentage);
 	# jump to first column; output bar (line præfix); restore position
-	print -n -- "\\e7\\e[$nlin_progress_bar;0H\\e[0;1;33;44m$spc\\r$bar\\e8"
+	print -nu2 -- "\\e7\\e[$nlin_progress_bar;1H\\e[0;1;33;44m$spc\\r$bar\\e8"
 }
-
-function graceful {
-	print -n '\033[;H\033[J'
-	exit 0
-}
-trap graceful INT TERM HUP
 
 trap sigwinch_uhr WINCH
-while :; do
-got_sigwinch=0
 
-init_progress_bar 135
-draw_progress_bar
-S='Pregenerating arrays, please wait...'
-if (( (r = (COLUMNS - ${%S}) / 2 - 2) < 1 )); then
-	d="\\e[0m\\n$S"
-else
-	d=
-	(( n = ${%S} + 2 ))
-	while (( n-- )); do
-		d+=─
-	done
-	d="\\e[0m\\e[$((LINES / 2 - 1));${r}H\\e7┌$d┐\\e8\\e[B│ $S │\\e8\\e[2B└$d┘"
-fi
-print "$d"
-
-(( r = LINES * 2 ))
-(( r = (r > COLUMNS ? COLUMNS : r) / 2 - 1))
-(( n = 2 * r + 1 ))
-set -A fb
-integer fb
+# stupid GNU idiots breaking everything by default… grml…
+bcopt=
+bc --help >/dev/null 2>&1 && bcopt=-q
 
 integer F_NO=0x00 M_NO=0x1F
 integer F_BG=0x01 M_BG=0x1E
@@ -136,16 +149,14 @@ integer F_MP=0x08 M_MP=0x17
 integer F_SP=0x10 M_SP=0x0F
 integer B_BG=0x01 B_BLK=0x02 B_NB=0x0C B_DOT=0x10
 
-set -U
 #	-	BLK	BG	NB	DOT	NB|DOT
 set -A m2c \
-	0x20	1#▀	1#*	1#▀	1#·	1#░	\
-	1#▄	1#█	1#█	1#█	1#▆	1#█	\
-	1#*	1#█	1##	1#◘	1#⁂	1#◙	\
-	1#▄	1#█	1#▆	1#█	1#▒	1#▓	\
-	1#.	1#▛	1#☿	1#▛	1#:	1#▒	\
-	1#▄	1#█	1#◙	1#█	1#▆	1#▓
-typeset -i1 m2c[*]
+	' '	'▀'	'*'	'▀'	'·'	'░'	\
+	'▄'	'█'	'█'	'█'	'▆'	'█'	\
+	'*'	'█'	'#'	'◘'	'⁂'	'◙'	\
+	'▄'	'█'	'▆'	'█'	'▒'	'▓'	\
+	'.'	'▛'	'☿'	'▛'	':'	'▒'	\
+	'▄'	'█'	'◙'	'█'	'▆'	'▓'
 
 set -A m2m
 integer m2m
@@ -157,17 +168,22 @@ while (( ++i <= 0x1F )); do
 done
 
 function refresh {
-	local -i10 i j z s c
+	local -i10 i j k l=-2 q=0
 	local t
 
-	for i in "$@"; do
-		(( z = (i / n) & 0xFFFE ))
-		(( s = i % n ))
-		(( i = m2m[fb[z * n + s]] ))
-		(( j = m2m[fb[(z + 1) * n + s]] ))
-		print -n "\e[$((z / 2 + 1));$((s + 1))H${m2c[j * 6 + i]#1#}"
+	unset changed[$(((r / 2) * n + r))]
+	for k in "${!changed[@]}"; do
+		(( i = m2m[fb[phys_v[k]]] ))
+		(( j = m2m[fb[phys_v[k] + n]] ))
+		(( phys_l[k] == l )) || t+=${phys_p[k]}
+		(( l = k ))
+		t+=${m2c[j * 6 + i]}
+		(( ++q & 7 )) && continue
+		print -nr -- "$t"
+		t=
 	done
-	print -n "\e[$((r / 2 + 1));$((r + 1))H\e[7mⓄ\e[0m"
+	set -A changed
+	print -n "$t\e[$((r / 2 + 1));$((r + 1))H\e[7mⓄ\e[0m\e[1;9H"
 }
 
 # put arrayname x y
@@ -180,178 +196,35 @@ function put {
 }
 
 # retrace arrayname maskname colourname
-set -A px
 function retrace {
 	nameref _px=$1 _m=$2 _c=$3
-	local _i
+	local _i _k _z _s
 
 	for _i in "${_px[@]}"; do
 		(( fb[_i] = (fb[_i] & _m) | _c ))
+		# map to physical coordinates
+		if [[ -z ${phys_z[_i]} ]]; then
+			(( phys_z[_i] = _z = (_i / n) / 2 ))
+			(( phys_s[_i] = _s = _i % n ))
+			(( phys_i[_i] = _z * n + _s ))
+		fi
+		_k=${phys_i[_i]}
+		if [[ -z ${phys_v[_k]} ]]; then
+			_z=${phys_z[_i]}
+			_s=${phys_s[_i]}
+			(( phys_v[_k] = _z * n * 2 + _s ))
+			(( phys_l[_k] = (_s && _z) ? _k - 1 : -3 ))
+			phys_p[_k]=$'\e['$((_z + 1))\;$((_s + 1))H
+		fi
+		changed[_k]= #set
 	done
-	px+=("${_px[@]}")
 }
 
-draw_progress_bar
-
-# precalculate all lines’ endpoints with bc and paths with Bresenham
-integer x y dx sx dy sy e f
-bc -l $bcopt |&
-print -p scale=20
-print -p r=$r
-print -p o=r
-print -p 'define p(t) {
-	auto d
-	d = 90 - t
-	if (d < 0) d = 360 + d
-	return (d * 3.1415926535897932 / 180)
-}'
-# minutes and seconds – full length, 60 items
-i=-1
-while (( ++i < 60 )); do
+function draw_hour_marker {
 	draw_progress_bar
-	eval set -A lms$i
-	print -p "r * c(p($i * 6))"
-	read -p S; [[ $S = ?(-).* ]] && S=0
-	x=${S%%.*}
-	print -p "r * s(p($i * 6))"
-	read -p S; [[ $S = ?(-).* ]] && S=0
-	y=${S%%.*}
-	(( dx = x < 0 ? -x : x ))
-	(( sx = x < 0 ? 1 : -1 ))
-	(( dy = y < 0 ? y : -y ))
-	(( sy = y < 0 ? 1 : -1 ))
-	(( e = dx + dy ))
-	while :; do
-		put lms$i x y
-		(( !x && !y )) && break
-		(( f = 2 * e ))
-		if (( f > dy )); then
-			(( e += dy ))
-			(( x += sx ))
-		fi
-		if (( f < dx )); then
-			(( e += dx ))
-			(( y += sy ))
-		fi
-	done
-done
-# hours – 2/3 length, 60 items (5 per hour)
-print -p 'r = o * 2 / 3'
-i=-1
-while (( ++i < 60 )); do
-	draw_progress_bar
-	eval set -A lh$i
-	print -p "r * c(p($i * 6))"
-	read -p S; [[ $S = ?(-).* ]] && S=0
-	x=${S%%.*}
-	print -p "r * s(p($i * 6))"
-	read -p S; [[ $S = ?(-).* ]] && S=0
-	y=${S%%.*}
-	(( dx = x < 0 ? -x : x ))
-	(( sx = x < 0 ? 1 : -1 ))
-	(( dy = y < 0 ? y : -y ))
-	(( sy = y < 0 ? 1 : -1 ))
-	(( e = dx + dy ))
-	while :; do
-		put lh$i x y
-		(( !x && !y )) && break
-		(( f = 2 * e ))
-		if (( f > dy )); then
-			(( e += dy ))
-			(( x += sx ))
-		fi
-		if (( f < dx )); then
-			(( e += dx ))
-			(( y += sy ))
-		fi
-	done
-done
-# hour markers – 80% length, 12 items
-print -p 'r = o * 8 / 10'
-i=-1
-set -A mkx
-set -A mky
-while (( ++i < 12 )); do
-	draw_progress_bar
-	print -p "r * c(p($i * 30))"
-	read -p S; [[ $S = ?(-).* ]] && S=0
-	mkx[i]=${S%%.*}
-	print -p "r * s(p($i * 30))"
-	read -p S; [[ $S = ?(-).* ]] && S=0
-	mky[i]=${S%%.*}
-done
-exec 3>&p; exec 3>&-
-
-draw_progress_bar
-(( L = LINES >= (COLUMNS / 2) ? (COLUMNS / 2) : LINES ))
-# fine-tuning of roman numeral position via screen size
-(( ++mkx[7] ))
-(( ++mkx[8] ))
-case $L {
-(22|23)	(( ++mkx[6] )) ;|
-(23)
-	(( mky[1] += 2 ))
-	(( mky[2] += 2 ))
-	(( mky[10] += 2 ))
-	(( mky[11] += 2 ))
-	;;
-(24|25|29|30|31|34)
-	(( mky[4] += 2 ))
-	(( mky[8] += 2 ))
-	;|
-(27|28|29)
-	(( ++mkx[10] ))
-	(( mky[8] += 2 ))
-	(( mky[9] += 2 ))
-	(( mky[10] += 2 ))
-	;|
-(27|29|31)
-	(( mky[0] -= 2 ))
-	;|
-(27)
-	(( --mkx[4] ))
-	(( --mkx[5] ))
-	(( ++mkx[6] ))
-	(( mkx[7] += 2 ))
-	(( ++mkx[8] ))
-	(( ++mkx[10] ))
-	;;
-(29)
-	(( mky[5] += 2 ))
-	(( mky[7] += 2 ))
-	;;
-(30)
-	(( mky[11] -= 2 ))
-	;;
-}
-(( mky[0] += 2 * (L & 1) ))
-done_progress_bar
-
-# clear framebuffer and screen
-set -A fb
-integer fb
-print -n -- '\e[H\e[J'
-
-# draw hour markers
-set -A lb
-integer e f=-1 k
-(( L > 21 )) && while (( ++f < 12 )); do
-	(( i=mkx[f] ))
+	f=$1 e=$2 S=$3
+	(( i = mkx[f] ))
 	(( j = mky[f] & ~1 ))
-	case $f {
-	(0) e=7 S='# # # # #  # ## # # #' ;;
-	(1) e=1 S='###' ;;
-	(2) e=3 S='# ## ## #' ;;
-	(3) e=5 S='# # ## # ## # #' ;;
-	(4) e=5 S='# # ## # ##  # ' ;;
-	(5) e=3 S='# ## # # ' ;;
-	(6) e=5 S='# # ## # # #  #' ;;
-	(7) e=7 S='# # # ## # # # #  # #' ;;
-	(8) e=9 S='# # # # ## # # # # #  # # #' ;;
-	(9) e=5 S='# # ##  # # # #' ;;
-	(10) e=3 S='# # # # #' ;;
-	(11) e=5 S='# # # #  ## # #' ;;
-	}
 	Y='0 1 2'
 	if (( L > 26 )); then
 		d='###########'
@@ -372,39 +245,59 @@ integer e f=-1 k
 			put lb x dy
 		done
 	done
-done
-retrace lb M_BG F_BG
+}
+
+function draw_hour_markers {
+	set -A lb
+	draw_hour_marker  0 7 '# # # # #  # ## # # #'
+	draw_hour_marker  1 1 '###'
+	draw_hour_marker  2 3 '# ## ## #'
+	draw_hour_marker  3 5 '# # ## # ## # #'
+	draw_hour_marker  4 5 '# # ## # ##  # '
+	draw_hour_marker  5 3 '# ## # # '
+	draw_hour_marker  6 5 '# # ## # # #  #'
+	draw_hour_marker  7 7 '# # # ## # # # #  # #'
+	draw_hour_marker  8 9 '# # # # ## # # # # #  # # #'
+	draw_hour_marker  9 5 '# # ##  # # # #'
+	draw_hour_marker 10 3 '# # # # #'
+	draw_hour_marker 11 5 '# # # #  ## # #'
+	retrace lb M_BG F_BG
+}
 
 # draw outer circle with Bresenham
-set -A lc
-integer x=r y=-1 f=r dx dy
-while (( y < x )); do
-	(( dy = y++ * 2 + 1 ))
-	if (( y )); then
-		(( f -= dy ))
-		if (( f < 0 )); then
-			(( dx = 1 - x-- * 2 ))
-			(( f -= dx ))
+function draw_outer_circle {
+	draw_progress_bar
+	set -A lc
+	integer x=r y=-1 f=r dx dy
+	while (( y < x )); do
+		(( dy = y++ * 2 + 1 ))
+		if (( y )); then
+			(( f -= dy ))
+			if (( f < 0 )); then
+				(( dx = 1 - x-- * 2 ))
+				(( f -= dx ))
+			fi
 		fi
-	fi
-	put lc x y
-	put lc -x y
-	put lc -x -y
-	put lc x -y
-	put lc y x
-	put lc -y x
-	put lc -y -x
-	put lc y -x
-done
-retrace lc M_CC F_CC
-refresh "${px[@]}"; set -A px
+		put lc x y
+		put lc -x y
+		put lc -x -y
+		put lc x -y
+		put lc y x
+		put lc -y x
+		put lc -y -x
+		put lc y -x
+	done
+	retrace lc M_CC F_CC
+}
 
-set -A do -- -1 -1 -1
-isfirst=1
-while (( !got_sigwinch )); do
-	if (( isfirst )); then
-		isfirst=0
-	else
+function main_loop {
+	typeset -Z6 tosleep
+
+	set -A do -- -1 -1 -1
+	dodate_get
+	(( got_sigwinch )) && return
+	dodate_draw
+	while (( !got_sigwinch )); do
 		(( tosleep = 1000000 - ${EPOCHREALTIME#*.} ))
 		if (( tosleep > 999999 )); then
 			sleep 0.2
@@ -421,25 +314,197 @@ while (( !got_sigwinch )); do
 		else
 			sleep 0.$tosleep
 		fi
-	fi
-
-	d=$(date +'%H %M %S,%d %b %Y')
-	S=${d#*,}
-	d=${d%,*}
-	set -A dt $d
-
-	(( dt[0] = (dt[0] % 12) * 5 + (dt[1] / 12) ))
-	if (( do[2] != -1 )); then
+		dodate_get
 		retrace lms$((do[2])) M_SP F_NO
 		(( do[1] == dt[1] )) || retrace lms$((do[1])) M_MP F_NO
 		(( do[0] == dt[0] )) || retrace lh$((do[0])) M_HP F_NO
-	fi
+		(( got_sigwinch )) || dodate_draw
+	done
+}
+
+function dodate_get {
+	d=$(date +'%H %M %S,%d %b %Y')
+	S=${d#*,}
+	d=${d%,*}
+	print -n "\e[1;$((n - ${%S} + 1))H$S\e[1;1H${d// /:}"
+	set -A dt $d
+	(( dt[0] = (dt[0] % 12) * 5 + (dt[1] / 12) ))
+}
+
+function dodate_draw {
 	(( do[0] == dt[0] )) || retrace lh$((dt[0])) M_HP F_HP
 	(( do[1] == dt[1] )) || retrace lms$((dt[1])) M_MP F_MP
 	retrace lms$((dt[2])) M_SP F_SP
-	refresh "${px[@]}"; set -A px
+	refresh
 	set -A do -- "${dt[@]}"
+}
 
-	print -n "\e[1;$((n - ${%S} + 1))H$S\e[1;1H${d// /:}"
-done
+while :; do
+	(( L = LINES >= (COLUMNS / 2) ? (COLUMNS / 2) : LINES ))
+	init_progress_bar $((60 + 60 + (L > 21 ? (12 + 1 + 12) : 0) + 1 ))
+	S='Pregenerating arrays, please wait...'
+	if (( (r = (COLUMNS - ${%S}) / 2 - 2) > 0 )); then
+		d=
+		(( n = ${%S} + 2 ))
+		while (( n-- )); do
+			d+=─
+		done
+		S="\\e[$((LINES / 2 - 1));${r}H┌$d┐\\e[$((LINES / 2));${r}H│ $S │\\e[$((LINES / 2 + 1));${r}H└$d┘"
+	fi
+	print "\\e7\\e[0m$S\\e8"
+
+	(( r = LINES * 2 ))
+	(( r = (r > COLUMNS ? COLUMNS : r) / 2 - 1))
+	(( n = 2 * r + 1 ))
+	set -A fb
+	integer fb
+	set -A changed
+	set -A phys_z
+	set -A phys_s
+	set -A phys_i
+	set -A phys_v
+	set -A phys_p
+	# doch eine (minimale) Voroptimierung der Bildschirmausgabe
+	set -A phys_l
+
+	# precalculate all lines’ endpoints with bc and paths with Bresenham
+	integer x y dx sx dy sy e f
+	bc -l $bcopt |&
+	print -p scale=8
+	print -p r=$r
+	print -p o=r
+	print -p 'define p(t) {
+		auto d
+		d = 90 - t
+		if (d < 0) d = 360 + d
+		return (d * 3.1415926535897932 / 180)
+	}'
+	# minutes and seconds – full length, 60 items
+	i=-1
+	while (( ++i < 60 )); do
+		draw_progress_bar
+		eval set -A lms$i
+		print -p "r * c(p($i * 6))"
+		read -p S; [[ $S = ?(-).* ]] && S=0
+		x=${S%%.*}
+		print -p "r * s(p($i * 6))"
+		read -p S; [[ $S = ?(-).* ]] && S=0
+		y=${S%%.*}
+		(( dx = x < 0 ? -x : x ))
+		(( sx = x < 0 ? 1 : -1 ))
+		(( dy = y < 0 ? y : -y ))
+		(( sy = y < 0 ? 1 : -1 ))
+		(( e = dx + dy ))
+		while :; do
+			put lms$i x y
+			(( !x && !y )) && break
+			(( f = 2 * e ))
+			if (( f > dy )); then
+				(( e += dy ))
+				(( x += sx ))
+			fi
+			if (( f < dx )); then
+				(( e += dx ))
+				(( y += sy ))
+			fi
+		done
+	done
+	# hours – 2/3 length, 60 items (5 per hour)
+	print -p 'r = o * 2 / 3'
+	i=-1
+	while (( ++i < 60 )); do
+		draw_progress_bar
+		eval set -A lh$i
+		print -p "r * c(p($i * 6))"
+		read -p S; [[ $S = ?(-).* ]] && S=0
+		x=${S%%.*}
+		print -p "r * s(p($i * 6))"
+		read -p S; [[ $S = ?(-).* ]] && S=0
+		y=${S%%.*}
+		(( dx = x < 0 ? -x : x ))
+		(( sx = x < 0 ? 1 : -1 ))
+		(( dy = y < 0 ? y : -y ))
+		(( sy = y < 0 ? 1 : -1 ))
+		(( e = dx + dy ))
+		while :; do
+			put lh$i x y
+			(( !x && !y )) && break
+			(( f = 2 * e ))
+			if (( f > dy )); then
+				(( e += dy ))
+				(( x += sx ))
+			fi
+			if (( f < dx )); then
+				(( e += dx ))
+				(( y += sy ))
+			fi
+		done
+	done
+	# hour markers – 80% length, 12 items
+	if (( L > 21 )); then
+		print -p 'r = o * 8 / 10'
+		i=-1
+		set -A mkx
+		set -A mky
+		while (( ++i < 12 )); do
+			draw_progress_bar
+			print -p "r * c(p($i * 30))"
+			read -p S; [[ $S = ?(-).* ]] && S=0
+			mkx[i]=${S%%.*}
+			print -p "r * s(p($i * 30))"
+			read -p S; [[ $S = ?(-).* ]] && S=0
+			mky[i]=${S%%.*}
+		done
+		draw_progress_bar
+		# fine-tuning of roman numeral position via screen size
+		(( ++mkx[7] ))
+		(( ++mkx[8] ))
+		case $L {
+		(22|23)	(( ++mkx[6] )) ;|
+		(23)
+			(( mky[1] += 2 ))
+			(( mky[2] += 2 ))
+			(( mky[10] += 2 ))
+			(( mky[11] += 2 ))
+			;;
+		(24|25|29|30|31|34)
+			(( mky[4] += 2 ))
+			(( mky[8] += 2 ))
+			;|
+		(27|28|29)
+			(( ++mkx[10] ))
+			(( mky[8] += 2 ))
+			(( mky[9] += 2 ))
+			(( mky[10] += 2 ))
+			;|
+		(27|29|31)
+			(( mky[0] -= 2 ))
+			;|
+		(27)
+			(( --mkx[4] ))
+			(( --mkx[5] ))
+			(( ++mkx[6] ))
+			(( mkx[7] += 2 ))
+			(( ++mkx[8] ))
+			(( ++mkx[10] ))
+			;;
+		(29)
+			(( mky[5] += 2 ))
+			(( mky[7] += 2 ))
+			;;
+		(30)
+			(( mky[11] -= 2 ))
+			;;
+		}
+		(( mky[0] += 2 * (L & 1) ))
+	fi
+	exec 3>&p; exec 3>&-
+
+	draw_outer_circle
+	(( L > 21 )) && draw_hour_markers
+	done_progress_bar
+	print -n -- '\e[H\e[J'
+	refresh
+
+	main_loop
 done
