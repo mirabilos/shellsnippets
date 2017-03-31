@@ -48,7 +48,7 @@ function init_progress_bar {
 	global -i _cnt_progress_bar=$1 _cur_progress_bar=0
 	global -i nlin_progress_bar=$LINES isin_progress_bar=1
 
-	trap 'done_progress_bar' EXIT
+	trap 'done_progress_bar 1' EXIT
 	trap 'sigwinch_progress_bar' WINCH
 	# set up scrolling region, draw initial empty bar
 	sigwinch_progress_bar
@@ -79,11 +79,17 @@ function done_progress_bar {
 	print -nu2 "\\e7\\e[0;0r\\e8\\e7\\e[J\\e8"
 	trap - WINCH
 	trap - EXIT
+	[[ -n $1 ]] || (( _cur_progress_bar == _cnt_progress_bar )) || \
+	    print -ru2 W: expected $_cnt_progress_bar draw_progress_bar calls, \
+	    got only $_cur_progress_bar
 }
 
 function draw_progress_bar {
 	# increment current progress
-	let ++_cur_progress_bar
+	if (( ++_cur_progress_bar > _cnt_progress_bar )); then
+		print -ru2 "W: too many draw_progress_bar calls"
+		_cur_progress_bar=$_cnt_progress_bar
+	fi
 	# remaining drawing code
 	draw_progress_bar_internal
 }
