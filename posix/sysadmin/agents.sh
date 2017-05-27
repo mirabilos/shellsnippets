@@ -21,6 +21,9 @@
 # /etc/profile.d/agents.sh (sourced by /etc/profile on Debian and derivates)
 # • install gpg and ssh skeleton files
 # • load gpg-agent and ssh-agent, unless already there
+#
+# You should comment out “use-ssh-agent” in /etc/X11/Xsession.options
+# in order to use the shared per-user agent started from this script.
 
 test -n "$USER_ID" || USER_ID=$(id -u)
 mkdir -p "$HOME/.ssh" "$HOME/.gnupg"
