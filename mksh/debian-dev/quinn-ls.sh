@@ -1,7 +1,7 @@
 #!/bin/mksh
-rcsid='$MirOS: contrib/hosted/tg/deb/quinn-ls.sh,v 1.13 2013/11/30 13:45:19 tg Exp $'
+rcsid='$MirOS: contrib/hosted/tg/deb/quinn-ls.sh,v 1.16 2017/05/28 22:05:26 tg Exp $'
 #-
-# Copyright © 2011, 2012, 2013
+# Copyright © 2011, 2012, 2013, 2016, 2017
 #	Thorsten Glaser <tg@debian.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -20,7 +20,7 @@ rcsid='$MirOS: contrib/hosted/tg/deb/quinn-ls.sh,v 1.13 2013/11/30 13:45:19 tg E
 # of said person’s immediate fault when using the work as intended.
 
 gather=cwd fromfile=
-mydir=$(dirname "$(realpath "$0")")
+mydir=$(realpath "$0/..")
 PATH="$mydir:$mydir/..:$PATH" . assockit.ksh
 
 while getopts "L:l" ch; do
@@ -32,12 +32,12 @@ while getopts "L:l" ch; do
 done
 shift $((OPTIND - 1))
 
-# Debian Policy 3.9.2.0, §5.6.1
+# Debian Policy 3.9.8.0, §5.6.1
 function isdebpkg {
 	[[ $1 = [a-z0-9]+([a-z0-9+.-]) ]]
 }
 
-# Debian Policy 3.9.2.0, §5.6.12
+# Debian Policy 4.0.0.0, §5.6.12; also, deb-version(5)
 function isdebver {
 	local epochglob uvglob dvglob
 
@@ -48,10 +48,9 @@ function isdebver {
 
 	uvglob=$uvglob'([A-Za-z0-9.+~'
 
-	# colon is allowed if we have an epoch
-	if [[ $1 = +([0-9])':'* ]]; then
-		epochglob='+([0-9])'\'':'\'
-		uvglob=$uvglob':'
+	# colon is no longer allowed even if we have an epoch
+	if [[ $1 = +([0-9]):* ]]; then
+		epochglob='+([0-9])'\':\'
 	fi
 
 	# hyphen is allowed if we have a debian revision
