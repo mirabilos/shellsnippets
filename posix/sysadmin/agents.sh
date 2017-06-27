@@ -1,6 +1,6 @@
-# $Id: agents.sh 4522 2015-09-08 12:36:52Z tglase $
+# $Id: agents.sh 5263 2017-06-27 23:37:42Z tglase $
 #-
-# Copyright © 2009, 2012, 2015
+# Copyright © 2009, 2012, 2015, 2017
 #	Thorsten Glaser <t.glaser@tarent.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
