@@ -1,10 +1,14 @@
 #!/bin/mksh
 
+ulimit -c 0
+
 local _i _fm=$2 _h=$1
 shift; shift
 
+[[ $_fm = *'*' ]] || _fm=${_fm@Q}
+
 trap "" INT
-ssh "$_h" find "${_fm@Q}" -type f -print0 | sort -R "" | \
+ssh "$_h" find "$_fm" -type f -print0 | sort -R "" | \
     while IFS= read -r -d "" _i; do
 	print -r "◖${_i}◗"
 	ssh -n "$_h" cat "${_i@Q}" | "$@"

@@ -27,5 +27,5 @@ sleep 0.1
 exec <&2 5<"$T"
 rm -f "$T"
 print -ru2 -- "I: buffering to $T…"
-sleep 3
+sleep ${BUFMPLAYER_SLEEP:-3}
 exec mplayer "$@" /dev/fd/4 4<&5
