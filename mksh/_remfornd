@@ -1,7 +1,7 @@
 #!/usr/bin/env mksh
 # From MirOS: contrib/code/Snippets/shuffle,v 1.7 2012/10/19 18:59:39 tg Exp $
 #-
-# Copyright © 2006, 2010, 2011, 2012, 2017
+# Copyright © 2006, 2010, 2011, 2012, 2015, 2017
 #	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -19,8 +19,7 @@
 # damage or existence of a defect, except proven that it results out
 # of said person’s immediate fault when using the work as intended.
 #-
-# Provide shuffled input to mpg123, mplayer, mppdec, and other tools
-# that do not properly employ arc4random(3) et al.
+# Hack for _remfor shuffling the input
 
 ulimit -c 0
 
