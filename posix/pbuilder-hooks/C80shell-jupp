@@ -1,7 +1,9 @@
 #!/bin/sh
-# $MirOS: contrib/hosted/tg/deb/hookdir/C80shell-jupp,v 1.3 2013/02/06 18:27:04 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/C80shell-jupp,v 1.6 2016/10/07 23:05:21 tg Exp $
 #-
 # Not complicated enough for copyright.
+#
+# This can also be used in an A or B hook nowadays.
 
 unset LANGUAGE
 LC_ALL=C; export LC_ALL
@@ -10,6 +12,7 @@ echo "I: Current time: $(date)"
 echo
 echo Build failed. Trying to invoke a shell.
 echo
-apt-get -y --force-yes install less mksh ed jupp
+apt-get -y install less mksh ed jupp || \
+    apt-get -y install less mksh ed joe
 ENV=/etc/skel/.mkshrc /bin/mksh -l 0<>/dev/tty >&0 2>&0 || \
     /bin/sh 0<>/dev/tty >&0 2>&0

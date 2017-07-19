@@ -1,0 +1,13 @@
+#!/bin/sh
+# $MirOS: contrib/hosted/tg/deb/hookdir/A88shell-raw,v 1.1 2016/10/07 23:05:20 tg Exp $
+#-
+# Not complicated enough for copyright.
+
+unset LANGUAGE
+LC_ALL=C; export LC_ALL
+
+echo "I: Current time: $(date)"
+echo
+echo Trying to invoke a shell, with no extra packages installed...
+echo
+/bin/sh 0<>/dev/tty >&0 2>&0

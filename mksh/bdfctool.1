@@ -1,7 +1,7 @@
-.\" $MirOS: X11/extras/bdfctool/bdfctool.1,v 1.10 2013/05/17 21:51:40 tg Exp $
+.\" $MirOS: X11/extras/bdfctool/bdfctool.1,v 1.14 2016/02/11 20:16:24 tg Exp $
 .\"-
-.\" Copyright © 2012, 2013
-.\"	Thorsten “mirabilos” Glaser <tg@mirbsd.org>
+.\" Copyright (c) 2008, 2009, 2010, 2012, 2013, 2015, 2016
+.\"	mirabilos <m@mirbsd.org>
 .\"-
 .\" Try to make GNU groff and AT&T nroff more compatible
 .\" * ` generates ‘ in gnroff, so use \`
@@ -12,7 +12,9 @@
 .\" * ^ is size-reduced and placed atop in groff, so use \*(ha
 .\" * \(en does not work in nroff, so use \*(en
 .\" * <>| are problematic, so redefine and use \*(Lt\*(Gt\*(Ba
-.\" Also make sure to use \& especially with two-letter words.
+.\" Also make sure to use \& *before* a punctuation char that is to not
+.\" be interpreted as punctuation, and especially with two-letter words
+.\" but also (after) a period that does not end a sentence (“e.g.\&”).
 .\" The section after the "doc" macropackage has been loaded contains
 .\" additional code to convene between the UCB mdoc macropackage (and
 .\" its variant as BSD mdoc in groff) and the GNU mdoc macropackage.
@@ -57,7 +59,7 @@
 .\" with -mandoc, it might implement .Mx itself, but we want to
 .\" use our own definition. And .Dd must come *first*, always.
 .\"
-.Dd $Mdocdate: May 17 2013 $
+.Dd $Mdocdate: February 11 2016 $
 .\"
 .\" Check which macro package we use, and do other -mdoc setup.
 .\"
@@ -140,7 +142,7 @@
 .Fl c
 .Nm
 .Fl d
-.Op Fl F
+.Op Fl FGg
 .Nm
 .Fl e
 .Op Fl a
@@ -171,7 +173,9 @@ and the line end separator
 .It Ic +a
 In edit mode, emit Unicode (1:1) encoding (default).
 .It Fl d
-Decompress the font from bdfc into
+Decompress the font from bdfc
+.Pq or Tn BDF
+into
 .Tn BDF .
 .It Fl c
 Compress the font from
@@ -191,12 +195,17 @@ Revert selected glyphs from edit form back to compressed form
 Do a fast decompression with no error checking.
 Run this on files passed through
 .Nm
-.Fl c
+.Fl c ,
+without any subsequent manual or automated changes,
 .Em only .
 Used by the
 .Mx
 .Tn XFree86\(rg
 build process.
+.It Fl G
+Output a big-endian .gdf (libgd font) instead.
+.It Fl g
+Output a little-endian .gdf (libgd font) instead.
 .El
 .Sh BDFC FORMAT DESCRIPTION
 A
@@ -241,7 +250,7 @@ is put in
 Finally, there is the character block, which is somewhat stateless.
 There are two types of entries for that block, glyph defaults and glyph data.
 The block is ended with a period
-.Pq Dq Li .\&
+.Pq Dq Li \&.
 on a line by itself.
 .Pp
 Glyphs are sorted by their font encoding / Unicode code point, and each
@@ -372,8 +381,10 @@ The
 .Tn XFree86\(rg
 .Ic Bitmap Distribution Format ,
 version 2.1, specification
+.Pp
+.Pa http://php.net/manual/en/function.imageloadfont.php
 .Sh AUTHORS
-.An Thorsten Glaser Aq tg@mirbsd.org
+.An mirabilos Aq m@mirbsd.org
 wrote this tool because
 .Xr cvs 1
 does not scale for multi-thousand-line files,
@@ -396,3 +407,16 @@ is mandatory.
 The current practical limit on glyph width is 32.
 0-bit wide glyphs cause an error; those with height 0 are
 silently converted to an unset 1x1 bitmap.
+.Pp
+Passing a
+.Tn BDF
+file through
+.Nm
+.Fl d
+is not equivalent to compressing then decompressing it.
+The position of the
+.Li STARTPROPERTIES
+line can change, if bordering comments, for example.
+.Pp
+There is no support for padding BDF fonts yet.
+Output to gdf fonts requires padded input.

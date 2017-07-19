@@ -1,0 +1,31 @@
+#!/bin/sh
+# $MirOS: contrib/hosted/tg/deb/hookdir/D25backports,v 1.2 2016/10/08 20:44:33 tg Exp $
+#-
+# Not complicated enough for copyright.
+#
+# Note: Secure APT is a PITA, for old versions.
+#
+# Note: This will not work with pbuilder-satisfydepends-classic,
+# and on sarge not with pbuilder-satisfydepends (aptitude) either.
+
+unset LANGUAGE
+LC_ALL=C; export LC_ALL
+
+d=${DIST%/*}
+d=${d%-backports*}
+case $d in
+(sarge|etch|lenny|squeeze)
+	echo deb http://archive.debian.org/debian-backports/ \
+	    $d-backports main >>/etc/apt/sources.list
+	;;
+(wheezy|jessie)
+	echo deb http://httpredir.debian.org/debian/ \
+	    $d-backports main >>/etc/apt/sources.list
+	;;
+(*)
+	echo >&2 W: D25backports: ignoring unknown DIST "'$DIST'"
+	exit 0
+	;;
+esac
+
+apt-get update

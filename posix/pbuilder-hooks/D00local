@@ -1,0 +1,51 @@
+#!/bin/bash
+# $MirOS: contrib/hosted/tg/deb/hookdir/D00local,v 1.5 2016/10/14 22:41:53 tg Exp $
+#-
+# Copyright © 2014, 2016
+#	mirabilos <m@mirbsd.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# Configure $base and $this at the beginning of the file. Do ensure:
+# • base must be URI safe since we do not encode it for sources.list
+# • this must be a valid basename for sources.list.d: [A-Za-z0-9._-]
+
+base=/var/cache/apt
+this=D00local
+
+
+unset LANGUAGE
+LC_ALL=C; export LC_ALL
+
+shopt -s extglob
+base=${base%%*(/)}
+pstr=${base//\//_}_._Packages
+
+echo >&2 "I: creating Packages file for local APT cache in $base"
+rm -f "$base/Packages"
+(cd "$base"
+#dpkg-scanpackages -h md5 -m . >Packages 2>/dev/null || \
+    dpkg-scanpackages -m . >Packages)
+paste -d_ <(sed -n '/^Package: /s///p' "$base/Packages") \
+    <(sed -n '/^Version: /s///p' "$base/Packages") \
+    <(sed -n '/^Architecture: /s///p' "$base/Packages") | \
+    sed 's/^/N: /' >&2
+echo >&2 "I: updating APT repository information"
+cp "$base/Packages" "/var/lib/apt/lists/$pstr"
+echo "deb [trusted=yes] file://$base ./" >"/etc/apt/sources.list.d/$this.list"
+apt-cache gencaches
+echo >&2 "I: made $(grep -c '^Package: ' "$base/Packages") packages available from $base"
+exit 0

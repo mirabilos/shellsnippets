@@ -1,5 +1,5 @@
 #!/bin/mksh
-# $MirOS: contrib/hosted/tg/deb/BuildDSC.sh,v 1.19 2016/02/23 18:05:35 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/BuildDSC.sh,v 1.20 2016/11/12 04:02:48 tg Exp $
 #-
 # Copyright (c) 2010, 2011
 #	Thorsten Glaser <t.glaser@tarent.de>
@@ -26,10 +26,12 @@
 # source package. It will then be renamed to the proper dirname, and
 # a source package (*.dsc + others) will be created, then it will be
 # renamed back.
+# -a: pass -sa to dpkg-buildpackage (include origtgz)
 # -d: pass -d to dpkg-buildpackage (ignore B-D absence)
 # -N: pass -nc to dpkg-buildpackage (do not clean)
 # -s arg: make a snapshot with “arg” being the version number suffix
 # -S: build a snapshot with snapshot.YYYYMMDD.HHMMSS (UTC) as suffix
+# -v: pass -v$OPTARG to dpkg-buildpackage (changelog since)
 # Any further arguments will be passed to debian/rules via MAKEFLAGS
 
 # sanitise environment
@@ -43,12 +45,18 @@ date >/dev/null
 stime_rfc=$(date +"%a, %d %b %Y %H:%M:%S %z")
 stime_vsn=$(date -u +"%Y%m%d.%H%M%S")
 
+opta=
 optd=
 optN=
+optv=
 snap=0
 ssuf=
-while getopts "dNSs:" ch; do
+while getopts "adNSs:v:" ch; do
 	case $ch {
+	(a)	opta=-sa
+		;;
+	(+a)	opta=
+		;;
 	(d)	optd=-d
 		;;
 	(+d)	optd=
@@ -68,6 +76,8 @@ while getopts "dNSs:" ch; do
 		;;
 	(+s)	snap=0
 		ssuf=
+		;;
+	(v)	optv=-v$OPTARG
 		;;
 	(*)	print -u2 Syntax error.
 		exit 1
@@ -144,7 +154,7 @@ curname=${mydir##*/}
 newname=$pkgstem-$upstreamversion
 [[ $newname = $curname ]] || mv "$curname" "$newname"
 cd "$newname"
-dpkg-buildpackage -rfakeroot -S -I -i $optd $optN -us -uc
+dpkg-buildpackage -rfakeroot -S -I -i $optd $optN $opta $optv -us -uc
 rv=$?
 [[ -n $optN ]] || fakeroot debian/rules clean
 cd ..

@@ -1,8 +1,8 @@
 #!/bin/mksh
-# $MirOS: X11/extras/bdfctool/bdfctool.sh,v 1.12 2013/05/17 21:51:40 tg Exp $
+# $MirOS: X11/extras/bdfctool/bdfctool.sh,v 1.17 2015/02/26 03:05:33 tg Exp $
 #-
-# Copyright © 2012, 2013
-#	Thorsten Glaser <tg@mirbsd.org>
+# Copyright © 2007, 2008, 2009, 2010, 2012, 2013, 2015
+#	Thorsten “mirabilos” Glaser <tg@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission
@@ -23,13 +23,15 @@ set -o noglob
 
 uascii=-1
 ufast=0
-while getopts "acdeFh" ch; do
+oform=0
+while getopts "acdeFGgh" ch; do
 	case $ch {
 	(a) uascii=1 ;;
 	(+a) uascii=0 ;;
-	(c|d|e|+e) mode=$ch ;;
-	(F) ufast=1 ;;
-	(+F) ufast=0 ;;
+	(c|d|e|+e) mode=$ch oform=0 ;;
+	(F) ufast=1 oform=0 ;;
+	(G) oform=4 ;;
+	(g) oform=3 ;;
 	(h) mode=$ch ;;
 	(*) mode= ;;
 	}
@@ -38,10 +40,16 @@ shift $((OPTIND - 1))
 (( $# )) && mode=
 
 if [[ $mode = ?(h) ]] || [[ $mode != e && $uascii != -1 ]] || \
-    [[ $mode != d && $ufast != 0 ]]; then
-	print -ru2 "Usage: ${0##*/} -c | -d [-F] | -e [-a] | +e"
+    [[ $mode != d && $ufast$oform != 00 ]]; then
+	print -ru2 "Usage: ${0##*/} -c | -d [-FGg] | -e [-a] | +e"
 	[[ $mode = h ]]; exit $?
 fi
+
+# check padding on input, currently
+(( chkpad = (oform == 3 || oform == 4) ))
+
+# disable -F if -g
+(( ufast = (oform == 3 || oform == 4) ? 0 : ufast ))
 
 lno=0
 if [[ $mode = e ]]; then
@@ -138,21 +146,36 @@ function parse_bdfc_file {
 			state=1
 			return
 		elif [[ $line = '=bdfc 1' ]]; then
+			set -A hFBB
 			continue
 		fi
 		last+=("$line")
-		[[ $line = \' || $line = "' "* ]] && continue
-		if [[ $line = h* ]]; then
+		case $line {
+		(\'|\'\ *)
+			continue
+			;;
+		(hFONTBOUNDINGBOX\ +([0-9])\ +([0-9])\ +([0-9-])\ +([0-9-]))
+			set -A hFBB -- $line
 			Fhead+=("${last[@]}")
-		elif [[ $line = p* ]]; then
+			;;
+		(h*)
+			Fhead+=("${last[@]}")
+			;;
+		(p*)
 			Fprop+=("${last[@]}")
-		else
-			print -ru2 "E: invalid line #$lno: '$line'"
+			;;
+		(*)
+			print -ru2 "E: invalid line $lno: '$line'"
 			exit 2
-		fi
+			;;
+		}
 		set -A last
 	done
 	Fprop+=("${last[@]}")
+	(( chkpad )) && if [[ -z $hFBB ]]; then
+		print -ru2 "E: missing FONTBOUNDINGBOX header"
+		exit 2
+	fi
 	state=2
 }
 
@@ -192,7 +215,7 @@ function parse_bdfc_edit {
 		linx=${linx//[ .]/0}
 		linx=${linx//[#*]/1}
 		if [[ $linx != +([01])'|' || ${#linx} != $((w + 1)) ]]; then
-			print -ru2 "E: U+${ch#16#} (line #$lno) bitmap line" \
+			print -ru2 "E: U+${ch#16#} (line $lno) bitmap line" \
 			    $((f[3] - i)) "invalid: '$line'"
 			exit 2
 		fi
@@ -223,10 +246,14 @@ function parse_bdfc_glyph {
 		set -A f -- $line
 		if [[ ${f[0]} = d ]]; then
 			Fdef="${f[*]}"
+			(( chkpad )) && if [[ ${f[5]},${f[6]} != ${hFBB[3]},${hFBB[4]} ]]; then
+				print -ru2 "E: d line $lno does not match FONTBOUNDINGBOX … ${hFBB[3]} ${hFBB[4]}"
+				exit 2
+			fi
 			continue
 		fi
 		if [[ ${f[0]} != [ce] ]]; then
-			print -ru2 "E: invalid line #$lno: '$line'"
+			print -ru2 "E: invalid line $lno: '$line'"
 			exit 2
 		fi
 		if [[ $Fdef != 'd '* ]]; then
@@ -247,6 +274,10 @@ function parse_bdfc_glyph {
 			print -ru2 "E: width ${f[2]} not in 1‥32 at line $lno"
 			exit 2
 		fi
+		(( chkpad )) && if [[ ${f[2]} != ${hFBB[1]} ]]; then
+			print -ru2 "E: c line $lno width ${f[2]} does not match FONTBOUNDINGBOX ${hFBB[1]}"
+			exit 2
+		fi
 		[[ ${f[4]} = "uni${ch#16#}" ]] && unset f[4]
 		if [[ ${f[0]} = e ]]; then
 			parse_bdfc_edit
@@ -263,6 +294,13 @@ function parse_bdfc_glyph {
 			if eval [[ '${f[3]}:' != "$x" ]]; then
 				print -ru2 "E: invalid hex encoding for" \
 				    "U+${ch#16#}, line $lno: '${f[3]}'"
+				exit 2
+			fi
+		fi
+		if (( chkpad )); then
+			x=${f[3]//[!:]}
+			if (( (${#x} + 1) != hFBB[2] )); then
+				print -ru2 "E: c line $lno height $((${#x} + 1)) does not match FONTBOUNDINGBOX ${hFBB[2]}"
 				exit 2
 			fi
 		fi
@@ -290,6 +328,7 @@ function parse_bdfc {
 }
 
 function parse_bdf {
+	set -A hFBB
 	while IFS= read -r line; do
 		(( ++lno ))
 		case $line {
@@ -302,11 +341,19 @@ function parse_bdf {
 		(STARTPROPERTIES\ +([0-9]))
 			break
 			;;
+		(FONTBOUNDINGBOX\ +([0-9])\ +([0-9])\ +([0-9-])\ +([0-9-]))
+			set -A hFBB -- $line
+			Fhead+=("h$line")
+			;;
 		(*)
 			Fhead+=("h$line")
 			;;
 		}
 	done
+	(( chkpad )) && if [[ -z $hFBB ]]; then
+		print -ru2 "E: missing FONTBOUNDINGBOX header"
+		exit 2
+	fi
 	set -A f -- $line
 	numprop=${f[1]}
 	while IFS= read -r line; do
@@ -381,6 +428,10 @@ function parse_bdf {
 			;;
 		(BBX\ +([0-9])\ +([0-9])\ +([0-9-])\ +([0-9-]))
 			set -A cb -- $line
+			(( chkpad )) && if [[ ${cb[1]},${cb[2]},${cb[3]},${cb[4]} != ${hFBB[1]},${hFBB[2]},${hFBB[3]},${hFBB[4]} ]]; then
+				print -ru2 "E: BBX in line $lno does not match FONTBOUNDINGBOX ${hFBB[1]} ${hFBB[2]} ${hFBB[3]} ${hFBB[4]}"
+				exit 2
+			fi
 			;;
 		(BITMAP)
 			if [[ -z $cn ]]; then
@@ -424,14 +475,19 @@ function parse_bdf {
 			if (( (numlines = cb[2]) )); then
 				bmps=
 				typeset -u linu
-				while IFS= read -r linu; do
+				while IFS= read -r linx; do
 					(( ++lno ))
-					if eval [[ '$linu' != "$ck" ]]; then
+					linu=$linx
+					while eval [[ '$linu' != "$ck" ]]; do
+						if [[ $linu = *00 ]]; then
+							linu=${linu%00}
+							continue
+						fi
 						print -ru2 "E: invalid hex encoding" \
 						    "for U+${ch#16#} (dec. $((ch)))" \
-						    "on line $lno: '$linu'"
+						    "on line $lno: '$linx'"
 						exit 2
-					fi
+					done
 					bmps+=$linu:
 					(( --numlines )) || break
 				done
@@ -538,7 +594,7 @@ if [[ $mode = +e ]]; then
 		fi
 		set -A f -- $line
 		if [[ ${f[0]} != [ce] ]]; then
-			print -ru2 "E: invalid line #$lno: '$line'"
+			print -ru2 "E: invalid line $lno: '$line'"
 			exit 2
 		fi
 		if [[ ${f[1]} != [0-9A-F][0-9A-F][0-9A-F][0-9A-F] ]]; then
@@ -589,12 +645,12 @@ if ! IFS= read -r line; then
 	exit 2
 fi
 lno=1
-if [[ $line != '=bdfc 1' ]]; then
-	print -ru2 "E: not bdfc at BOF: '$line'"
-	exit 2
-fi
 
 if (( ufast )); then
+	if [[ $line != '=bdfc 1' ]]; then
+		print -ru2 "E: not bdfc at BOF: '$line'"
+		exit 2
+	fi
 	if ! T=$(mktemp /tmp/bdfctool.XXXXXXXXXX); then
 		print -u2 E: cannot make temporary file
 		exit 4
@@ -613,9 +669,15 @@ if (( ufast )); then
 		set -A last
 	done
 	Fprop+=("${last[@]}")
-else
+elif [[ $line = 'STARTFONT 2.1' ]]; then
+	# parse entire BDF file into memory
+	parse_bdf
+elif [[ $line = '=bdfc 1' ]]; then
 	# parse entire bdfc file into memory
 	parse_bdfc
+else
+	print -ru2 "E: not BDF or bdfc at BOF: '$line'"
+	exit 2
 fi
 
 # analyse data for BDF
@@ -624,6 +686,87 @@ for line in "${Fprop[@]}"; do
 	[[ $line = p* ]] && let ++numprop
 done
 (( ufast )) || numchar=${#Gdata[*]}
+
+# handle diverging and non-ufast output formats
+case $oform {
+(3)
+	# little-endian .gdf
+	function out_int32 {
+		typeset -Uui16 value=$1
+		typeset -Uui8 ba bb bc bd
+
+		(( bd = (value >> 24) & 0xFF ))
+		(( bc = (value >> 16) & 0xFF ))
+		(( bb = (value >> 8) & 0xFF ))
+		(( ba = value & 0xFF ))
+		print -n "\\0${ba#8#}\\0${bb#8#}\\0${bc#8#}\\0${bd#8#}"
+	}
+	;|
+(4)
+	# big-endian .gdf
+	function out_int32 {
+		typeset -Uui16 value=$1
+		typeset -Uui8 ba bb bc bd
+
+		(( ba = (value >> 24) & 0xFF ))
+		(( bb = (value >> 16) & 0xFF ))
+		(( bc = (value >> 8) & 0xFF ))
+		(( bd = value & 0xFF ))
+		print -n "\\0${ba#8#}\\0${bb#8#}\\0${bc#8#}\\0${bd#8#}"
+	}
+	;|
+(3|4)
+	# do some input analysis for .gdf output
+	if [[ -z $hFBB ]]; then
+		print -ru2 "E: missing FONTBOUNDINGBOX header"
+		exit 2
+	fi
+	set -A f -- ${!Gdata[*]}
+	typeset -i firstch=${f[0]} lastch=${f[${#f[*]} - 1]}
+	nullch=
+	x=$((hFBB[1] * hFBB[2]))
+	while (( x-- )); do
+		nullch+=\\0
+	done
+	if (( hFBB[1] <= 8 )); then
+		adds=000000
+	elif (( hFBB[1] <= 16 )); then
+		adds=0000
+	elif (( hFBB[1] <= 24 )); then
+		adds=00
+	else
+		adds=
+	fi
+	# write .gdf stream
+	out_int32 $((# lastch - firstch + 1))
+	out_int32 $((# firstch))
+	out_int32 $((# hFBB[1]))
+	out_int32 $((# hFBB[2]))
+	typeset -i curch
+	((# curch = firstch - 1 ))
+	while ((# ++curch <= lastch )); do
+		set -A f -- ${Gdata[curch]}
+		if [[ -z $f ]]; then
+			print -n "$nullch"
+			continue
+		fi
+		IFS=:
+		set -A bmp -- ${f[3]}
+		IFS=$' \t\n'
+		s=
+		for line in "${bmp[@]}"; do
+			typeset -Uui2 bbin=16#$line$adds
+			x=${hFBB[1]}
+			while (( x-- )); do
+				s+=\\0$(( (bbin & 0x80000000) ? 377 : 0 ))
+				(( bbin <<= 1 ))
+			done
+		done
+		print -n "$s"
+	done
+	exit 0
+	;;
+}
 
 # write BDF stream
 print 'STARTFONT 2.1'

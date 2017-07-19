@@ -1,0 +1,32 @@
+.Dd February 28, 2014
+.Dt WCDIFF 1
+.Os
+.Sh NAME
+.Nm wcdiff
+.Nd colourised display of word differences between text files
+.Sh SYNOPSIS
+.Nm
+.Op Ic wdiff-options
+.Ar old_file
+.Ar new_file
+.Sh DESCRIPTION
+The
+.Nm
+utility shows the whole of the two files passed, with differences
+marked with blue symbols, the new text being green (with pointing
+triangles) and the old text being red (with deletion symbols).
+In the background, it merely calls
+.Nm wdiff ,
+with some options preset, namely
+.Fl w ,
+.Fl x ,
+.Fl y
+and
+.Fl z .
+All arguments to
+.Nm
+are passed through as-is.
+.Sh SEE ALSO
+.Xr wdiff 1
+.Sh AUTHORS
+.An Thorsten Glaser Aq tg@mirbsd.org

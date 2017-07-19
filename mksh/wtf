@@ -1,9 +1,10 @@
 #!/bin/mksh
-# $MirOS: src/usr.bin/wtf/wtf,v 1.20 2012/08/18 04:48:46 tg Exp $
+myver='$MirOS: src/usr.bin/wtf/wtf,v 1.36 2017/06/15 21:00:45 tg Exp $'
 # $NetBSD: wtf,v 1.7 2000/11/21 00:18:52 soren Exp $
 #-
-# Copyright © 2002, 2003, 2004, 2006, 2007, 2008, 2010, 2011, 2012
-#	Thorsten “mirabilos” Glaser <tg@mirbsd.org>
+# Copyright © 2002, 2003, 2004, 2006, 2007, 2008, 2010, 2011,
+#	      2012, 2014, 2015, 2017
+#	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission
@@ -22,35 +23,77 @@
 
 acronyms=${ACRONYMDB:-/usr/share/misc/acronyms}
 
-function usage {
+usage() {
 	print -u2 "usage: ${0##*/} [±adPpw] [-f dbfile] [is[t]] <acronym> [...]"
 	exit 1
 }
 
-use_acronyms=1
-use_dict=0
-use_ports=0
-use_whatis=1
-while getopts "adf:Ppt:w" ch; do
+use_acronyms=-1
+use_dict=-1
+use_ports=-1
+use_whatis=-1
+hasopt=0
+show_ver=0
+while getopts "adf:hPpt:Vw" ch; do
 	case $ch {
-	(+a)	use_acronyms=0 ;;
-	(a)	use_acronyms=1 ;;
-	(+d)	use_dict=0 ;;
-	(d)	use_dict=1 ;;
+	(+a)	hasopt=1 use_acronyms=0 ;;
+	(a)	hasopt=1 use_acronyms=1 ;;
+	(+d)	hasopt=1 use_dict=0 ;;
+	(d)	hasopt=1 use_dict=1 ;;
 	(f)	acronyms=$OPTARG ;;
-	(+P)	use_ports=0 ;;
-	(P)	use_ports=2 ;;
-	(+p)	use_ports=0 ;;
-	(p)	use_ports=1 ;;
+	(+P)	hasopt=1 use_ports=0 ;;
+	(P)	hasopt=1 use_ports=2 ;;
+	(+p)	hasopt=1 use_ports=0 ;;
+	(p)	hasopt=1 use_ports=1 ;;
 	(t)	;;
-	(+w)	use_whatis=0 ;;
-	(w)	use_whatis=1 ;;
+	(V)	show_ver=1 ;;
+	(+w)	hasopt=1 use_whatis=0 ;;
+	(w)	hasopt=1 use_whatis=1 ;;
 	(*)	usage ;;
 	}
 done
 shift $((OPTIND - 1))
 
-[[ $1 = is || $1 = ist ]] && shift
+if (( hasopt )); then
+	(( use_acronyms = (use_acronyms == -1) ? 0 : use_acronyms ))
+	(( use_dict = (use_dict == -1) ? 0 : use_dict ))
+	(( use_ports = (use_ports == -1) ? 0 : use_ports ))
+	(( use_whatis = (use_whatis == -1) ? 0 : use_whatis ))
+else
+	use_acronyms=1
+	use_dict=0
+	use_ports=0
+	use_whatis=0
+fi
+
+if (( show_ver )); then
+	print -ru2 -- "$myver"
+	if (( use_acronyms )); then
+		exec <"$acronyms"
+		if ! IFS= read -r line || [[ $line != '  '* ]] || \
+		    ! IFS= read -r line || [[ $line != ' @(#)'* ]]; then
+			print -ru2 "E: acronyms database ${acronyms@Q} too old"
+			exit 1
+		fi
+		print -ru2 -- "${line# ????}"
+		print -nu2 'Counting, please be patient…'
+		last= nacr=0 nexp=0 lots=${EPOCHREALTIME%?????}
+		while IFS= read -r line; do
+			[[ $line = *'	'* ]] || continue
+			let ++nexp
+			line=${line%%	*}
+			[[ $line = "$last" ]] || let ++nacr
+			last=$line
+			[[ $lots = ${EPOCHREALTIME%?????} ]] && continue
+			print -nu2 \\rwtf knows at least $nacr acronyms with $nexp expansions
+			lots=${EPOCHREALTIME%?????}
+		done
+		print -u2 \\rwtf currently knows about $nacr acronyms with $nexp expansions
+	fi
+	exit 0
+fi
+
+(( $# > 1 )) && [[ $1 = is || $1 = ist ]] && shift
 (( $# < 1 )) && usage
 
 if (( use_ports )); then
@@ -58,14 +101,22 @@ if (( use_ports )); then
 		# MirPorts Framework, OpenBSD ports tree
 		binpkgs=ports
 		function ports_acquire_filtered {
+			local a b c d e
+			local -l x y=$1
+
 			while IFS='|' read a b c d e; do
-				[[ $a = *"$1"* ]] && \
+				x=$a
+				[[ $x = *"$y"* ]] && \
 				    print -r -- "$a|${d%% \(uses*}"
 			done </usr/ports/INDEX
 		}
 		function ports_acquire_unfiltered {
+			local a b c d e
+			local -l x y=$1
+
 			while IFS='|' read a b c d e; do
-				[[ $a$d = *"$1"* ]] && \
+				x=$a$d
+				[[ $x = *"$y"* ]] && \
 				    print -r -- "$a|${d%% \(uses*}"
 			done </usr/ports/INDEX
 		}
@@ -73,10 +124,13 @@ if (( use_ports )); then
 		# Red Hat Yellowdog Updater Modified
 		binpkgs=RPMs
 		function ports_acquire_filtered {
+			local -l x y=$1
+
 			yum search -q -- "$1" | \
 			    tr '\n' '' | sed 's/ *: / /g' | tr '' '\n' | \
 			    while read a b c; do
-				[[ $a = *"$1"* ]] && print -r -- "$a|$c"
+				x=$a
+				[[ $x = *"$y"* ]] && print -r -- "$a|$c"
 			done
 		}
 		function ports_acquire_unfiltered {
@@ -90,8 +144,11 @@ if (( use_ports )); then
 		# Debian Advanced Packaging Tool
 		binpkgs=packages
 		function ports_acquire_filtered {
+			local -l x y=$1
+
 			apt-cache search -- "$1" | while read a b c; do
-				[[ $a = *"$1"* ]] && print -r -- "$a|$c"
+				x=$a
+				[[ $x = *"$y"* ]] && print -r -- "$a|$c"
 			done
 		}
 		function ports_acquire_unfiltered {
@@ -109,13 +166,72 @@ if (( use_ports )); then
 	}
 fi
 
+if (( use_acronyms )); then
+	# read input file only once
+	exec <"$acronyms"
+
+	# read case-folding code
+	if ! IFS= read -r line || [[ $line != '  '* ]]; then
+		print -ru2 "E: acronyms database ${acronyms@Q} too old"
+		exit 1
+	fi
+	set -A ucsrch -- $line
+
+	# create sorted input array, uppercased/folded
+	s='set -sA stsrch --'
+	i=0
+	# now: "$@"=("$0" foo bar baz)
+	for target in "$@"; do
+		typeset -u tgsrch=$target
+		[[ $tgsrch = *[A-Z].* ]] && tgsrch=${tgsrch//.}
+		for p in "${ucsrch[@]}"; do
+			eval 'tgsrch=${tgsrch//'"$p}"
+		done
+		s+=" ${tgsrch@Q}=$((++i))"
+	done
+	eval "$s"
+	# now: stsrch=(BAR=2 BAZ=3 FOO=1)
+
+	# create output mapping, remove mapping number from stsrch
+	set -A omsrch
+	tgsrch=
+	i=0 n=-1
+	for s in "${stsrch[@]}"; do
+		p=${s%=*}
+		if [[ $p = $tgsrch ]]; then
+			# this is a repeat
+			unset stsrch[i++]
+		else
+			stsrch[i++]=$p
+			tgsrch=$p
+			let ++n
+		fi
+		(( omsrch[${s##*=}] = n ))
+	done
+	set -A stsrch -- "${stsrch[@]}"
+	# now: stsrch=(BAR BAZ FOO) omsrch[1]=2 omsrch[2]=0 omsrch[3]=1
+
+	# look up acronyms
+	set -A acrout
+	i=-1
+	for s in "${stsrch[@]}"; do
+		let ++i
+		while :; do
+			if [[ $line = "$s	"* ]]; then
+				acrout[i]+=$'\n'${line#*	}
+			elif [[ $line > "$s	" ]]; then
+				continue 2
+			fi
+			IFS= read -r line || break 2
+		done
+	done
+
+	exec <&-
+	i=0
+fi
+
 rv=0
 for target in "$@"; do
-	typeset -u tgsrch=$target
-	tgsrch=${tgsrch//ä/Ä}
-	tgsrch=${tgsrch//ö/Ö}
-	tgsrch=${tgsrch//ü/Ü}
-
 	if (( use_ports )); then
 		p=$(ports_acquire "$target")
 		if [[ -n $p ]]; then
@@ -125,13 +241,12 @@ for target in "$@"; do
 	fi
 
 	if (( use_acronyms )); then
-		found=0
-		while IFS= read -r line; do
-			[[ $line = "$tgsrch	"* ]] || continue
-			(( found++ )) || print -r "   $tgsrch:"
-			print -r -- "${line#*	}"
-		done <"$acronyms"
-		if (( !found )); then
+		n=${omsrch[++i]}
+		s=${acrout[n]}
+		tgsrch=${stsrch[n]}
+		if [[ -n $s ]]; then
+			print -r -- "   $tgsrch:$s"
+		else
 			print -ru2 Gee… I don’t know what “"$tgsrch"” means…
 			(( rv |= 1 ))
 		fi
@@ -139,7 +254,7 @@ for target in "$@"; do
 
 	(( use_dict || use_whatis )) && print "  - other information sources"
 
-	(( use_dict )) && if whence -p dict >&-; then
+	(( use_dict )) && if whence -p dict >/dev/null; then
 		dict "$target" || (( rv |= 2 ))
 	else
 		(( rv |= 4 ))
