@@ -1,9 +1,9 @@
 #!/bin/mksh
-# $MirOS: contrib/hosted/tg/deb/BuildDSC.sh,v 1.20 2016/11/12 04:02:48 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/BuildDSC.sh,v 1.21 2017/08/12 01:02:11 tg Exp $
 #-
 # Copyright (c) 2010, 2011
 #	Thorsten Glaser <t.glaser@tarent.de>
-# Copyright © 2015, 2016
+# Copyright © 2015, 2016, 2017
 #	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -30,7 +30,7 @@
 # -d: pass -d to dpkg-buildpackage (ignore B-D absence)
 # -N: pass -nc to dpkg-buildpackage (do not clean)
 # -s arg: make a snapshot with “arg” being the version number suffix
-# -S: build a snapshot with snapshot.YYYYMMDD.HHMMSS (UTC) as suffix
+# -S: build a snapshot with snapshot+YYYYMMDD+HHMMSS (UTC) as suffix
 # -v: pass -v$OPTARG to dpkg-buildpackage (changelog since)
 # Any further arguments will be passed to debian/rules via MAKEFLAGS
 
@@ -43,7 +43,7 @@ cd "$(realpath .)"
 sync
 date >/dev/null
 stime_rfc=$(date +"%a, %d %b %Y %H:%M:%S %z")
-stime_vsn=$(date -u +"%Y%m%d.%H%M%S")
+stime_vsn=$(date -u +"%Y%m%d+%H%M%S")
 
 opta=
 optd=
@@ -66,7 +66,7 @@ while getopts "adNSs:v:" ch; do
 	(+N)	optN=
 		;;
 	(S)	snap=1
-		ssuf=snapshot.$stime_vsn
+		ssuf=snapshot+$stime_vsn
 		;;
 	(+S)	snap=0
 		ssuf=
