@@ -1,0 +1,210 @@
+# -*- mode: sh -*-
+#-
+# Copyright © 2014, 2015, 2016, 2017
+#	Dominik George <dominik.george@teckids.org>
+# Copyright © 2014, 2015, 2016
+#	mirabilos <thorsten.glaser@teckids.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+
+# Teckids utility subcommand that prints a summary about a user
+
+cmd_options='rraw0Rohe Ausgabe erzeugen (LDAP-Feldnamen)'
+cmd_options+=$'\n''s:single0Nur einzelne Felder pro Ergebnis ausgeben'
+cmd_options+=$'\n''t:single_sep,Dies als Trennzeichen für CSV benutzen'
+
+teckids_sourcing_wrapper=1
+. "$(dirname "$0")/teckids"
+
+if [[ $TECKIDS_RUNNING_COMMAND = */whoami || $0 = ?(*/)whoami ]]; then
+	(( $# == 0 )) || die „whoami“ nimmt keine Argumente, nur Optionen!
+	field=uid
+	if [[ $HOSTNAME = ${TECKIDS_MANAGEMENT_HOST%%.*} ]]; then
+		value=$(whoami)
+	else
+		value=$(mksh "$(dirname "$0")/ssh" whoami)
+	fi
+elif (( $# == 0 )); then
+	field=dn
+	value=$(cat "$TECKIDS_CACHE_DIR"/last_whois)
+	if (( kids_only )) && [[ $value = *,ou=Eltern,* ]]; then
+		value=${value#*,ou=Eltern,}
+	fi
+elif (( $# == 1 )); then
+	case $1 in
+		[a-z]+([a-z0-9])) field=uid ;;
+		*@*) field=mail ;;
+		+([0-9])) field=employeeNumber ;;
+		*) field=cn ;;
+	esac
+	value=$1
+	[[ $field = employeeNumber ]] && (( value >= 20000 )) && field=teckidsCashAccount
+elif (( $# == 2 )); then
+	field=$1
+	value=$2
+fi
+
+if [[ $field = dn ]]; then
+	asso_setldap_sasl users -- -b "$value" -s base
+else
+	asso_setldap_sasl users -- -b ou=People,dc=teckids,dc=org \
+	    "($field=$value)"
+fi
+
+teckids_loadk_users
+
+if (( raw )); then
+	for user_dn in "${asso_y[@]}"; do
+		asso_loadk users "$user_dn"
+		for field in "${asso_y[@]}"; do
+			n=$(asso_getv users "$user_dn" "$field" count)
+			i=-1
+			while (( ++i < n )); do
+				print -r -- "$field: $(asso_getv users "$user_dn" "$field" $i)"
+			done
+		done
+		print -- ----
+		print -r -- "$user_dn" >"$TECKIDS_CACHE_DIR"/last_whois
+	done | if [[ -t 1 ]]; then
+		# stdout is a tty
+		less +-S
+	else
+		cat
+	fi
+	exit 0
+fi
+
+if [[ $single != 0 ]]; then
+	sIFS=$IFS; IFS=,; set -A single_fields -- $single; IFS=$IFS
+	for user_dn in "${asso_y[@]}"; do
+		_first=1
+		for f in "${single_fields[@]}"; do
+			v=$(asso_getv users "$user_dn" "$f" 0)
+			(( _first )) || print -rn -- "$single_sep"
+			print -rn -- "$v"
+			_first=0
+		done
+		print
+	done
+	exit 0
+fi
+
+for user_dn in "${asso_y[@]}"; do
+	givenName=$(asso_getv users "$user_dn" givenName 0)
+	sn=$(asso_getv users "$user_dn" sn 0)
+	employeeNumber=$(asso_getv users "$user_dn" employeeNumber 0)
+	dateOfBirth=$(asso_getv users "$user_dn" dateOfBirth 0)
+	mail=$(asso_getv users "$user_dn" mail 0)
+	homePostalAddress=$(asso_getv users "$user_dn" homePostalAddress 0)
+	mobile=$(asso_getv users "$user_dn" mobile 0)
+	uid=$(asso_getv users "$user_dn" uid 0)
+	uidNumber=$(asso_getv users "$user_dn" uidNumber 0)
+	homeDirectory=$(asso_getv users "$user_dn" homeDirectory 0)
+	loginShell=$(asso_getv users "$user_dn" loginShell 0)
+	o=$(asso_getv users "$user_dn" o 0)
+	ou=$(asso_getv users "$user_dn" ou 0)
+	l=$(asso_getv users "$user_dn" l 0)
+	st=$(asso_getv users "$user_dn" st 0)
+	c=$(asso_getv users "$user_dn" c 0)
+	cashAccount=$(asso_getv users "$user_dn" teckidsCashAccount 0)
+	dues=$(asso_getv users "$user_dn" teckidsMemberDues 0)
+	memberSince=$(asso_getv users "$user_dn" teckidsMemberSince 0)
+	iban=$(asso_getv users "$user_dn" iBAN 0)
+	bic=$(asso_getv users "$user_dn" bIC 0)
+
+	: ${c:=Deutschland}
+	[[ -n $st ]] && c="$st, $c"
+
+	if dtchk dtJ "$dateOfBirth" dtv; then
+		set -A tmGeb -- $(mjd_explode "$dtJ" 0)
+		set -A tmNow -- $(mjd_explode $(timet2mjd $(date +%s)))
+		(( age = tmNow[tm_year] - tmGeb[tm_year] - ((tmNow[tm_yday] < tmGeb[tm_yday]) ? 1 : 0) ))
+	else
+		unset age
+	fi
+
+	print "Personendaten"
+	print "============="
+	print
+	print -r -- "Nachname:|$sn|Vorname:|$givenName"
+	print -r -- "Geburtstag:|${dateOfBirth:- }|Alter:|$age"
+	print
+
+	print "Kontakt"
+	print "======="
+	print
+	print -r -- "E-Mail:|$mail"
+	print -r -- "Handy:|${mobile:- }|Anschrift:|$homePostalAddress"
+	print
+
+	print "Schule"
+	print "======"
+	print
+	print -r -- "Schule:|${o:- }|Schulort:|$l"
+	print -r -- "Klasse:|${ou:- }|Land:|$c"
+	print
+
+	if [[ -n $employeeNumber ]]; then
+		print "Mitglied"
+		print "========"
+		print
+		print -r -- "Mitglieds-Nr.:|${employeeNumber:- }|Eintritt:|$memberSince"
+		print -r -- "Beitrag:|$dues €"
+		print
+	fi
+
+	if [[ -n $cashAccount$employeeNumber ]]; then
+		print "Buchhaltung"
+		print "==========="
+		print
+		print -r -- "Konto:|${employeeNumber:-$cashAccount}|Kontostand:|$("$ROOT/util/not_teckidscmd/gnc_balance" ${employeeNumber:-$cashAccount}) €"
+		print -r -- "IBAN:|${iban:- }|BIC:|$bic"
+		print
+	fi
+
+	if [[ -n $uid ]]; then
+		print "Account"
+		print "======="
+		print
+		print -r -- "Benutzer:|${uid:- }|UID:|$uidNumber"
+		print -r -- "Home:|${homeDirectory:- }|Shell:|$loginShell"
+		print
+	fi
+
+	for a in Gremien Teams Themen Privileges Projekte; do
+		print "$a"
+		print "${a//?/=}"
+		print
+
+		asso_setldap_sasl groups -- -b ou=$a,ou=Groups,dc=teckids,dc=org \
+		    -s one "(member=$user_dn)"
+
+		asso_loadk groups
+		for group_dn in "${asso_y[@]}"; do
+			cn=$(asso_getv groups "$group_dn" cn 0)
+			description=$(asso_getv groups "$group_dn" description 0)
+
+			print -r -- " |$cn| |$description"
+		done
+
+		print
+	done
+
+	print -r -- "$user_dn" >"$TECKIDS_CACHE_DIR"/last_whois
+done | column -s"|" -t -e
+
+[[ -n "${asso_y[*]}" ]] || exit 1
+exit 0

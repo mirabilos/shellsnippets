@@ -1,0 +1,323 @@
+# -*- mode: sh -*-
+#-
+# Copyright © 2014, 2015, 2016
+#	Thorsten “mirabilos” Glaser <thorsten.glaser@teckids.org>
+# Copyright © 2014, 2015
+#	Dominik George <dominik.george@teckids.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# Column types:
+# • i “info” (e.g. ℹ, Message-ID, Land)
+#     informative, statline empty
+# • g “gender” (exactly Geschlecht)
+#     gender stats (m/w), recording distribution, statline "%dm, %dw"
+# • c “count/m/w” (default type)
+#     gender stats (ja/nein), counting !nein, statline "%dm, %dw"
+# • C “count/tot” (e.g. Bezahlt, Fahrt)
+#     stats (ja/nein), counting amount of !nein, statline "%d"
+# • S “sum/tot” (unused type)
+#     numeric, summed per column, totalled, statline "%d"
+# • eis “sum/div3” (exactly Eis)
+#       exactly like S but summed after integer division by 3
+# • s “sum/avg” (e.g. Smiley, Fehl)
+#     numeric, summed per column, averaged over #lines, statline "%.2f"
+# • a “average” (e.g. Alter, Klasse)
+#     numeric, summed per column, averaged over #entries, statline "%.2f"
+
+# call this with desired scale and bc formula
+function bcfixup {
+	REPLY=$(bcfixup2 "$@")
+	[[ $REPLY = .* ]] && REPLY=0$REPLY
+}
+function bcfixup2 {
+	local bcf=$2 dscale=$1 cs cl epsilon=0. i=$1
+
+	while (( i-- > 0 )); do
+		epsilon+=0
+	done
+	epsilon+=5
+
+	bc <<-EOF
+		scale = 20 + ($dscale)
+		x = ($bcf)
+		if (x > 0) x += $epsilon
+		if (x < 0) x -= $epsilon
+		scale = ($dscale)
+		print (x / 1)
+	EOF
+}
+
+if [[ ! -s planung.txt ]]; then
+	print -u2 E: planung.txt not found or empty
+	exit 1
+fi
+if [[ $(basename "$0") = rplanung ]]; then
+	mydir=$(dirname "$(realpath "$0")")
+elif [[ $TECKIDS_RUNNING_COMMAND = */statupd ]]; then
+	mydir=${TECKIDS_RUNNING_COMMAND%/statupd}
+elif [[ -z $TECKIDS_WRAPPER_LOADED ]]; then
+	print -ru2 E: may only be sourced from teckids scripts
+	exit 1
+else
+	mydir=$ROOT/util
+fi
+if [[ ! -s $mydir/statupd ]]; then
+	print -u2 E: wrong dir
+	exit 255
+fi
+if [[ ! -s $mydir/tbl2kdmn || ! -s $mydir/astat || \
+    ! -s $mydir/../www/mk/common ]]; then
+	print -u2 E: helper scripts missing
+	exit 255
+fi
+print -nu2 'I: Updating statistics (pre)...\r'
+
+nl=$'\n'
+pre=
+tbl=
+s=0
+post=
+while IFS= read -r line; do
+	case $s:$line {
+	(0:+==*)
+		pre+=$line$nl
+		s=1
+		;;
+	(0*)
+		pre+=$line$nl
+		;;
+	(1:*Message-ID*Geschlecht*Klasse*Alter*)
+		tbl=$line
+		IFS= read -r line
+		tbl+=$nl$line
+		s=2
+		;;
+	(1*)
+		pre+=$line$nl
+		s=0
+		;;
+	(2:'+'*)
+		tbl+=$nl$line
+		IFS= read -r line
+		IFS= read -r line
+		aftertbl=$line
+		s=3
+		;;
+	(2*)
+		tbl+=$nl$line
+		;;
+	(3*)
+		post+=$line$nl
+		;;
+	}
+done <planung.txt
+if [[ $s != 3 ]]; then
+	print -u2 E: Parse error, s=$s
+	exit 1
+fi
+
+unset veranst_dt
+[[ -s vars ]] && . ./vars
+[[ -n $veranst_dt ]] && export veranst_dt
+export TECKIDS_COMMON=$mydir/../www/mk/common
+
+post=${post/"${nl}Statistik:${nl}"*"Standard deviation:"*([	 -~])"$nl"/﷐}
+[[ $post = *'﷐'* ]] || post=﷐$post
+
+kdmn=$(print -r -- "$tbl" | mksh "$mydir/tbl2kdmn")
+astat=$(print -r -- "$kdmn" | mksh "$mydir/astat" planung.txt | sed 's/[	 ]*$//')
+print -nu2 'I: Updating statistics (post)...                        \r'
+post=${post/'﷐'/"${nl}Statistik:${nl}${astat}$nl"}
+
+print -r -- "$kdmn" |&
+set -A headline
+IFS= read -pr line
+set -A l -- $line
+n=-1
+for x in "${l[@]}"; do
+	case $x {
+	(ℹ|Message-ID|Land)
+		headline[++n]=i
+		;;
+	(Geschlecht)
+		headline[++n]=g
+		;;
+	(Klasse|Alter|Bw*)
+		headline[++n]=a
+		;;
+	(Fahrt*|Info|Bezahlt|Veg.)
+		headline[++n]=C
+		;;
+	(Sonne|Ausrufe|Smiley|Frowney|Fehl|☀|\!|☺|☹)
+		headline[++n]=s
+		;;
+	(Eis)
+		headline[++n]=eis
+		;;
+	(*)
+		headline[++n]=c
+		;;
+	}
+done
+set -A fieldsums
+set -A fieldentries
+set -A cntm
+set -A cntw
+while IFS= read -pr line; do
+	(( fieldsums[0]++ ))
+	set -A l -- $line
+	n=-1
+	g=
+	for x in "${l[@]}"; do
+		case ${headline[++n]} {
+		(i)
+			;;
+		(a)
+			[[ $x = . ]] && continue
+			(( fieldentries[n]++ ))
+			;&
+		(s|S)
+			[[ $x = ?(.) ]] && x=0
+			if [[ $x != +([0-9]) ]]; then
+				print -ru2 "E: not numeric: $line"
+				exit 1
+			fi
+			(( fieldsums[n] += $x ))
+			;;
+		(g)
+			g=$x
+			;&
+		(c|C)
+			if [[ $g != @(m|w) ]]; then
+				print -ru2 "E: gender unknown: $line"
+				exit 1
+			fi
+			case $x {
+			(ja|Ja|JA|$g)
+				eval 'y=${cnt'$g'[n]}'
+				(( y++ ))
+				eval 'cnt'$g'[n]=$y'
+				;;
+			(nein|Nein|NEIN|N/A)
+				;;
+			(*)
+				print -ru2 "W: '$x' counted as ja: $line"
+				eval 'y=${cnt'$g'[n]}'
+				(( y++ ))
+				eval 'cnt'$g'[n]=$y'
+				;;
+			}
+			;;
+		(eis)
+			[[ $x = ?(.) ]] && x=0
+			if [[ $x != +([0-9]) ]]; then
+				print -ru2 "E: not numeric: $line"
+				exit 1
+			fi
+			(( fieldsums[n] += $x / 3 ))
+			;;
+		}
+	done
+done
+
+typeset -R2 xm xw
+if [[ $aftertbl != '+='*([+=])'=+' ]]; then
+	print -u2 "E: aftertbl '$aftertbl' not in expected format"
+	exit 1
+fi
+widcal=${aftertbl#?}
+function nextw {
+	nxtw=0
+	while [[ $widcal = =* ]]; do
+		let ++nxtw
+		widcal=${widcal#?}
+	done
+	widcal=${widcal#?}
+}
+
+line='|'; nextw; while (( nxtw-- )); do line+=' '; done; line+='|'
+unset headline[0]
+unset headline[1]
+n=1
+for x in "${headline[@]}"; do
+	let ++n
+	fld=' '
+	case $x {
+	(i)
+		nextw; while (( nxtw-- )); do line+=' '; done; line+='|'
+		;;
+	(C)
+		(( cw = cntm[n] + cntw[n] ))
+		if (( cw < 100 )); then
+			(( xw = cw ))
+			fld+="${xw}"
+		else
+			fld+="$((cw))"
+		fi
+		fld=${fld##*( )}
+		flen=${%fld}
+		(( flen = (flen == -1) ? (${#fld} + 1) : (flen + 1) ))
+		nextw; while (( nxtw-- > flen )); do line+=' '; done
+		line+="$fld |"
+		;;
+	(g|c)
+		(( cm = cntm[n] ))
+		(( cw = cntw[n] ))
+		if (( cm < 100 )); then
+			(( xm = cm ))
+			fld+="${xm}m, "
+		else
+			fld+="$((cm))m, "
+		fi
+		if (( cw < 100 )); then
+			(( xw = cw ))
+			fld+="${xw}w"
+		else
+			fld+="$((cw))w"
+		fi
+		fld=${fld##*( )}
+		flen=${%fld}
+		(( flen = (flen == -1) ? (${#fld} + 1) : (flen + 1) ))
+		nextw; while (( nxtw-- > flen )); do line+=' '; done
+		line+="$fld |"
+		;;
+	(s)
+		(( fieldentries[n] = fieldsums[0] ))
+		;&
+	(a)
+		(( fieldentries[n] )) && \
+		    fld+=${|bcfixup 2 "${fieldsums[n]}/${fieldentries[n]}";}
+		fld=${fld##*( )}
+		flen=${%fld}
+		(( flen = (flen == -1) ? (${#fld} + 1) : (flen + 1) ))
+		nextw; while (( nxtw-- > flen )); do line+=' '; done
+		line+="$fld |"
+		;;
+	(S|eis)
+		fld+=$((fieldsums[n]))
+		fld=${fld##*( )}
+		flen=${%fld}
+		(( flen = (flen == -1) ? (${#fld} + 1) : (flen + 1) ))
+		nextw; while (( nxtw-- > flen )); do line+=' '; done
+		line+="$fld |"
+		;;
+	}
+done
+
+print -nr -- "$pre$tbl$nl$line$nl$aftertbl$nl$post" >planung.txt~~
+print -nu2 'I: Updating statistics... done  \r'
+mv planung.txt~~ planung.txt

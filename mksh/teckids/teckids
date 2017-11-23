@@ -1,0 +1,458 @@
+#!/bin/mksh
+# -*- mode: sh -*-
+#-
+# Copyright © 2014, 2015, 2017
+#	Dominik George <dominik.george@teckids.org>
+# Copyright © 2014, 2015, 2016
+#	mirabilos <thorsten.glaser@teckids.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+
+# Teckids utility wrapper script
+# Designed to be symlinked into $PATH (e.g. ~/bin)
+# Calls subcommands residing in util/ of the repo
+
+[[ -n $TECKIDS_WRAPPER_LOADED ]] && return 0
+TECKIDS_WRAPPER_LOADED=1
+
+export LC_ALL=C.UTF-8
+unset LANGUAGE
+ulimit -c 0
+set -U
+nl=$'\n'
+TECKIDS_CWD=$PWD
+
+function die {
+	local rv=1
+
+	# arith syntax check
+	if [[ $1 = [1-9]*([0-9]) ]]; then
+		rv=$1
+		# bounds check
+		if (( rv > 0 && rv <= 255 )); then
+			# ok use it
+			shift
+		else
+			# nope
+			rv=1
+		fi
+	fi
+	print -ru2 -- E: "$@"
+	exit $rv
+}
+
+qualify_pathname() (
+	cd "$TECKIDS_CWD"
+	realpath "$1"
+)
+
+[[ ${HOSTNAME:=$(hostname -s 2>/dev/null)} = *([  ]|localhost) ]] && \
+    HOSTNAME=$(hostname 2>/dev/null)
+: "${HOSTNAME:=nil}"
+[[ ${HOSTNAME%%.*} = luna ]] && die nicht auf luna arbeiten!
+
+for cmd in "$MKSH" "$(whence -p mksh)" /bin/mksh false; do
+	[[ $cmd = false ]] && die cannot find mksh
+	[[ -n $cmd ]] || continue
+	[[ -s $cmd ]] || continue
+	[[ -x $cmd ]] || continue
+	MKSH=$cmd
+	break
+done
+
+TECKIDS_CACHE_DIR=${XDG_CACHE_HOME:-~/.cache}/teckids
+[[ -d $TECKIDS_CACHE_DIR ]] || mkdir -p "$TECKIDS_CACHE_DIR" || die cannot mkdir TECKIDS_CACHE_DIR
+
+TECKIDS_CONFIG_DIR=${XDG_CONFIG_HOME:-~/.config}/teckids
+[[ -d $TECKIDS_CONFIG_DIR ]] || mkdir -p "$TECKIDS_CONFIG_DIR" || die cannot mkdir TECKIDS_CONFIG_DIR
+
+TECKIDS_MANAGEMENT_HOST=ticdesk.teckids.org
+
+export ROOT=./$(git rev-parse --show-cdup 2>&1)
+if [[ -z $ROOT || ! -d $ROOT || ! -e $ROOT/util/teckids ]]; then
+	ROOT=$(cat "$TECKIDS_CONFIG_DIR/root" 2>/dev/null)
+	if [[ -z $ROOT || ! -d $ROOT || ! -e $ROOT/util/teckids ]]; then
+		# Try to find root from script $0
+		ROOT=$(realpath "$0"/../..)
+		if [[ -z $ROOT || ! -d $ROOT || ! -e $ROOT/util/teckids ]]; then
+			print -u2 "N: Run setup command to get the repository."
+			die "Not inside teckids repository and no cached root found."
+		fi
+	fi
+
+	cd "$ROOT/util" || die "cannot cd ROOT/util ($ROOT/util)"
+fi
+ROOT=$(realpath "$ROOT")
+print -r -- "$ROOT" >"$TECKIDS_CONFIG_DIR/root"
+TOP=$(realpath "$ROOT"/www)
+
+# do not change the following line, I hardcoded this elsewhere too!
+TECKIDS_TMP_DIR=$ROOT/.tmp
+[[ -d $TECKIDS_TMP_DIR ]] || mkdir -p "$TECKIDS_TMP_DIR" || die cannot mkdir TECKIDS_TMP_DIR
+
+if [[ $1 = / ]]; then
+	cd "$ROOT"/util
+	ls
+	exit 0
+fi
+
+PATH=$TOP/mk:$PATH . assoldap.ksh
+if (( !common_read )); then
+	. "$TOP"/mk/common
+	export LC_ALL=C.UTF-8
+fi
+typeset -f Lb64decode >/dev/null || . "$TOP"/mk/base64.ksh
+#set -o xtrace +o inherit-xtrace
+
+cmd=
+if ! (( teckids_sourcing_wrapper )); then
+	cmd=$1; shift
+
+	case $cmd {
+	(.) ;;
+	(add|clone|commit|diff|log|pull|push|rm|status) ;;
+	(git|ci|st|up) ;;
+	(*)
+		export TECKIDS_RUNNING_COMMAND=$(realpath "$ROOT/util/$cmd")
+		[[ -e $ROOT/util/$cmd ]] && exec $MKSH "$ROOT/util/$cmd" "$@"
+
+		print -u2 -- "teckids: $cmd: not found"
+		exit 127
+		;;
+	}
+fi
+
+if [[ -z $cmd ]]; then
+	# Option parsing
+	cmd_options=${cmd_options:+$cmd_options$'\n'}'B:ldap_baseLDAP-Suchbasis (bei Tools, die es unterstützen)'
+	cmd_options+=$'\n''Eeltern_subfilter0Alle Operationen auf Eltern von Findlingen beschränken'
+	cmd_options+=$'\n''F:ldap_filterLDAP-Filter (bei Tools, die es unterstützen)'
+	cmd_options+=$'\n''hdo_usage0Benutzungshinweise anzeigen'
+	cmd_options+=$'\n''Kkids_only0Alle Operationen auf Kinder beschränken'
+	cmd_options+=$'\n''qquiet0Nichts (oder so gut wie nichts) ausgeben'
+	cmd_options+=$'\n''vverbose0Fortschritt der Ausführung ausgeben'
+	cmd_options+=$'\n''Xextradebug0Extra-Debugging (skriptabhängig)'
+	cmd_options+=$'\n''xxtrace0Unter „set -x“ laufen lassen (-xx für mehr)'
+
+	print -r -- "$cmd_options" |&
+	while IFS="" read -rp o v d e; do
+		[[ $o != =* ]]; a=$?
+		o=${o#=}
+		asso_isset _opts "${o::1}" && die "E: Option $o mehrdeutig!"
+		opts+=$o
+		asso_sets "$o" _opts "${o::1}" o
+		asso_sets "$v" _opts "${o::1}" v
+		asso_sets "$d" _opts "${o::1}" d
+		asso_sets "$e" _opts "${o::1}" e
+		asso_seti "$a" _opts "${o::1}" a
+
+		[[ -n $v ]] || die "E: Option $o ohne Variablennamen!"
+		eval "$v=\$d"
+		[[ $a = 0 ]] || eval set -A "$v"
+	done
+
+	usage() {
+		print -r "Optionen dieses Kommandos (${0##*/}): $cmd_arguments"
+		print
+
+		print -r -- "$cmd_options" |&
+		while IFS="" read -rp o e; do
+			o=${o#=}
+			o=${o::1}
+			e=$(asso_getv _opts "$o" e)
+			d=$(asso_getv _opts "$o" d)
+
+			print -r -- "  -$o    $e${d:+ (Standardwert: ${d@Q})}"
+		done
+
+		exit ${1:-1}
+	}
+
+	while getopts ":$opts" ch; do
+		[[ $ch = '?' ]] && die "Unknown option: $OPTARG"
+		[[ $ch = ':' ]] && die "Option $OPTARG missing required argument"
+		o=${ch#'+'}
+		nameref v=$(asso_getv _opts "$o" v)
+		if [[ $(asso_getv _opts "$o" a) = 1 ]]; then
+			a=${#v[*]}
+			nameref v="$(asso_getv _opts "$o" v)[$a]"
+		fi
+		o=$(asso_getv _opts "$o" o)
+
+		if [[ $o = *: ]]; then
+			# ignore + in ch
+			v=$OPTARG
+		elif [[ $ch = '+'* ]]; then
+			v=0
+		else
+			let v++
+		fi
+	done
+	shift $((OPTIND - 1))
+
+	typeset +n v
+
+	(( do_usage )) && usage 0
+	(( quiet )) && exec >/dev/null
+fi
+
+TECKIDS_SSHCP=$TECKIDS_TMP_DIR/sshmux
+# contract: $TECKIDS_SSHCP is a directory
+function teckids_ssh_checkpids {
+	local _wd=$PWD _i _notfound=1
+
+	cd "$TECKIDS_SSHCP" || die TECKIDS_SSHCP does not exist
+	for _i in *; do
+		if [[ $_i = mux ]]; then
+			: skip
+		elif [[ $_i = 1 ]]; then
+			_notfound=0
+		elif [[ $_i != +([0-9]) ]]; then
+			# junk
+			rm -f "$_i"
+		elif kill -0 "$_i" >/dev/null 2>&1; then
+			_notfound=0
+		else
+			rm -f "$_i"
+		fi
+	done
+	if (( _notfound )); then
+		ssh -S "$TECKIDS_SSHCP/mux" -O check $TECKIDS_MANAGEMENT_HOST \
+		    >/dev/null 2>&1 && >/dev/null 2>&1 \
+		    ssh -S "$TECKIDS_SSHCP/mux" -O exit $TECKIDS_MANAGEMENT_HOST
+		rm -f *
+	fi
+	cd "$_wd"
+	return $_notfound
+}
+
+function extra_cleanup {
+	:
+}
+
+if [[ ${HOSTNAME%%.*} != ${TECKIDS_MANAGEMENT_HOST%%.*} && $offline != 1 ]]; then
+	mkdir -p -m0700 "$TECKIDS_SSHCP"
+	:>"$TECKIDS_SSHCP/$$"
+	teckids_ssh_checkpids
+
+	if ! ssh -S "$TECKIDS_SSHCP/mux" -O check $TECKIDS_MANAGEMENT_HOST 2>/dev/null; then
+		(( verbose )) && print -ru2 "I: opening teckids ssh muxmaster"
+		ssh -S "$TECKIDS_SSHCP/mux" -L 15432:/var/run/postgresql/.s.PGSQL.5432 -fNM $TECKIDS_MANAGEMENT_HOST
+	fi
+
+	function terracmdn {
+		local _cmd _x
+
+		for _x in "$@"; do
+			_cmd+=" ${_x@Q}"
+		done
+		ssh -n -S "$TECKIDS_SSHCP/mux" "$TECKIDS_MANAGEMENT_HOST" "$_cmd"
+	}
+
+	function terracmds {
+		local _cmd _x
+
+		for _x in "$@"; do
+			_cmd+=" ${_x@Q}"
+		done
+		ssh -S "$TECKIDS_SSHCP/mux" "$TECKIDS_MANAGEMENT_HOST" "$_cmd"
+	}
+
+	function terracmdi {
+		local _cmd _x
+
+		for _x in "$@"; do
+			_cmd+=" ${_x@Q}"
+		done
+		ssh -t -S "$TECKIDS_SSHCP/mux" "$TECKIDS_MANAGEMENT_HOST" "$_cmd"
+	}
+
+	function ldapsearch {
+		terracmdn ldapsearch -a always "$@"
+	}
+
+	function ldapmodify {
+		terracmds ldapmodify "$@"
+	}
+
+	function cleanup {
+		extra_cleanup
+		mkdir -p -m0700 "$TECKIDS_SSHCP"
+		rm -f "$TECKIDS_SSHCP/$$"
+		teckids_ssh_checkpids
+	}
+
+	function teckids_git {
+		GIT_SSH=$(realpath "$ROOT/util/ssh_wrapper") \
+		    TECKIDS_SSHCP=$TECKIDS_SSHCP \
+		    TECKIDS_MANAGEMENT_HOST=$TECKIDS_MANAGEMENT_HOST \
+		    git "$@"
+	}
+else
+	function terracmdn {
+		</dev/null terracmds "$@"
+	}
+
+	function terracmds {
+		"$@"
+	}
+
+	function terracmdi {
+		"$@"
+	}
+
+	function cleanup {
+		extra_cleanup
+	}
+
+	function teckids_git {
+		git "$@"
+	}
+fi
+
+function print_v {
+	(( verbose )) && print -u2 -r -- "$*"
+}
+
+function find_up {
+	local _x
+
+	_x=./$1
+	while :; do
+		[[ -e $_x ]] && break
+
+		if [[ -e ${_x%/*}/gnu.mk ]]; then
+			return 1
+		fi
+
+		_x=../$_x
+	done
+
+	print -r -- "$_x"
+}
+
+function find_projfiles {
+	local _x
+
+	ptxt=
+
+	_x=$(find_up vars) && . ./"$_x"
+	_x=$(find_up planung.txt) && ptxt=$_x
+}
+
+function teckids_loadk_users {
+	local args dn n=0
+	set -A upath -- "$@"
+	# default associative array path
+	(( $# )) || upath[0]=users
+
+	# load list of DNs to asso_y shell array
+	asso_loadk "${upath[@]}"
+
+	if (( kids_only )); then
+		# postprocess for filter
+		set -A args
+		for dn in "${asso_y[@]}"; do
+			[[ $dn = *',ou=Kids,'* ]] || continue
+			[[ $dn = *',ou=Eltern,'* ]] && continue
+			args[n++]=$dn
+		done
+		# load result
+		set -A asso_y -- "${args[@]}"
+	fi
+
+	if (( eltern_subfilter )); then
+		# postprocess for filter
+		if (( eltern_subfilter < 2 )); then
+			asso_setnull "${upath[@]}"
+			asso_setasso "${upath[@]}"
+		fi
+		for dn in "${asso_y[@]}"; do
+			asso_setldap_sasl "${upath[@]}" -+ \
+			    -b "ou=Eltern,$dn" -s sub '(objectClass=inetOrgPerson)'
+		done
+		# load result
+		asso_loadk "${upath[@]}"
+	fi
+}
+
+function ask_password_once {
+	set -o noglob
+	stty -echo
+	read REPLY?"$1 "
+	stty echo
+	set +o noglob
+	echo
+}
+
+function cleanup_and_exit {
+	cleanup "$@"
+	exit "$1"
+}
+
+case $cmd {
+(.)
+	print -u2 'I: success; run "cleanup" to finish'
+	return 0
+	;;
+(git)
+	teckids_git "$@"
+	cleanup_and_exit $?
+	;;
+(clone)
+	if [[ -n $1 ]]; then
+		teckids_git clone "$@"
+		cleanup_and_exit $?
+	else
+		teckids_git clone edugit.org:Teckids/verein.git
+		cleanup_and_exit $?
+	fi
+	;;
+(add|commit|diff|log|pull|push|rm|status)
+	teckids_git "$cmd" "$@"
+	cleanup_and_exit $?
+	;;
+(ci)
+	teckids_git commit "$@"
+	cleanup_and_exit $?
+	;;
+(st)
+	teckids_git status "$@"
+	cleanup_and_exit $?
+	;;
+(up)
+	teckids_git pull --rebase "$@"
+	cleanup_and_exit $?
+	;;
+(?*)
+	print -u2 "E: should not happen, cmd='$cmd'"
+	;;
+(*)
+	# command directly called, e.g. “mksh util/whoami”
+	[[ -n $TECKIDS_RUNNING_COMMAND ]] || \
+	    export TECKIDS_RUNNING_COMMAND=$(realpath "$0")
+	;;
+}
+
+find_projfiles
+
+trap 'cleanup_and_exit $?' 0
+trap 'trap - 0; cleanup_and_exit 1' 1 2 3 13 15
+
+if (( xtrace )); then
+	set -o xtrace +o inherit-xtrace
+	(( xtrace > 1 )) && set -o inherit-xtrace
+fi

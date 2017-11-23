@@ -1,0 +1,57 @@
+# -*- mode: sh -*-
+#-
+# Copyright © 2014, 2016
+#	Dominik George <dominik.george@teckids.org>
+# Copyright © 2014, 2015
+#	mirabilos <thorsten.glaser@teckids.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+
+cmd_options='s:single0Nur einen einzelnen Feldnamen pro Ergebnis ausgeben'
+
+teckids_sourcing_wrapper=1
+. "$(dirname "$0")/teckids"
+
+asso_setldap_sasl projects -- -b ou=Groups,dc=teckids,dc=org \
+    "(cn=$project_cn)"
+
+asso_loadk projects
+project_dn=${asso_y[0]}
+
+if [[ $single != 0 ]]; then
+	asso_setldap_sasl users -- -b ou=People,dc=teckids,dc=org \
+	    "(&(objectClass=inetOrgPerson)(memberOf=$project_dn))" \
+	   $single
+else
+	asso_setldap_sasl users -- -b ou=People,dc=teckids,dc=org \
+	    "(&(objectClass=inetOrgPerson)(memberOf=$project_dn))" \
+	   givenName sn uid mail
+fi
+
+teckids_loadk_users
+for user_dn in "${asso_y[@]}"; do
+	if [[ $single != 0 ]]; then
+		v=$(asso_getv users "$user_dn" $single 0)
+		print -r -- "$v"
+	else
+		gn=$(asso_getv users "$user_dn" givenName 0)
+		sn=$(asso_getv users "$user_dn" sn 0)
+		uu=$(asso_getv users "$user_dn" uid 0)
+		mail=$(asso_getv users "$user_dn" mail 0)
+		print -r -- "$gn $sn|<$mail>"
+	fi
+
+done | sort | column -s'|' -t

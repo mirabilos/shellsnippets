@@ -1,0 +1,68 @@
+# -*- mode: sh -*-
+#-
+# Copyright © 2015
+#	mirabilos <thorsten.glaser@teckids.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+
+comm='#'
+case $1 {
+(py*3)
+	shebang='/usr/bin/env python3'
+	mode=py
+	;;
+(py*)
+	shebang='/usr/bin/env python'
+	mode=py
+	;;
+(sh)
+	shebang='/bin/sh'
+	mode=sh
+	;;
+(tex|latex)
+	shebang=
+	mode=tex
+	comm=%
+	;;
+(*)
+	shebang='/bin/mksh'
+	mode=sh
+	;;
+}
+
+cat <<EOF
+${shebang:+#!$shebang
+}${comm} -*- mode: $mode -*-
+${comm}-
+${comm} Copyright © $(date +%Y)
+${comm}	$(git config --get user.name) <$(git config --get user.email)>
+${comm}
+${comm} Provided that these terms and disclaimer and all copyright notices
+${comm} are retained or reproduced in an accompanying document, permission
+${comm} is granted to deal in this work without restriction, including un‐
+${comm} limited rights to use, publicly perform, distribute, sell, modify,
+${comm} merge, give away, or sublicence.
+${comm}
+${comm} This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+${comm} the utmost extent permitted by applicable law, neither express nor
+${comm} implied; without malicious intent or gross negligence. In no event
+${comm} may a licensor, author or contributor be held liable for indirect,
+${comm} direct, other damage, loss, or other issues arising in any way out
+${comm} of dealing in the work, even if advised of the possibility of such
+${comm} damage or existence of a defect, except proven that it results out
+${comm} of said person’s immediate fault when using the work as intended.
+${comm}-
+EOF

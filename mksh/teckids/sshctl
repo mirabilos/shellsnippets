@@ -1,0 +1,63 @@
+# -*- mode: sh -*-
+#-
+# Copyright © 2014
+#	mirabilos <thorsten.glaser@teckids.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+
+# Teckids utility subcommand to control the mode of operation for
+# the SSH muxmaster. Arguments are:
+# - auto: (default) start muxmaster automatically; tear down if
+#		no PID using it is running any more
+# – manual: avoid muxmaster teardown; trigger starting it now
+# – stop: force stopping the muxmaster; return to “auto” state
+
+teckids_sourcing_wrapper=1
+offline=1
+. "$(dirname "$0")/teckids"
+
+mkdir -p -m0700 "$TECKIDS_SSHCP"
+cd "$TECKIDS_SSHCP" || die cannot cd TECKIDS_SSHCP
+
+rv=1
+case x$1 {
+(xauto)
+	rm -f 1
+	rv=0
+	;;
+(xmanual)
+	rm -f 1
+	:>1
+	unset offline
+	mksh "$(dirname "$0")/ssh" true
+	rv=$?
+	;;
+(xstop)
+	ssh -S "$TECKIDS_SSHCP/mux" -O check $TECKIDS_MANAGEMENT_HOST \
+	    >/dev/null 2>&1 && >/dev/null 2>&1 \
+	    ssh -S "$TECKIDS_SSHCP/mux" -O exit $TECKIDS_MANAGEMENT_HOST
+	rm -f *
+	rv=0
+	;;
+(x)
+	rv=0
+	;&
+(*)
+	print -u2 "Usage: teckids sshctl { auto | manual | stop }"
+	;;
+}
+
+exit $rv

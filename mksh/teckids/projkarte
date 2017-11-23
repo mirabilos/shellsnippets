@@ -1,0 +1,61 @@
+# -*- mode: sh -*-
+#-
+# Copyright © 2014
+#	Dominik George <dominik.george@teckids.org>
+#	mirabilos <thorsten.glaser@teckids.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+
+teckids_sourcing_wrapper=1
+. "$(dirname "$0")/teckids"
+
+asso_setldap_sasl projects -- -b ou=Groups,dc=teckids,dc=org \
+    "(cn=$project_cn)"
+
+asso_loadk projects
+project_dn=${asso_y[0]}
+
+asso_setldap_sasl users -- -b ou=People,dc=teckids,dc=org \
+    "(&(objectClass=inetOrgPerson)(memberOf=$project_dn))" \
+    givenName sn homePostalAddress o l teckidsLatitude teckidsLongitude jpegPhoto
+
+rm -rf "$ROOT"/.tmp/karte-pics
+mkdir -p "$ROOT"/.tmp/karte-pics
+
+teckids_loadk_users
+for user_dn in "${asso_y[@]}"; do
+	gn=$(xhtml_escape "$(asso_getv users "$user_dn" givenName 0)")
+	sn=$(xhtml_escape "$(asso_getv users "$user_dn" sn 0)")
+	hp=$(xhtml_escape "$(asso_getv users "$user_dn" homePostalAddress 0)")
+	o=$(xhtml_escape "$(asso_getv users "$user_dn" o 0)")
+	l=$(xhtml_escape "$(asso_getv users "$user_dn" l 0)")
+	lat=$(asso_getv users "$user_dn" teckidsLatitude 0)
+	lon=$(asso_getv users "$user_dn" teckidsLongitude 0)
+
+	jpegPhoto=$(asso_getv users "$user_dn" jpegPhoto 0)
+	img=../www/pics/people
+	if [[ -n $jpegPhoto ]]; then
+		asso_isset users "$user_dn"
+		img=karte-pics/${asso_k#16#}
+		Lb64decode "$jpegPhoto" >"$ROOT/.tmp/$img.jpg"
+	fi
+
+	[[ -z $lat || -z $lon ]] && continue
+
+	a=${hp:-$l}
+
+	print -r -- "$lat,$lon <table><tr><td><img src="$img.jpg" style="height:150px" alt="$gn $sn" /></td><td><div><b>$gn $sn</b><br />$a</div><p>$o, $l</p></td></tr></table>"
+done | $MKSH "$ROOT"/util/karte

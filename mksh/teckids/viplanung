@@ -1,0 +1,430 @@
+# -*- mode: sh -*-
+#-
+# Copyright © 2014, 2015, 2017
+#	Dominik George <dominik.george@teckids.org>
+#	mirabilos <thorsten.glaser@teckids.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+
+# Teckids utility subcommand that copies planung.txt, deanonymises it and
+# pulls it up for editing
+
+# teckids shell stuff
+teckids_sourcing_wrapper=1
+. "$(dirname "$0")/teckids"
+
+set -U
+
+# teckids framework should have found planung.txt, bail out if not
+[[ -e $ptxt ]] || exit 1
+
+# Get a temporary directory
+mkdir -p "$TOP/../.tmp"
+d=$(mktemp -d "$TOP/../.tmp/XXXXXXXXXX")
+
+# Array for field lengths in order to rearrange ASCII table
+set -A lengths
+
+# Start reading planung.txt, iterating over lines in a state machine
+s=0
+while IFS= read -r line; do
+	case $s in
+	0) # Nothing read yet
+		# Keep looking for table head line, marked by a Message-ID field guaranteed to be there
+		if [[ $line = "| Message-ID "* ]]; then
+			# Add columns Vorname, Nachname, UID, Schule to headline
+			line=${line/\| Message-ID+( )\|/\| Message-ID \| Vorname \| Nachname \| UID \| Schule \|}
+			liner=${line#\| }
+			liner=${liner% \|}
+
+			# Read remaining fields into array „fields“
+			sIFS=$IFS; IFS="|"; set -A fields -- $liner; IFS=$sIFS
+
+			# Iterate over field names and calculate lengths, initial values
+			i=-1
+			while (( ++i < ${#fields[@]} )); do
+				fields[i]=${fields[i]##*( )}
+				fields[i]=${fields[i]%%*( )}
+				lengths[i]=${%fields[i]}
+			done
+
+			# Output resulting new headline
+			print -r -- "| $liner |"
+
+			# Continue to next state
+			s=1
+		else
+			# Print raw line if headline not yet found
+			print -r -- "$line"
+		fi
+		;;
+	1) # Line seperator expected
+		print -r -- "$line"
+		s=2
+		;;
+	2) # Content line expected
+		if [[ $line = "+-"* ]]; then
+			# Content finished, found terminating seperator line
+			print -r -- "$line"
+			s=3
+		else
+			# Strip leading and trailing col seperator
+			liner=${line#\| }
+			liner=${liner% \|}
+
+			# Read all fields into array „linea“
+			sIFS=$IFS; IFS="|"; set -A linea -- $liner; IFS=$sIFS
+
+			# Iterate over all fields and strip leading and trailing whitespace
+			i=-1
+			while (( ++i < ${#linea[@]} )); do
+				linea[i]=${linea[i]##*( )}
+				linea[i]=${linea[i]%%*( )}
+			done
+
+			# Load fields from LDAP, associated with Message-ID (array field 0)
+			asso_setldap_sasl users -- -b ou=People,dc=teckids,dc=org \
+			    "(|(anmMessageId=<${linea[0]}*)(anmMessageId=Ticket#${linea[0]}*))" givenName sn o l uid
+
+			# Load various fields from LDAP result
+			asso_loadk users
+			dn=${asso_y[0]}
+			gn=$(asso_getv users "$dn" givenName 0)
+			sn=$(asso_getv users "$dn" sn 0)
+			uid=$(asso_getv users "$dn" uid 0)
+			o=$(asso_getv users "$dn" o 0)
+			l=$(asso_getv users "$dn" l 0)
+
+			# Replace loaded fields into beginning of original line
+			liner=${line/#\|*( )"${linea[0]}"*( )/\| ${linea[0]} \| $gn \| $sn \| $uid \| $o, $l }
+			liner=${liner#\| }
+			liner=${liner% \|}
+
+			# Read fields of resulting new line
+			sIFS=$IFS; IFS="|"; set -A linea -- $liner; IFS=$sIFS
+
+			# Iterate over fields and collect lengths
+			i=-1
+			while (( ++i < ${#linea[@]} )); do
+				linea[i]=${linea[i]##*( )}
+				linea[i]=${linea[i]%%*( )}
+				# Use length if longer than last known value
+				(( ${%linea[i]} > ${lengths[i]} )) && lengths[i]=${%linea[i]}
+			done
+
+			# Print resulting new line
+			print -r -- "| $liner |"
+		fi
+		;;
+	3) # Stats line expected after second row seperator
+		# Remove leading and trailing | from line
+		liner=${line#\|}
+		liner=${liner% \|}
+		# Generate line with empty values for LDAP fields
+		liner="${liner%%\|*}|  |  |  |  | ${liner#*\|}"
+
+		# Read fields of resulting new line
+		sIFS=$IFS; IFS="|"; set -A linea -- $liner; IFS=$sIFS
+
+		# Iterate over fields and collect lengths
+		i=-1
+		while (( ++i < ${#linea[@]} )); do
+			linea[i]=${linea[i]##*( )}
+			linea[i]=${linea[i]%%*( )}
+			# Use length if longer than last known value
+			(( ${%linea[i]} > ${lengths[i]} )) && lengths[i]=${%linea[i]}
+		done
+
+		print -r -- "| $liner |"
+		s=0
+		;;
+	esac
+done <"$ptxt" >"$d/planung.tmp"
+
+# Function to rearrange a table with known lengths
+function fixtable {
+	# State machine
+	s=0
+	oline=
+	first=1
+	# Iterate over lines
+	while IFS= read -r line; do
+		case $s in
+		0) # Look for headline, marked by Message-ID field
+			if [[ $line = "| Message-ID "* ]]; then
+				# Generate new top seperator with known lengths
+				print -n "+"
+				for l in "${lengths[@]}"; do
+					perl -e 'print "=" x '$(( l + 2 ))
+					print -n "+"
+				done
+				print
+
+				# Continue to next state
+				s=1
+			else
+				# FIXME What is „first“?
+				(( first )) || print -r -- "$oline"
+			fi
+			;;
+		1) # Top seperator written, caring for headline
+			# Strip leading and trailing |
+			liner=${oline#\| }
+			liner=${liner% \|}
+
+			# Read all fields into array „linea“
+			sIFS=$IFS; IFS="|"; set -A linea -- $liner; IFS=$sIFS
+
+			# Iterate over all fields
+			i=-1
+			while (( ++i < ${#linea[@]} )); do
+				# Strip leading and trailing space from field
+				linea[i]=${linea[i]##*( )}
+				linea[i]=${linea[i]%%*( )}
+				# Calculate necessary whitespace to fill field to known length
+				p=$(( lengths[i] - ${%linea[i]} + 1 ))
+
+				# Print field
+				print -rn "| ${linea[i]}"
+				# Print necessary whitespace
+				perl -e 'print " " x '$p
+			done
+			print "|"
+
+			# Continue to next state
+			s=2
+			;;
+		2) # Headline written, write next seperator
+			print -n "+"
+			for l in "${lengths[@]}"; do
+				perl -e 'print "=" x '$(( l + 2 ))
+				print -n "+"
+			done
+			print
+
+			s=3
+			;;
+		3) # Headline and seperator written, expecting content lines now
+			# Strip leading and trailing |
+			liner=${oline#\| }
+			liner=${liner% \|}
+
+			# Read all fields into array „linea“
+			sIFS=$IFS; IFS="|"; set -A linea -- $liner; IFS=$sIFS
+
+			# Iterate over fields
+			i=-1
+			while (( ++i < ${#linea[@]} )); do
+				# Strip leading and trailing whitespace from field
+				linea[i]=${linea[i]##*( )}
+				linea[i]=${linea[i]%%*( )}
+				# Calculate whitespace necessary to fill field
+				p=$(( lengths[i] - ${%linea[i]} ))
+
+				# Switch for justification of column, either numeric (right) or string (left)
+				if [[ ${linea[i]} = @(0|[1-9]*([0-9])) ]]; then
+					print -rn "| "
+					perl -e 'print " " x '$p
+					print -rn "${linea[i]} "
+				else
+					print -rn "| ${linea[i]}"
+					perl -e 'print " " x '$(( p + 1 ))
+				fi
+			done
+			print "|"
+
+			# Continue to next state if line was a seperator
+			[[ $line = "+-"* ]] && s=4
+			;;
+		4) # End of content lines, seperator found, generate new seperator with known lengths
+			print -n "+"
+			for l in "${lengths[@]}"; do
+				perl -e 'print "-" x '$(( l + 2 ))
+				print -n "+"
+			done
+			print
+
+			s=5
+			;;
+		5) # Stats line expected, print with known lengths
+			# Strip leading and trailing |
+			liner=${oline#\| }
+			liner=${liner% \|}
+
+			# Read all fields into array „linea“
+			sIFS=$IFS; IFS="|"; set -A linea -- $liner; IFS=$sIFS
+
+			# Iterate over all fields
+			i=-1
+			while (( ++i < ${#linea[@]} )); do
+				# Strip leading and trailing whitespace from field
+				linea[i]=${linea[i]##*( )}
+				linea[i]=${linea[i]%%*( )}
+				# Calculate whitespace necessary to fill field
+				p=$(( lengths[i] - ${%linea[i]} + 1 ))
+
+				# Print new field with necessary whitespace
+				print -rn "| ${linea[i]}"
+				perl -e 'print " " x '$p
+			done
+			print "|"
+
+			s=6
+			;;
+		6) # Stats line written, genereate last seperator
+			print -n "+"
+			for l in "${lengths[@]}"; do
+				perl -e 'print "=" x '$(( l + 2 ))
+				print -n "+"
+			done
+			print
+
+			# GO into state 0 again to consume and not touch rest of file
+			s=0
+			;;
+		esac
+
+		oline=$line
+		first=0
+	done
+
+	# Print last read line again
+	print -r -- "$oline"
+}
+
+# Output table after having parsed all lengths
+fixtable <"$d/planung.tmp" >"$d/planung.ed"
+
+# Take checksum, spawn interactive editor, take checksum again
+ck1=$(md5sum "$d/planung.ed")
+"${VISUAL:-${EDITOR:-vi}}" $1 "$d/planung.ed"
+ck2=$(md5sum "$d/planung.ed")
+
+# Only update original file if changes were made
+if [[ $ck1 != "$ck2" ]]; then
+	# New array for lengths
+	set -A lengths
+
+	# Iterate over all lines wit hstate machine
+	s=0
+	while IFS= read -r line; do
+		case $s in
+		0) # Look for headline, marked by Message-ID field
+			if [[ $line = "| Message-ID "* ]]; then
+				# Remove dynamic fields added from LDAP, replace by single Message-ID field
+				line=${line/#\|+([!\|])\|+([!\|])\|+([!\|])\|+([!\|])\|+([!\|])/| Message-ID }
+
+				# Strip leading and trailing | from line
+				liner=${line#\| }
+				liner=${liner% \|}
+
+				# Read all fields into array „fields“
+				sIFS=$IFS; IFS="|"; set -A fields -- $liner; IFS=$sIFS
+
+				# Iterate over all fields and calculate lengths
+				i=-1
+				while (( ++i < ${#fields[@]} )); do
+					fields[i]=${fields[i]##*( )}
+					fields[i]=${fields[i]%%*( )}
+					lengths[i]=${%fields[i]}
+				done
+
+				# Print line again
+				print -r -- "| $liner |"
+
+				s=1
+			else
+				# Print raw line if headline not yet found
+				print -r -- "$line"
+			fi
+			;;
+		1) # Headline found, print seperator
+			print -r -- "$line"
+			s=2
+			;;
+		2) # Seperator printed, expecting content lines
+			if [[ $line = "+-"* ]]; then
+				# Next seperator found, continue to next state
+				print -r -- "$line"
+				s=3
+			else
+				# Strip leading | from line
+				liner=${line#\|}
+				# Get beginning of line, i.e. strip everything after last pipe (annotations)
+				beg=${liner%%\|*}
+				# Remove fields loaded from LDAP
+				line=${line/#\|+([!\|])\|+([!\|])\|+([!\|])\|+([!\|])\|+([!\|])/|$beg }
+
+				# Strip leading and trailing | from line
+				liner=${line#\| }
+				liner=${liner% \|}
+
+				# Read all fields into array „linea“
+				sIFS=$IFS; IFS="|"; set -A linea -- $liner; IFS=$sIFS
+
+				# Iterate over all fields, take new lengths if bigger than previous value
+				i=-1
+				while (( ++i < ${#linea[@]} )); do
+					linea[i]=${linea[i]##*( )}
+					linea[i]=${linea[i]%%*( )}
+					(( ${%linea[i]} > ${lengths[i]} )) && lengths[i]=${%linea[i]}
+				done
+
+				# Print line again
+				print -r -- "| $liner |"
+			fi
+			;;
+		3) # End of content lines, seperator found and printed, care about stats line
+			# Same logic as for content lines
+			liner=${line#\|}
+			beg=${liner%%\|*}
+			line=${line/#|+([!\|])\|+([!\|])\|+([!\|])\|+([!\|])\|+([!\|])/$beg }
+
+			# Strip leading and trailing | from line
+			liner=${line#\| }
+			liner=${liner% \|}
+
+			# Read all fields into array „linea“
+			sIFS=$IFS; IFS="|"; set -A linea -- $liner; IFS=$sIFS
+
+			# Iterate over all fields, take new lengths if bigger than previous value
+			i=-1
+			while (( ++i < ${#linea[@]} )); do
+				linea[i]=${linea[i]##*( )}
+				linea[i]=${linea[i]%%*( )}
+				(( ${%linea[i]} > ${lengths[i]} )) && lengths[i]=${%linea[i]}
+			done
+
+			print -r -- "| $liner |"
+
+			# Go into state 0 again to consume and not touch rest of file
+			s=0
+			;;
+		esac
+	done <"$d/planung.ed" >"$d/planung.tmp"
+
+	# Call fixtable to fix lengths in generated table
+	fixtable <"$d/planung.tmp" >"$d/planung.out"
+
+	# Move generated file over to original file and update stats
+	cp "$d/planung.out" "$ptxt"
+	. "$ROOT/util/statupd"
+else
+	print "planung.txt not changed." >&2
+fi
+
+# Remove temporary directory
+rm -rf "$d"

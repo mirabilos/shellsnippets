@@ -1,0 +1,133 @@
+# -*- mode: sh -*-
+#-
+# Copyright © 2014, 2016
+#	Dominik George <dominik.george@teckids.org>
+# Copyright © 2014, 2015
+#	mirabilos <thorsten.glaser@teckids.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+
+# Teckids utility subcommand that pulls location data of a person from nominatim
+
+teckids_sourcing_wrapper=1
+. "$(dirname "$0")/teckids"
+
+function parse_address {
+	local _a="$*"
+
+	# Check what format the address is in
+	if [[ $_a = +([!,])" "+([0-9])?([a-zA-Z])", "[0-9][0-9][0-9][0-9][0-9]" "+([!,]) ]]; then
+		# Deutsche Anschrift in der Form „Musterstr. 17b, 12345 Musterstadt“
+		str_nr=${_a%%, *}
+		nr=${str_nr##* }
+		str=${str_nr% *}
+		str=${str/%str./straße}
+		str=${str/%Str./Straße}
+		plz_ort=${_a#*, }
+		plz=${plz_ort%% *}
+		ort=${plz_ort#* }
+		land=Germany
+	elif [[ $_a = +([!,])" "+([0-9])?([a-zA-Z])", "[0-9][0-9][0-9][0-9]" "+([!,])", Switzerland" ]]; then
+		# Schweizer Anschrift in der Form „Musterstr. 17b, 12345 Musterstadt, Switzerland“
+		str_nr=${_a%%, *}
+		nr=${str_nr##* }
+		str=${str_nr% *}
+		str=${str/%str./straße}
+		str=${str/%Str./Straße}
+		plz_ort=${_a#*, }
+		plz_ort=${plz_ort%%, *}
+		plz=${plz_ort%% *}
+		ort=${plz_ort#* }
+		land=${_a##*, }
+	elif [[ $_a = +([0-9])" "+([!,])", "+([!,])", "[A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9]" "[A-Z0-9][A-Z0-9][A-Z0-9]", Great Britain" ]]; then
+		# Britische Anschrift in der Form „32 Whatever Road, Cambridge, CB24 8XL, Great Britain“
+		str_nr=${_a%%, *}
+		nr=${str_nr%% *}
+		str=${str_nr#* }
+		ort=${_a#*, }
+		ort=${ort%%, *}
+		plz=${_a#*, }
+		plz=${plz#*, }
+		plz=${plz%%, *}
+		land=${_a##*, }
+	elif [[ $_a = +([!0-9])", "*([!0-9])", "*([!0-9]) ]]; then
+		# Nur Ortsname mit Bundesland und ggf. Land
+		ort=${_a%%, *}
+		bl=${_a#*, }
+		bl=${bl%, *}
+		land=${_a##*, }
+		: ${land:=Germany}
+	else
+		return 1
+	fi
+
+	if [[ -n $str ]]; then
+		print -r -- "street=$(uri_escape "$nr $str")&city=$(uri_escape "$ort")&postalcode=$(uri_escape "$plz")&country=$(uri_escape "$land")"
+	elif [[ -n $bl ]]; then
+		print -r -- "city=$(uri_escape "$ort")&state=$(uri_escape "$bl")&country=$(uri_escape "$land")"
+	else
+		print -r -- "city=$(uri_escape "$ort")&country=$(uri_escape "$land")"
+	fi
+	return 0
+}
+
+function addr2latlon {
+	if (( $# == 1 )); then
+		q=$(parse_address "$1")
+	else
+		q=$(parse_address "$1, $2, $3")
+	fi
+
+	if [[ $? = 0 ]]; then
+		set -- $(wget --timeout=1 -t 3 -O- -U "Teckids addr2latlon converter" -q \
+		    "http://nominatim.openstreetmap.org/search?format=xml&limit=1&$q)" | \
+		    xmlstarlet pyx - | sort | sed -n '/^Al[ao][tn] /s///p')
+		sleep 1
+		[[ -n $1$2 ]] && print -r -- "$1,$2"
+	fi
+}
+
+(( export_only )) && return
+
+if (( $# == 0 )); then
+	dn=$(cat "$TECKIDS_CACHE_DIR"/last_whois)
+elif (( $# == 1 )); then
+	dn=$1
+fi
+
+asso_setldap_sasl users -- -b "$dn" -s base \
+	homePostalAddress l st c cn
+
+teckids_loadk_users
+for user_dn in "${asso_y[@]}"; do
+	homePostalAddress=$(asso_getv users "$user_dn" homePostalAddress 0)
+	l=$(asso_getv users "$user_dn" l 0)
+	st=$(asso_getv users "$user_dn" st 0)
+	c=$(asso_getv users "$user_dn" c 0)
+	cn=$(asso_getv users "$user_dn" cn 0)
+
+	r=
+	if [[ -n $homePostalAddress ]]; then
+		r=$(addr2latlon "$homePostalAddress")
+	fi
+	if [[ -z $r && -n $l ]]; then
+		r=$(addr2latlon "$l" "$st" "$c")
+	fi
+
+	print -r -- "$r"
+done
+
+exit 0

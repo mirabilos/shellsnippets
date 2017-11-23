@@ -1,0 +1,144 @@
+# -*- mode: sh -*-
+#-
+# Copyright © 2014, 2015
+#	mirabilos <thorsten.glaser@teckids.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+
+teckids_sourcing_wrapper=1
+offline=1
+. "$(dirname "$0")/teckids"
+
+cd "$ROOT"
+
+exec >.tmp/karte.htm
+cat <<'EOF'
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+ "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en"><head>
+ <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+ <meta name="copyright" content="see mirkarte.js" />
+ <title>Teckids Karte (Beta)</title>
+ <link rel="stylesheet" type="text/css" href="../karte/leaflet/leaflet.css" />
+ <style type="text/css"><!--/*--><![CDATA[/*><!--*/
+  #nomap {
+	padding:12px;
+	margin:12px;
+	border:1px solid black;
+	width:24em;
+  }
+  #map {
+	height:100%;
+	width:100%;
+	position:relative;
+  }
+  #map_coors {
+	position:fixed;
+	right:0; bottom:16px;
+	padding:6px;
+	font:12px monospace, sans-serif;
+	text-align:right;
+	z-index:3;
+  }
+  #map_coors span {
+	background:rgba(255, 255, 255, 0.33);
+  }
+  #map_wrapper {
+	position:absolute;
+	top:0; left:0;
+	bottom:0; right:0;
+  }
+  .myzoomcontrol-text {
+	font:bold 14px 'Lucida Console', Monaco, monospace;
+	text-align:center;
+	vertical-align:middle;
+  }
+  .nowrap {
+	white-space:nowrap;
+  }
+ /*]]>*/--></style>
+ <script type="text/javascript" src="../karte/leaflet/leaflet-src.js"></script>
+ <script type="text/javascript" src="../karte/prototype/prototype.js"></script>
+ <script type="text/javascript"><!--//--><![CDATA[//><!--
+ mirkarte_default_loc = [50.72205, 7.06162, 12];
+ function mirkarte_hookfn(map) {
+	var markers = [
+EOF
+
+while IFS= read -r line; do
+	coors=${line%% *}
+	print -r -- "		[[$coors], $(json_escape "${line#* }")],"
+done
+
+cat <<'EOF'
+		[[666,0], ""]
+	];
+	var i = 0;
+	var xn = -1000, xe = -1000, xs = 1000, xw = 1000;
+	var mseen = {};
+	while (markers[i][0][0] != 666) {
+		var mtext = markers[i][0][0] + ',' + markers[i][0][1];
+		if (mtext in mseen) {
+			mseen[mtext].setContent(mseen[mtext].getContent() +
+			    '<hr />' + markers[i][1]);
+			i++;
+			continue;
+		}
+		if (markers[i][0][0] > xn)
+			xn = markers[i][0][0];
+		if (markers[i][0][0] < xs)
+			xs = markers[i][0][0];
+		if (markers[i][0][1] > xe)
+			xe = markers[i][0][1];
+		if (markers[i][0][1] < xw)
+			xw = markers[i][0][1];
+		var marker = L.marker(markers[i][0], {
+			"draggable": false
+		    }).addTo(map);
+		marker.bindPopup(mseen[mtext] = new L.Popup({
+		    }, marker).setContent(markers[i][1]));
+		i++;
+	}
+	if (xn != -1000 && xe != -1000 && xs != 1000 && xw != 1000) {
+		nextpos = [[[xs, xw], [xn, xe]], {
+			"padding": [48, 48],
+			"maxZoom": 14
+		    }];
+		jumptonextpos();
+	}
+ }
+ //--><!]]></script>
+ <script type="text/javascript" src="../karte/mirkarte.js"></script>
+</head><body>
+<div id="map_wrapper">
+ <div id="map">
+  <p id="nomap">
+   This is an interactive map application called “MirKarte”.
+   Unfortunately, it is implemented completely client-side
+   in JavaScript – so, you have to enable that, and use a
+   GUI webbrowser supported by Leaflet and Prototype.
+  </p>
+ </div>
+ <div id="map_coors">
+  <span id="map_coors_ns"></span><br />
+  <span id="map_coors_we"></span>
+ </div>
+</div>
+</body></html>
+EOF
+exec >&2
+
+"${BROWSER:-sensible-browser}" "file://$(realpath .tmp/karte.htm)"

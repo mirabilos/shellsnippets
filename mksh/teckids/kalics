@@ -1,0 +1,191 @@
+# -*- mode: sh -*-
+#-
+# Copyright © 2014, 2016
+#	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
+# Copyright © 2017
+#	Thorsten Glaser <thorsten.glaser@teckids.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+
+teckids_sourcing_wrapper=1
+. "$(dirname "$0")/teckids"
+
+cd "$ROOT"/intern
+if ! mtime=$(git log -1 --format=%cd --date=unix -- jahresplan.txt) || \
+    [[ $mtime != [1-9]+([0-9]) ]]; then
+	print -ru2 E: cannot stat teckids/intern/jahresplan.txt
+	exit 1
+fi
+
+function phpescape {
+	local s
+
+	s="$*"
+	s=${s//\\/\\\\}
+	s=${s//"'"/\\\'}
+	REPLY=\'$s\'
+}
+
+while read datum typ label; do
+	case x$datum {
+	(x|x\#*)
+		continue
+		;;
+	(xPlaner:)
+		continue
+		;;
+	(xZeitraum:)
+		continue
+		;;
+	(x2[0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9])
+		;;
+	(*)
+		print -ru2 "E: unbekannte Zeile:	$datum	$typ	$label"
+		exit 1
+		;;
+	}
+	tf=false
+	tt=false
+	case $typ {
+	(Veranstaltung)
+		m='geplante Veranstaltung'
+		;;
+	(Workday-normal)
+		m='großer Workday'
+		;;
+	(Workday-klein)
+		m='kleiner Workday'
+		;;
+	(noch-ungeplant)
+		m='ungeplante oder externe Veranstaltung'
+		;;
+	(Gruppentreffen)
+		m='Gruppentreffen'
+		if [[ -z $label ]]; then
+			print -ru2 "E: Gruppentreffen $datum ohne Label!"
+			exit 1
+		fi
+		;;
+	(Onlinemeeting)
+		m='Onlinemeeting'
+		if [[ -n $label ]]; then
+			print -ru2 "E: Onlinemeeting $datum mit Label: $label"
+			exit 1
+		fi
+		tf=17:00
+		tt=18:00
+		;;
+	(*)
+		print -ru2 "E: unbekannter Typ:	$datum	$typ	$label"
+		exit 1
+		;;
+	}
+	case $label {
+	(VS)
+		label='Vorstandssitzung'
+		;;
+	(PM)
+		label='Treffen der pädagogischen Leitung'
+		;;
+	(VS/PM)
+		label='Vorstandssitzung und/oder Päda-Meeting'
+		;;
+	(MGV)
+		label='Mitgliederversammlung'
+		;;
+	(CLT)
+		label='Chemnitzer Linux-Tage'
+		;;
+	}
+	[[ -n $label ]] && m+=": $label"
+	if [[ $tf = false ]]; then
+		if [[ $tt != false ]]; then
+			print -ru2 E: internal error: tt not false
+			exit 1
+		fi
+	else
+		tf=\'$tf\'
+		tt=\'$tt\'
+	fi
+	print -r -- "	array('$datum', $tf, $tt, ${|phpescape "$m";}),"
+done <jahresplan.txt | \
+    (print '<?p''hp\n$mtime='$mtime';\n$events = array('; cat; cat <<\EOF
+);
+
+ini_set('include_path', '/usr/share/php/sabre21');
+
+function __autoload($class_name) {
+	$fn = strtr($class_name, "\\", '/') . '.php';
+	//echo "D: autoload($class_name) -> '$fn'\n";
+	include($fn);
+}
+
+use Sabre\VObject;
+
+$tzid = 'Europe/Berlin';
+$tz = new \DateTimeZone($tzid);
+$gmt = new \DateTimeZone('UTC');
+$xnow = new \DateTime('@' . $mtime);
+$xnow->setTimeZone($gmt);
+
+$vcalendar = new VObject\Component\VCalendar();
+
+$vtimezone = $vcalendar->add('VTIMEZONE', array(
+	'TZID' => $tzid,
+	'X-LIC-LOCATION' => $tzid,
+    ));
+/* simple EU rule, for years from 2002 onwards */
+$vtimezone->add($vcalendar->createComponent('STANDARD', array(
+	'DTSTART' => '20011028T030000',
+	'TZOFFSETFROM' => '+0200',
+	'TZOFFSETTO' => '+0100',
+	'TZNAME' => 'CET',
+	'RRULE' => 'FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU',
+    )));
+$vtimezone->add($vcalendar->createComponent('DAYLIGHT', array(
+	'DTSTART' => '20020331T020000',
+	'TZOFFSETFROM' => '+0100',
+	'TZOFFSETTO' => '+0200',
+	'TZNAME' => 'CEST',
+	'RRULE' => 'FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU',
+    )));
+
+foreach ($events as $e) {
+	$vevent = $vcalendar->add('VEVENT', array(
+		'UID' => 'teckids-jahresplan:' . $e[0] . ':' .
+		    base64_encode($e[3]),
+		'DTSTAMP' => $xnow,
+		'SUMMARY' => $e[3],
+	    ));
+	if ($e[1] === false) {
+		$beg = new \DateTime($e[0], $tz);
+		$beg->setTimeZone($tz);
+		$vevent->add('DTSTART', $beg, array('VALUE' => 'DATE'));
+		/* a whole-day event taking one day by default */
+	} else {
+		$beg = new \DateTime($e[0] . 'T' . $e[1], $tz);
+		$end = new \DateTime($e[0] . 'T' . $e[2], $tz);
+		$beg->setTimeZone($tz);
+		$end->setTimeZone($tz);
+		$vevent->add('DTSTART', $beg);
+		$vevent->add('DTEND', $end);
+	}
+}
+
+echo $vcalendar->serialize();
+exit(0);
+EOF
+) | php

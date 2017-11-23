@@ -1,0 +1,291 @@
+# -*- mode: sh -*-
+#-
+# Copyright © 2014, 2016, 2017
+#	Dominik George <dominik.george@teckids.org>
+# Copyright © 2014, 2015, 2016, 2017
+#	Thorsten Glaser <thorsten.glaser@teckids.org>
+# Copyright © 2016
+#	Niklas Bildhauer <niklas.bildhauer@teckids.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+
+teckids_sourcing_wrapper=1
+. "$(dirname "$0")/teckids"
+
+function split_addr {
+	local a=$addr s=$1
+
+	while [[ $a = *', '* ]]; do
+		print -r -- "${a%%, *}$s"
+		a=${a#*, }
+	done
+	[[ -n $a ]] && print -r -- "$a"
+}
+
+cd "$ROOT/finance/rechnungen"
+
+
+rg=$(<rgnr.txt)
+if [[ $rg != +([0-9]) ]]; then
+	print -ru2 "E: rgnr '$rg' ungültig!"
+	exit 1
+fi
+# Führende Nullen nicht oktal interpretieren. POSIX will das… ☹
+rg=$((10#$rg))
+
+# 1. Volle Anschrift des Empfängers (kann auch unvolständig sein) einlesen
+
+reqanschrift=1
+[[ -s $TECKIDS_CACHE_DIR/last_whois ]] || reqanschrift=2
+#"${VISUAL:-${EDITOR:-vi}}"
+dopersonenkonto=1
+while (( reqanschrift )); do
+	case $reqanschrift {
+	(4)
+		split_addr "" >"$ROOT"/.tmp/mkrechnung
+		"${VISUAL:-${EDITOR:-vi}}" "$ROOT"/.tmp/mkrechnung
+		addr=
+		while IFS= read -r line; do
+			addr+=", $line"
+		done <"$ROOT"/.tmp/mkrechnung
+		rm -f "$ROOT"/.tmp/mkrechnung
+		addr=${addr#, }
+		reqanschrift=3
+		;;
+	(3)
+		print -u2 Bitte bestätigen, 0 für Neueingabe
+		select x in "$addr" "(im Texteditor bearbeiten)"; do
+			if [[ $REPLY = 0 ]]; then
+				reqanschrift=2
+				break
+			fi
+			if [[ $REPLY = 1 ]]; then
+				reqanschrift=0
+				break
+			fi
+			if [[ $REPLY = 2 ]]; then
+				reqanschrift=4
+				break
+			fi
+		done
+		;;
+	(2)
+		dopersonenkonto=0
+		print -u2 "Rechnungsempfänger eingeben, Ende mit leerer Zeile"
+		print -u2
+
+		addr=
+		while IFS= read -r line && [[ -n $line ]]; do
+			addr+=", $line"
+		done
+		addr=${addr#, }
+		reqanschrift=3
+		;;
+	(1)
+		$MKSH "$ROOT"/util/getpost |&
+		set -A askanschrift
+		naskanschrift=0
+		addr=
+		while IFS= read -pr line; do
+			if [[ -n $line ]]; then
+				addr+=", $line"
+			else
+				askanschrift[naskanschrift++]=${addr#, }
+				addr=
+			fi
+		done
+		print -u2 Bitte Rechnungsempfänger-Basisadresse auswählen, 0 für Neueingabe
+		select addr in "${askanschrift[@]}"; do
+			if [[ $REPLY = 0 ]]; then
+				reqanschrift=2
+				break
+			fi
+			if [[ -n $addr ]]; then
+				reqanschrift=3
+				break
+			fi
+		done
+		;;
+	}
+done
+
+addr=$(split_addr "\\\\")
+
+# Personenkontonummer finden
+if (( dopersonenkonto )); then
+	asso_setldap_sasl users -- -b "$(cat "$TECKIDS_CACHE_DIR"/last_whois)" -s base
+	asso_loadk users "$(cat "$TECKIDS_CACHE_DIR"/last_whois)"
+	employeeNumber=$(asso_getv users "$(cat "$TECKIDS_CACHE_DIR"/last_whois)" employeeNumber 0)
+	cashAccount=$(asso_getv users "$(cat "$TECKIDS_CACHE_DIR"/last_whois)" teckidsCashAccount 0)
+fi
+kontostand=$("$ROOT/util/not_teckidscmd/gnc_balance" ${employeeNumber:-$cashAccount})
+[[ -z $kontostand ]] && kontostand=0.00
+
+# 2. Beliebig viele Artikel aus artikel.lst auswählen
+# 3. Artikelpreise summieren
+
+sepa=
+while [[ $sepa != @(j|y|n) ]]; do
+	print -n 'SEPA-Lastschriftmandat? '
+	read sepa
+done
+
+art=
+sum_0=000
+sum_7=000
+sum_19=000
+while cat artikel.lst; IFS= read -r \
+    artnr?"Artikelnummer (0 für Sonderposten, leer für Ende): "; do
+	[[ -n $artnr ]] || break
+	if [[ $artnr != +([0-9]) ]]; then
+		print -u2 "E: Artikelnummern sind Zahlen!"
+		sleep 2
+		continue
+	fi
+	if [[ $artnr = +(0) ]]; then
+		line=
+		while [[ -z $line ]]; do
+			IFS= read -r line?"Artikelbezeichnung Sonderposten: "
+		done
+		dasfeld=
+		while [[ $dasfeld != ?(-)+([0-9]).[0-9][0-9] ]]; do
+			IFS= read -r dasfeld?"Preis in Euro (xxxx.xx): "
+		done
+		ssatz=
+		while [[ $ssatz != 0 && $ssatz != 7 && $ssatz != 19 ]]; do
+			IFS= read -r ssatz?"USt-Satz in % (0, 7 oder 19): "
+		done
+		bereich=
+		while [[ $bereich != IB && $bereich != ZB && $bereich != GB ]]; do
+			IFS= read -r bereich?"Bereich (IB/ZB/GB): "
+		done
+		line="     	${line//[&	]/ }	$dasfeld	$ssatz	$bereich"
+	else
+		line=$(grep "^$artnr	" artikel.lst)
+	fi
+	if [[ -z $line ]]; then
+		print -u2 "E: Unbekannter Artikel $artnr!"
+		sleep 2
+		continue
+	fi
+
+	sIFS=$IFS; IFS=$'\t'
+	set -A felder -- $line
+	IFS=$sIFS
+
+	brutto=$(echo "scale=2; ${felder[2]} * (100 + ${felder[3]}) / 100" | bc -q)
+
+	art="$art${art:+\\\\\\hline$nl}${felder[0]} & ${felder[1]} & ${felder[3]}~\\% & ${felder[4]} & ${felder[2]}~€ & ${brutto}~€"
+
+	case ${felder[3]} in
+	0) (( sum_0 += ${felder[2]/.} )) ;;
+	7) (( sum_7 += ${felder[2]/.} )) ;;
+	19) (( sum_19 += ${felder[2]/.} )) ;;
+	esac
+done
+
+st_0=000
+st_7=000 ; [[ $sum_7 != 000 ]] && st_7=$(echo "scale=2; $sum_7 / 100 * 0.07" | bc -q) ; st_7=${st_7/.}
+st_19=000 ; [[ $sum_19 != 000 ]] && st_19=$(echo "scale=2; $sum_19 / 100 * 0.19" | bc -q) ; st_19=${st_19/.}
+
+rblk=
+
+print "Kontostand: $kontostand"
+kontostand=${kontostand/.}
+if (( kontostand < 0 )); then
+	verr=
+	while [[ $verr != @(j|y|n) ]]; do
+		print -n 'Verrechnen? '
+		read verr
+	done
+
+	if [[ $verr != n ]]; then
+		rblk+='\textbf{Das Personenkonto weist einen Betrag von '${kontostand::${#kontostand}-2}.${kontostand: -2}'~€ auf. '
+		(( rsum = sum + kontostand ))
+		if (( rsum <= 0 )); then
+			rblk+='Es ist keine Zahlung notwendig!}'
+		else
+			rblk+='Bitte zahlen Sie nur den Restbetrag von '${sum::${#sum}-2}.${sum: -2}'~€.}
+
+'
+		fi
+	fi
+fi
+
+# 4. template-rechnung.tex kopieren und folgendes ersetzen:
+#      --Anschrift-- durch  Zeile 1\\
+#                           Zeile 2\\
+#                           ...
+#                           Zeile 4
+#      --RgNr--      durch  Zahl in rgnr.txt
+#      --Pos--       durch  Artikelnummer & Bezeichnung & Preis\\\hline
+#                           Artikelnummer # Bezeichnung # Preis\\\hline
+#                           ...
+#      --Summe--     durch  Summe der Preise
+
+# Name aus erster Zeile von $addr, sanitised
+name=${addr%%*(\\)$'\n'*}
+name=${name//@([/ ])/-}
+
+if [[ -z $rsum ]] || (( rsum > 0 )); then
+	if [[ $sepa = n ]]; then
+		rblk+='Bitte leisten Sie die Zahlung bis spätestens \AdvanceDate[7]\today{}
+	bei einem Vorstandsmitglied oder per Überweisung auf folgendes Konto:
+
+	\begin{tabular}{ l l }
+	 Kontoinhaber:   & Teckids e.V.\\
+	 IBAN:           & DE31 3705 0198 1933 0485 46\\
+	 BIC:            & COLSDE33XXX\\
+	 Kreditinstitut: & Sparkasse KölnBonn
+	\end{tabular}'
+	else
+		sman=TECKIDS$(date +'%Y%m%d')RG$rg
+		sgid="DE70ZZZ00001497650"
+		rblk+='Der Betrag wird frühestens am \AdvanceDate[5]\today{} mit der Mandatsreferenz \textbf{'"$sman"'} und der
+	Gläubiger-ID \textbf{'$sgid'} entsprechend dem erteilten SEPA-Lastschriftmandat eingezogen.'
+	fi
+fi
+
+file=$(<template-rechnung.tex)
+file=${file//--Konto--/"${employeeNumber:-$cashAccount}"}
+file=${file//--RBLK--/"$rblk"}
+file=${file//--Anschrift--/"$addr"}
+file=${file//--RgNr--/"$rg"}
+file=${file//--Pos--/"$art"}
+sum=$(( sum_0 + sum_7 + sum_19 ))
+sumtext=${sum::${#sum}-2}.${sum: -2}	# LP: #1453827
+file=${file//--Summe--/$sumtext}
+sum=$(( sum + st_7 + st_19 ))
+sumtext=${sum::${#sum}-2}.${sum: -2}	# LP: #1453827
+file=${file//--BruttoSumme--/$sumtext}
+file=${file//--St7--/${st_7::${#st_7}-2}.${st_7: -2}}
+file=${file//--St19--/${st_19::${#st_19}-2}.${st_19: -2}}
+
+print -r -- "$file" >"rechnung_${rg}_$name.tex"
+
+# 5. rgnr.txt erhöhen
+print -- $((rg + 1)) >rgnr.txt
+
+set -e
+make "rechnung_${rg}_$name.pdf"
+if [[ -n $DISPLAY ]]; then
+	for x in xdg-open mupdf okular atril; do
+		if whence -p $x >/dev/null; then
+			$x "rechnung_${rg}_$name.pdf"
+			exit 0
+		fi
+	done
+fi

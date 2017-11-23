@@ -1,0 +1,57 @@
+# -*- mode: sh -*-
+#-
+# Copyright © 2014
+#	Dominik George <dominik.george@teckids.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+
+# Teckids utility subcommand that adds a DN to a group
+
+teckids_sourcing_wrapper=1
+. "$(dirname "$0")/teckids"
+
+if (( $# == 1 )); then
+	dn=$(cat "$TECKIDS_CACHE_DIR"/last_whois)
+	cn=$1
+elif (( $# == 2 )); then
+	dn=$1
+	cn=$2
+else
+	print -u2 "Der Gruppenname muss angegeben werden!"
+	exit 100
+fi
+
+asso_setldap_sasl groups -- -b ou=Groups,dc=teckids,dc=org \
+    "(cn=$cn)"
+
+asso_loadk groups
+gdn=${asso_y[0]}
+
+if [[ -z $gdn ]]; then
+	print -u2 "Gruppe existiert nicht!"
+	exit 101
+fi
+
+
+ldapmodify <<EOF
+dn: $gdn
+changetype: modify
+delete: member
+member: $dn
+-
+EOF
+
+exit 0

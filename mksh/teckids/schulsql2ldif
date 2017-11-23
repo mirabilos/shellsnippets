@@ -1,0 +1,155 @@
+# -*- mode: sh -*-
+#-
+# Copyright © 2014
+#	mirabilos <thorsten.glaser@teckids.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# Required additional Debian packages:
+# - sqlite3
+
+# Teckids utility subcommand that converts a school SQL to LDIF
+
+cmd_options='b:bundeslandBundesland (LDIF st)'
+cmd_options+=$'\n''c:landStaat (LDIF c oder co)'
+cmd_options+=$'\n''t:typSchultyp (LDIF businessCategory)'
+cmd_options+=$'\n''f:infileSQLite3-Eingabedatenbank'
+cmd_options+=$'\n''o:outfileLDIF-Ausgabedateiname'
+
+teckids_sourcing_wrapper=1
+offline=1
+. "$(dirname "$0")/teckids"
+
+[[ -n $bundesland ]] || usage
+[[ -n $land ]] || usage
+[[ -n $typ ]] || usage
+[[ -n $infile ]] || usage
+[[ -s $infile ]] || usage
+[[ -n $outfile ]] || usage
+[[ -s $outfile ]] && usage
+
+est=${bundesland//,/\\,}
+ec=${land//,/\\,}
+bst=$(Lb64encode "$bundesland" | tr -d \\n)
+bc=$(Lb64encode "$land" | tr -d \\n)
+bbc=$(Lb64encode "$typ" | tr -d \\n)
+
+# mapping between LHS and objectClass
+asso_setasso classes
+asso_sets organizationalUnit classes ou
+asso_sets country classes c
+asso_sets locality classes st
+asso_sets locality classes l
+asso_sets organization classes o
+
+# assume these LDAP keys exist, or were already generated
+asso_setasso dn
+asso_setnull dn dc=org
+asso_setnull dn dc=teckids,dc=org
+
+function makedn {
+	local x s sep
+
+	for x in "$@"; do
+		s+=$sep$x
+		sep=,
+	done
+
+	REPLY=$s
+}
+
+function makeparent {
+	shift
+
+	(( $# > 1 )) && makeparent "$@"
+
+	local adn
+	adn=${|makedn "$@";}
+
+	asso_isset dn "$adn" && return 0
+
+	local cls=${1%%=*}
+	cls=$(asso_getv classes "$cls")
+	[[ -n $cls ]] || die "Cannot resolve '$1' to objectClass"
+
+	print -r "dn:: $(Lb64encode "$adn" | tr -d \\n)"
+	print -r "objectClass: $cls"
+	print -r "${1%%=*}:: $(Lb64encode "${1#*=}" | tr -d \\n)"
+	print
+	asso_setnull dn "$adn"
+}
+
+(print '.mode line\nSELECT * FROM schuldaten;' | sqlite3 "$infile"; print) |&
+ninp=0
+nent=0
+while IFS= read -pr line; do
+	if [[ -z $line ]]; then
+		let ++ninp
+		if [[ -z $xbez || -z xstr || -z $xplz || -z $xort ]]; then
+			print -ru2 "N: xbez='$xbez'"
+			print -ru2 "N: xort='$xort'"
+			print -ru2 "N: xstr='$xstr'"
+			print -ru2 "N: xplz='$xplz'"
+			print -ru2 "N: xeml='$xeml'"
+			print -ru2 "N: xsnr='$xsnr'"
+			print -ru2 "W: record #$ninp missing mandatory fields, ignoring"
+			xbez= xort= xstr= xplz= xeml= xsnr=
+			continue
+		fi
+		set -A xdn -- "o=${xbez//,/\\,}" "l=${xort//,/\\,}" "st=$est" \
+		    "c=$ec" ou=Schulen ou=Contacts dc=teckids dc=org
+		rdn=${|makedn "${xdn[@]}";}
+		makeparent "${xdn[@]}"
+
+		print -r "dn:: $(Lb64encode "$rdn" | tr -d \\n)"
+		print -r "objectClass: organization"
+		print -r "objectClass: teckidsSchule"
+		print -r "o:: $(Lb64encode "$xbez" | tr -d \\n)"
+		print -r "businessCategory:: $bbc"
+		print -r "c:: $bc"
+		print -r "st:: $bst"
+		print -r "street:: $(Lb64encode "$xstr" | tr -d \\n)"
+		print -r "postalCode:: $(Lb64encode "$xplz" | tr -d \\n)"
+		print -r "l:: $(Lb64encode "$xort" | tr -d \\n)"
+		[[ -n $xeml ]] && print -r "mail:: $(Lb64encode "$xeml" | tr -d \\n)"
+		[[ -n $xsnr ]] && print -r "schulnummer:: $(Lb64encode "$xsnr" | tr -d \\n)"
+		print
+		let ++nent
+
+		xbez= xort= xstr= xplz= xeml= xsnr=
+		continue
+	fi
+
+	[[ $line = *=* ]] || die "line from SQL unexpected format: '$line'"
+
+	line=${line##*([	 ])}	# ltrim$
+	fn=${line%%=*}			# left$
+	val=${line#*=}			# mid$
+	fn=${fn%%*([	 ])}		# rtrim$
+	val=${val##*([	 ])}		# ltrim$
+	val=${val%%*([	 ])}		# rtrim$
+
+	case $fn {
+	(bezeichnung)	xbez=$val ;;
+	(ort)		xort=$val ;;
+	(strasse)	xstr=$val ;;
+	(plz)		xplz=$val ;;
+	(email)		xeml=$val ;;
+	(snr)		xsnr=$val ;;
+	}
+done >"$outfile"
+print -u2 "I: $nent entries created from $ninp input records"
+exit 0

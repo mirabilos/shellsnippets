@@ -1,0 +1,73 @@
+# -*- mode: sh -*-
+#-
+# Copyright © 2016
+#	mirabilos <thorsten.glaser@teckids.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+
+# Teckids utility to check subproject membership
+#XXX TODO: rewrite to use DNs and LDAP ipv getent; Nik says we
+#XXX can only use getent for dealing in accounts, and not every
+#XXX project member needs to have a POSIX account, especially
+#XXX not at first…
+
+teckids_sourcing_wrapper=1
+. "$(dirname "$0")/teckids"
+
+set -o noglob
+
+[[ -n $ptxt ]] || die vielleicht im falschen Verzeichnis?
+[[ -n $project_cn ]] || die vielleicht im falschen Verzeichnis?
+
+function getmembers {
+	local saveIFS=$IFS tmp
+	IFS=:
+	set -A tmp -- $(terracmdn getent group "$1")
+	[[ ${tmp[1]} = '*' ]] || die "Kann Gruppe $1 nicht holen: ${tmp[*]}"
+	IFS=,
+	set -sA tmp -- ${tmp[3]}
+	IFS=$saveIFS
+	print -r -- ${tmp[*]}
+}
+
+warns=0
+
+asso_setnull whitelist jtobisch
+asso_setnull whitelist nbildhauer
+asso_setnull whitelist nik
+asso_setnull whitelist tglaser
+
+set -A proj -- $(getmembers "$project_cn")
+for x in "${proj[@]}"; do
+	asso_setnull proj "$x"
+done
+
+for subp in "${subprojects[@]}"; do
+	for x in $(getmembers "$subp"); do
+		asso_setnull subp "$x"
+		asso_isset proj "$x" && continue
+		echo "W: $x not in parent but in subproject $subp"
+		asso_isset whitelist "$x" || warns=1
+	done
+done
+
+for x in "${proj[@]}"; do
+	asso_isset subp "$x" && continue
+	echo "W: $x in parent but in no subproject"
+	asso_isset whitelist "$x" || warns=1
+done
+
+exit $warns

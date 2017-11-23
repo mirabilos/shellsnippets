@@ -1,0 +1,127 @@
+# -*- mode: sh -*-
+#-
+# Copyright © 2014, 2015
+#	Dominik George <dominik.george@teckids.org>
+#	mirabilos <thorsten.glaser@teckids.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+
+# Teckids utility subcommand that creates password sheets
+# for all people in a project that do not have an account
+# yet
+
+teckids_sourcing_wrapper=1
+. "$(dirname "$0")/teckids"
+
+mkdir -p passwd
+
+asso_setldap_sasl projects -- -b ou=Groups,dc=teckids,dc=org \
+    "(cn=$project_cn)"
+
+asso_loadk projects
+project_dn=${asso_y[0]}
+
+asso_setldap_sasl uidpeople -- -b ou=People,dc=teckids,dc=org \
+    objectClass=posixAccount uid
+asso_loadk uidpeople
+for dn in "${asso_y[@]}"; do
+	asso_setnull uids "$(asso_getv uidpeople "$dn" uid 0)"
+done
+
+highest_uid=$(terracmdn getent passwd | sort -t: -nk3 | tail -n -2 |&
+	IFS=: read -pA
+	echo ${REPLY[2]}
+    )
+
+asso_setldap_sasl users -- -b ou=People,dc=teckids,dc=org \
+    "(&(objectClass=inetOrgPerson)(!(objectClass=posixAccount))(memberOf=$project_dn))" \
+    givenName sn jpegPhoto
+
+function machmalklein {
+	local -l l=$1
+
+	l=${l//ä/ae}
+	l=${l//ö/oe}
+	l=${l//ü/ue}
+	l=${l//ß/ss}
+	l=${l//Ä/ae}
+	l=${l//Ö/oe}
+	l=${l//Ü/ue}
+	l=${l//ẞ/ss}
+	l=${l//[!0-9a-zA-Z]}
+
+	REPLY=$l
+}
+
+teckids_loadk_users
+for user_dn in "${asso_y[@]}"; do
+	gn=$(asso_getv users "$user_dn" givenName 0)
+	sn=$(asso_getv users "$user_dn" sn 0)
+	jpegPhoto=$(asso_getv users "$user_dn" jpegPhoto 0)
+
+	gn_klein=${|machmalklein "$gn";}
+	sn_klein=${|machmalklein "$sn";}
+
+	lg=${#gn}
+	i=0
+	found=0
+	while (( ++i <= lg )); do
+		ln=${gn_klein::i}$sn_klein
+		if ! asso_isset uids "$ln"; then
+			# wish I had goto here…
+			found=1
+			break
+		fi
+	done
+	if (( !found )); then
+		i=0
+		ln=${gn_klein::1}$sn_klein
+		while asso_isset uids "$ln$i"; do
+			let i++
+		done
+		ln+=$i
+	fi
+	asso_setnull uids "$ln"
+
+	pw=$(pwgen -B 8 1)
+
+ldapmodify <<EOF
+dn: $user_dn
+changetype: modify
+add: objectClass
+objectClass: posixAccount
+objectClass: shadowAccount
+-
+add: uid
+uid: $ln
+-
+add: uidNumber
+uidNumber: $((++highest_uid))
+-
+add: gidNumber
+gidNumber: 100
+-
+add: homeDirectory
+homeDirectory: /home/$ln
+-
+add: loginShell
+loginShell: /bin/bash
+-
+add: userPassword
+userPassword: $pw
+-
+EOF
+done

@@ -1,0 +1,135 @@
+# -*- mode: sh -*-
+#-
+# Copyright © 2014, 2017
+#	Dominik George <dominik.george@teckids.org>
+# Copyright © 2014
+#	mirabilos <thorsten.glaser@teckids.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+
+# Teckids utility subcommand that adds a DN to the current project
+
+cmd_options='rrnd_msgid0Zufällige Message-ID erzeugen'
+cmd_options+=$'\n''Vrun_viplanung1viplanung am Ende aufrufen (Standard)'
+
+teckids_sourcing_wrapper=1
+. "$(dirname "$0")/teckids"
+
+if (( $# == 0 )); then
+	dn=$(cat "$TECKIDS_CACHE_DIR"/last_whois)
+else
+	if [[ $1 = "<"*">" || $1 = "Ticket#"* ]]; then
+		dn=$(cat "$TECKIDS_CACHE_DIR"/last_whois)
+		msgid="$1"
+	else
+		dn=$1
+		msgid="$2"
+	fi
+fi
+
+if (( rnd_msgid )); then
+	msgid="<$(date +%Y%m%d%H%M%S).generated@fakeid.teckids.org>"
+fi
+
+if [[ -z $msgid || -z $dn ]]; then
+	print -u2 "Either DN or Message-ID are missing!"
+	exit 105
+fi
+
+ldapmodify -c <<EOF
+dn: cn=$project_cn,ou=Projekte,ou=Groups,dc=teckids,dc=org
+changetype: modify
+add: member
+member: $dn
+-
+
+dn: $dn
+changetype: modify
+add: anmMessageId
+anmMessageId: $msgid
+-
+EOF
+
+x=planung.txt; until test -e $x; do x=../$x; done; ptxt=$x
+
+mkdir -p "$TOP/../.tmp"
+d=$(mktemp -d "$TOP/../.tmp/XXXXXXXXXX")
+
+s=0
+l=0
+cat "$ptxt" |&
+while IFS= read -rp line; do
+	(( l++ ))
+
+	case $s in
+	0)
+		if [[ $line = "| Message-ID "* ]]; then
+			liner=${line#\| }
+			liner=${liner% \|}
+			sIFS=$IFS; IFS="|"; set -A fields -- $liner; IFS=$sIFS
+
+			i=-1
+			while (( ++i < ${#fields[@]} )); do
+				fields[i]=${fields[i]##*( )}
+				fields[i]=${fields[i]%%*( )}
+			done
+
+			# Read values for new entry
+			set -A values
+
+			if [[ $msgid = "<"* ]]; then
+				smsgid=${msgid#<}
+				smsgid=${smsgid%%.*}
+			elif [[ $msgid = "Ticket#"* ]]; then
+				smsgid=${msgid#Ticket#}
+			fi
+			values[0]=$smsgid
+
+			i=0
+			while (( ++i < ${#fields[@]} )); do
+				read -r "values[i]?${fields[i]}: "
+			done
+
+			print -r -- "| $liner |"
+
+			s=1
+		else
+			print -r -- "$line"
+		fi
+		;;
+	1)
+		if [[ $line = "+-"* ]]; then
+			ln=$l
+
+			print -n "|"
+
+			i=-1
+			while (( ++i < ${#values[@]} )); do
+				print -rn -- " ${values[i]} |"
+			done
+			print
+
+			print -r -- "$line"
+			s=0
+		else
+			print -r -- "$line"
+		fi
+		;;
+	esac
+done >"$d/planung.tmp"
+
+mv "$d/planung.tmp" "$ptxt"
+(( run_viplanung )) && mksh "$ROOT/util/viplanung" #+$ln

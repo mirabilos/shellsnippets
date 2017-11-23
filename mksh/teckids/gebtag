@@ -1,0 +1,82 @@
+# -*- mode: sh -*-
+#-
+# Copyright © 2015
+#	Dominik George <dominik.george@teckids.org>
+# Copyright © 2014, 2015
+#	mirabilos <thorsten.glaser@teckids.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+
+cmd_options='yfullyear0Ausgabe für ein ganzes Jahr'
+
+teckids_sourcing_wrapper=1
+. "$(dirname "$0")/teckids"
+. "$(dirname "$0")/rplanung"
+
+if [[ -z $ldap_base ]]; then
+	print_v "Lade LDAP-Gruppe ..."
+	asso_setldap_sasl groups -- -b ou=Groups,dc=teckids,dc=org \
+	    '(&(objectClass=groupOfNames)(cn='$project_cn'))'
+
+	asso_loadk groups
+	pdn=${asso_y[0]}
+fi
+
+base=${ldap_base:-ou=People,dc=teckids,dc=org}
+filter="(&(objectClass=inetOrgPerson)(memberOf=$pdn))"
+[[ -n $pdn ]] || filter='(objectClass=inetOrgPerson)'
+filter=${ldap_filter:-$filter}
+
+set -A dtoday -- $(date +'%d %m %Y')
+
+set -A jtoday -- $(mjd_implode 0 0 0 ${dtoday[0]} $((dtoday[1] - 1)) \
+    $((dtoday[2] - 1900)) 0 0 0 0 0)
+
+if (( fullyear )); then
+	jbeg=$jtoday
+	set -A tm -- $(mjd_explode $jtoday 0)
+	(( tm[tm_year]++ ))
+	set -A jend -- $(mjd_implode "${tm[@]}")
+else
+	(( jbeg = jtoday - 6 ))
+	(( jend = jtoday + 6 ))
+fi
+
+typeset -i10 -Z2 Td Tm
+typeset -i10 -Z4 Ty Uy
+
+(( j = jbeg - 1 ))
+while (( ++j <= jend )); do
+	set -A tm -- $(mjd_explode $j 0)
+	(( Td = tm[tm_mday] ))
+	(( Tm = tm[tm_mon] + 1 ))
+	(( Ty = tm[tm_year] + 1900 ))
+	print_v "Teste $Td.$Tm.$Ty <(&${filter}(dateOfBirth=*-$Tm-$Td))>"
+
+	asso_setldap_sasl users -- -b "$base" \
+	    "(&${filter}(dateOfBirth=*-$Tm-$Td))" cn dateOfBirth
+	teckids_loadk_users
+	for user_dn in "${asso_y[@]}"; do
+		dob=$(asso_getv users "$user_dn" dateOfBirth 0)
+		cn=$(asso_getv users "$user_dn" cn 0)
+		set -A Ud -- ${dob//-/ }
+		(( Uy = Ud[0] ))
+		(( age = Ty - Uy ))
+		v=; (( verbose )) && v=" <$user_dn>"
+		print -r -- "${Uy}${mirtime_months[tm[tm_mon]]} $Td	$cn" \
+		    "($Uy AD; ${age}yo)$v"
+	done | LC_ALL=de_DE.UTF-8 sort | sed 's/^[^]*//'
+done

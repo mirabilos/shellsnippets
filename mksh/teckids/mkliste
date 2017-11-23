@@ -1,0 +1,358 @@
+# -*- mode: sh -*-
+#-
+# Copyright © 2014, 2015, 2016
+#	Dominik George <dominik.george@teckids.org>
+#	mirabilos <thorsten.glaser@teckids.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+
+# Teckids utility subcommand that inserts LDAP data into a given LaTeX document
+# Used to produce lists of LDAP data
+
+cmd_options='cmangle_description1Beschreibungs-Text bereinigen'
+cmd_options+=$'\n''=D:definesExtra-Platzhalter und Werte angeben'
+cmd_options+=$'\n''Iinsecure0insecure mode: --shell-escape in LaTeX'
+cmd_options+=$'\n''M:override_monthMonat angeben (statt aktueller)'
+cmd_options+=$'\n''mmangle_address0Adressen aus homePostalAddress umbrechen'
+cmd_options+=$'\n''Nnotemplates0Templates nicht vorher neubauen'
+cmd_options+=$'\n''s:sortfieldsnFeld, nach dem die Liste sortiert werden soll'
+cmd_options+=$'\n''U:mapbaseurlhttp://staticmap.openstreetmap.de/staticmap.php?center=51.15,10.45&zoom=7&size=1200x1600&maptype=osmarender&markers=Basis-URL für statische Karte'
+cmd_options+=$'\n''Y:override_yearJahr angeben (statt aktuelles)'
+
+teckids_sourcing_wrapper=1
+. "$(dirname "$0")/teckids"
+
+[[ -n $1 ]] || usage
+
+insec=; (( insecure )) && insec=--shell-escape
+
+t_f=$(realpath "$1")
+deltmpl=
+
+if [[ $t_f = *.tex.in && -s $t_f && -f $t_f ]]; then
+	t_f=${t_f%.in}
+	if ! env "${defines[@]}" ROOT="$ROOT" TK_TMPL_MON="$override_month" \
+	    TK_TMPL_YEAR="$override_year" "$MKSH" "$t_f.in" >"$t_f~"; then
+		rm -f "$t_f" "$t_f~"
+		die error running template "$t_f.in"
+	fi
+	mv -f "$t_f~" "$t_f"
+	deltmpl=$t_f
+fi
+
+t_b=${t_f##*/}
+t_p=${t_b%.*}
+
+for f in "$t_f" "docs/$t_b" "docs/$t_p.tex" "$ROOT/templates/$t_p.tex" "$ROOT/templates/template_$t_p.tex"; do
+	t_f=$f
+	[[ -e $t_f && -f $t_f ]] && break
+done
+
+if [[ ! -e $t_f || ! -f $t_f || ! -s $t_f ]]; then
+	print -ru2 "E: template $t_f not found"
+	exit 1
+fi
+
+print_v "Lese planung.txt ..."
+. "$(dirname "$0")/rplanung"
+
+asso_setasso dn2msgid
+
+asso_loadk planung
+print_v "Lade Personendaten zu ${#asso_y[*]} Anmelde-IDs ..."
+n=0; for msgid in "${asso_y[@]}"; do
+	print_v " Lade Eintrag Nr. $((++n)) ..."
+
+	asso_setldap_sasl users -- -b ou=People,dc=teckids,dc=org \
+	    "(anmMessageId=<$msgid*)"
+
+	asso_loadk users
+	asso_sets "$msgid" dn2msgid "${asso_y[0]}"
+done
+
+d=$(mktemp -d "$TOP/../.tmp/XXXXXXXXXX")
+set -A tmNow -- $(date +'%s %d.%m.%Y')
+dtNow=${tmNow[1]}
+set -A tmNow -- $(mjd_explode $(timet2mjd ${tmNow[0]}))
+
+if [[ -z $ldap_base ]]; then
+	print_v "Lade LDAP-Gruppe ..."
+	asso_setldap_sasl groups -- -b ou=Groups,dc=teckids,dc=org \
+	    '(&(objectClass=groupOfNames)(cn='$project_cn'))'
+
+	asso_loadk groups
+	for group_dn in "${asso_y[@]}"; do
+		pdescription=$(asso_getv groups "$group_dn" description 0)
+		pjpegPhoto=$(asso_getv groups "$group_dn" jpegPhoto 0)
+		pimg=$TOP/pics/people
+		if [[ -n $pjpegPhoto ]]; then
+			pimg=$project_cn
+			Lb64decode "$pjpegPhoto" >"$d"/"$pimg.jpg"
+		fi
+		pdn=$group_dn
+		break
+	done
+else
+	pdescription=
+	pimg=unset-if-ldap_base-not-set
+fi
+
+base=${ldap_base:-ou=People,dc=teckids,dc=org}
+filter=${ldap_filter:-(&(objectClass=inetOrgPerson)(memberOf=$pdn))}
+
+print_v "Lade Daten der Gruppenmitglieder... (base $base) (filter $filter)"
+asso_setldap_sasl users -- -b "$base" "$filter"
+# load user data into "${asso_y[@]}"
+teckids_loadk_users
+count=${#asso_y[*]}
+
+[[ -e artwork ]] && ln -sf "$(realpath artwork)" "$d/artwork"
+[[ -e img ]] && ln -sf "$(realpath img)" "$d/img"
+
+print_v "Lade Template aus $d ..."
+# cannot use \n as field separator because it’s IFS_WS
+tr '\n' '' <"$t_f" |& IFS='' read -N -1 -Apr tpl
+# analyse template
+tplen=${#tpl[*]}
+hasbeg=0
+hasend=0
+hasmap=0
+i=-1
+while (( ++i < tplen )); do
+	if [[ ${tpl[i]} = '%% --repeat--' ]]; then
+		(( hasbeg || hasend )) && die "repeat begin found after other repeat instructions"
+		hasbeg=1
+		ibeg=$i
+		continue
+	elif [[ ${tpl[i]} = '%% --taeper--' ]]; then
+		(( hasend )) && die "repeat end found after other repeat end instruction"
+		(( hasbeg )) || die "repeat end found with no repeat begin instruction"
+		hasend=1
+		iend=$i
+		continue
+	fi
+	[[ ${tpl[i]} = *'--date--'* ]] && \
+	    tpl[i]=${tpl[i]//--date--/$dtNow}
+	[[ ${tpl[i]} = *'--pdescription--'* ]] && \
+	    tpl[i]=${tpl[i]//--pdescription--/$pdescription}
+	[[ ${tpl[i]} = *'--pimg--'* ]] && \
+	    tpl[i]=${tpl[i]//--pimg--/$pimg}
+	if [[ ${tpl[i]} = *'--staticmap--'* ]]; then
+		hasmap=1
+		tpl[i]=${tpl[i]//--staticmap--/staticmap}
+	fi
+	[[ ${tpl[i]} = *'--count--'* ]] && \
+	    tpl[i]=${tpl[i]//--count--/$count}
+done
+(( hasbeg ^ hasend )) && die "repeat begin found with no repeat end instruction"
+# now hasbeg==hasend is either 0 (multifile mode) or 1 (block-repeat mode)
+
+function substitute {
+	local f v s=$1
+
+	# handle arbitrary extra tags
+	for f in "${defines[@]}"; do
+		if [[ $f = *=* ]]; then
+			v=${f#*=}
+			f=${f%%=*}
+		else
+			v=1
+		fi
+		s=${s//--"$f"--/$v}
+	done
+
+	# Remove unmatched tags
+	print -nr -- "${s//--+([!-])--}"
+}
+
+print_v "Erzeuge Dokument aus Template in $d ..."
+if (( hasbeg )); then
+	mapurl=$mapbaseurl
+	# open *.tex output file
+	exec >"$d/$t_p.tex"
+	# emit begin block
+	i=-1
+	while (( ++i < ibeg )); do
+		substitute "${tpl[i]}$nl"
+	done
+else
+	typeset -Uui16 -Z11 n=0
+	ibeg=-1
+	iend=$tplen
+	rm -rf "$t_p"
+	mkdir "$t_p"
+fi
+# load repeating part of template
+content=
+i=$ibeg
+while (( ++i < iend )); do
+	content+=${tpl[i]}$nl
+done
+
+# make templates first
+(( notemplates )) || (make templates || (cd "$ROOT/templates" && make all)) >&2
+
+# iterate over all entries
+for user_dn in "${asso_y[@]}"; do
+	print -r -- "$(asso_getv users "$user_dn" $sortfield 0)$(asso_getv \
+	    users "$user_dn" uid 0)$user_dn"
+done | LC_ALL=de_DE.UTF-8 sort |&
+while IFS='' read -pr sn uid user_dn; do
+	if (( !hasbeg )); then
+		mapurl=$mapbaseurl
+		# open output file
+		[[ -n $uid ]] || uid=x${n#16#}
+		exec >"$d/$uid.tex"
+		let ++n
+	fi
+	contentr=$content
+	# modify content according to LDAP information
+	if [[ $contentr = *'--img--'* ]]; then
+		# CPU-intensive operation; only run when needed ☺
+		jpegPhoto=$(asso_getv users "$user_dn" jpegPhoto 0)
+		img=../../www/pics/people
+		if [[ -n $jpegPhoto ]]; then
+			img=$RANDOM
+			while [[ -e $d/$img.jpg ]]; do
+				img=$RANDOM
+			done
+			Lb64decode "$jpegPhoto" >"$d/$img.jpg"
+		fi
+		contentr=${contentr//--img--/$img}
+	fi
+
+	if [[ $contentr = *'--Eltern_'* ]]; then
+		set -A eltern_fields
+		for eltern_field in $(print -r -- "$contentr" | grep -o -- '--Eltern_.*--'); do
+			eltern_field=${eltern_field#--Eltern_}
+			eltern_field=${eltern_field%--}
+			eltern_fields+=($eltern_field)
+		done
+		asso_setldap_sasl parents -- -b "ou=Eltern,$user_dn" '(objectClass=inetOrgPerson)' "${eltern_fields[@]}" cn
+		asso_loadk parents
+		for eltern_field in "${eltern_fields[@]}"; do
+			res=
+			for parent_dn in "${asso_y[@]}"; do
+				cn=$(asso_getv parents "$parent_dn" cn 0)
+				field_value=$(asso_getv parents "$parent_dn" "$eltern_field" 0)
+				[[ -n $field_value ]] && res+="$cn: $field_value, "
+			done
+			res=${res%, }
+			res=${res//, /'\par{}'}
+			contentr=${contentr//--Eltern_${eltern_field}--/$res}
+		done
+	fi
+
+	for f in "${fields[@]}"; do
+		msgid=$(asso_getv dn2msgid "$user_dn")
+		v=$(asso_getv planung "$msgid" "$f")
+		contentr=${contentr//--"$f"--/$v}
+	done
+
+	if asso_isset users "$user_dn" employeeNumber; then
+		v='\CheckedBox'
+	else
+		v='\Square'
+	fi
+	v="{\\Huge$v}"
+	contentr=${contentr//--isMember--/$v}
+
+	asso_loadk users "$user_dn"
+	xlat= xlon=
+	for f in "${asso_y[@]}"; do
+		v=$(asso_getv users "$user_dn" "$f" 0)
+
+		case $f {
+		(homePostalAddress)
+			[[ $mangle_address = 1 ]] && v=${v/, /\\newline\{\}}
+			;;
+		(description)
+			[[ $mangle_description = 1 ]] && v=${v//'<'*([!>])'>'/}
+			;;
+		(dateOfBirth)
+			age=
+			if [[ -n $v ]] && dtchk dtJ "$v" dtv; then
+				set -A tmGeb -- $(mjd_explode "$dtJ" 0)
+				(( age = tmNow[tm_year] - tmGeb[tm_year] - \
+				    ((tmNow[tm_yday] < tmGeb[tm_yday]) ? 1 : 0) ))
+			fi
+			contentr=${contentr//--age--/$age}
+			;;
+		(teckidsLatitude)
+			xlat=$v
+			;;
+		(teckidsLongitude)
+			xlon=$v
+			;;
+		(userPassword)
+			pp='***'
+			[[ -n $v && $v != '{'* ]] && pp=$v
+			contentr=${contentr//--plainPassword--/$pp}
+			;;
+		}
+		v=${v//&/\\&}
+		contentr=${contentr//--"$f"--/$v}
+	done
+
+	(( hasmap )) && \
+	    [[ $xlat = ?(-)+([0-9])?(.+([0-9])) ]] && \
+	    [[ $xlon = ?(-)+([0-9])?(.+([0-9])) ]] && \
+	    mapurl+=$xlat,$xlon,lightblue\|
+
+	substitute "$contentr"
+	print_v " Eintrag Nr. $((++n)) erzeugt."
+	if (( !hasbeg )); then
+		# close output file
+		exec >&2
+		if (( hasmap )); then
+			wget -O "$d/staticmap.png" "$mapurl" || \
+			    die "could not download static map $mapurl"
+		fi
+		# generate output PDF and copy out
+		(cd "$d" && mksh "$ROOT/.pdflatex_twice" "$uid.pdf" $insec) || \
+		    die "make \"$d/$uid.pdf\" died with errorlevel $?"
+		[[ -s $d/$uid.pdf ]] || die "zero-length output"
+		cp -f "$d/$uid.pdf" "$t_p/"
+	fi
+done
+if (( hasbeg )); then
+	# emit end block
+	i=$iend
+	while (( ++i < tplen )); do
+		substitute "${tpl[i]}$nl"
+	done
+	# close output file
+	exec >&2
+	if (( hasmap )); then
+		wget -O "$d/staticmap.png" "$mapurl" || \
+		    die "could not download static map $mapurl"
+	fi
+	# generate output PDF and copy out
+	(cd "$d" && mksh "$ROOT/.pdflatex_twice" "${t_p}.pdf" $insec) || \
+	    die "make \"$d/${t_p}.pdf\" died with errorlevel $?"
+	[[ -s $d/${t_p}.pdf ]] || die "zero-length output"
+	cp -f "$d/${t_p}.pdf" ./
+fi
+
+if (( extradebug )); then
+	print -ru2 "I: temporary directory was ${d@Q}"
+	print -ru2 "N: please clean it up yourself!"
+	exit 0
+fi
+
+[[ -n $deltmpl ]] && rm -f "$deltmpl"
+rm -rf "$d"
+exit 0

@@ -1,0 +1,43 @@
+# -*- mode: sh -*-
+#-
+# Copyright © 2014
+#	Dominik George <dominik.george@teckids.org>
+# Copyright © 2014, 2015
+#	mirabilos <thorsten.glaser@teckids.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+
+# Teckids utility subcommand that displays the JPEG photo of a user
+
+teckids_sourcing_wrapper=1
+. "$(dirname "$0")/teckids"
+
+if (( $# == 0 )); then
+	dn=$(cat "$TECKIDS_CACHE_DIR"/last_whois)
+else
+	dn=$1
+fi
+
+asso_setldap_sasl users -- -b "$dn" -s base
+
+teckids_loadk_users
+for user_dn in "${asso_y[@]}"; do
+	jpegPhoto=$(asso_getv users "$user_dn" jpegPhoto 0)
+	[[ -z "$jpegPhoto" ]] && continue
+	Lb64decode "$jpegPhoto"
+done
+
+exit 0

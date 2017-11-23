@@ -1,0 +1,61 @@
+# -*- mode: sh -*-
+#-
+# Copyright © 2015
+#	Dominik George <dominik.george@teckids.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+
+# Teckids utility subcommand that aliases Eltern records from a marked
+# user to the current user.
+
+teckids_sourcing_wrapper=1
+. "$(dirname "$0")/teckids"
+
+[[ -s $TECKIDS_CACHE_DIR/marked_whois ]] || \
+    die "Missing “teckids setmark” information"
+[[ -s $TECKIDS_CACHE_DIR/last_whois ]] || \
+    die "Missing last “teckids whois” information"
+
+from=$(cat "$TECKIDS_CACHE_DIR"/marked_whois)
+to=$(cat "$TECKIDS_CACHE_DIR"/last_whois)
+
+ldif="dn: ou=Eltern,$to
+changetype: add
+objectClass: organizationalUnit
+ou: Eltern
+
+"
+
+asso_setldap_sasl users -- -b "ou=Eltern,$from" "(objectClass=inetOrgPerson)"
+teckids_loadk_users
+for user_dn in "${asso_y[@]}"; do
+	cn=$(asso_getv users "$user_dn" cn 0)
+	ldif+="dn: cn=$cn,ou=Eltern,$to
+changetype: add
+aliasedObjectName: $user_dn
+cn: $cn
+objectClass: alias
+objectClass: extensibleObject
+objectClass: top
+
+"
+done
+
+ldapmodify -c <<EOF
+$ldif
+EOF
+
+exit 0

@@ -1,0 +1,61 @@
+# -*- mode: sh -*-
+#-
+# Copyright © 2016
+#	Dominik George <dominik.george@teckids.org>
+#	mirabilos <thorsten.glaser@teckids.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+
+# Teckids utility to run mkliste per subproject
+
+xpdf=$1; shift
+set -A parms -- "$@"
+
+teckids_sourcing_wrapper=1
+. "$(dirname "$0")/teckids"
+
+set -o noglob
+
+[[ -n $ptxt ]] || die vielleicht im falschen Verzeichnis?
+[[ -n $project_cn ]] || die vielleicht im falschen Verzeichnis?
+
+dashn=
+rm -f subprjmk.?.pdf
+for subp in "${subprojects[@]}"; do
+	asso_setldap_sasl groups -- -b ou=Groups,dc=teckids,dc=org \
+	    '(&(objectClass=groupOfNames)(cn='"$subp"'))'
+	asso_loadk groups
+	pdn=${asso_y[0]}
+	pcn=$(asso_getv groups "$pdn" cn 0)
+	pdesc=$(asso_getv groups "$pdn" description 0)
+	pdesc=${pdesc:-${pcn:-$pdn}}
+	filter='(&(objectClass=inetOrgPerson)(memberOf='"$pdn"'))'
+
+	print -ru2 -- "N: running mkliste for $subp…"
+	teckids mkliste -F "$filter" -D pextra="$pdesc" -D subprjcn="$pcn" \
+	    $dashn "${parms[@]}" || die mkliste died
+	dashn=-N
+	if [[ -e subprjmk.0.pdf ]]; then
+		mksh "$ROOT/print/ps2pdfmir" -o subprjmk.1.pdf \
+		    subprjmk.0.pdf "$xpdf" || die ps2pdf died
+		mv -f subprjmk.1.pdf subprjmk.0.pdf
+	else
+		mv -f "$xpdf" subprjmk.0.pdf
+	fi
+done
+mv -f subprjmk.0.pdf "$xpdf"
+rm -f subprjmk.?.pdf
+ls -l -- "$xpdf"

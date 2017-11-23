@@ -1,0 +1,106 @@
+# -*- mode: sh -*-
+#-
+# Copyright © 2014, 2015, 2017
+#	Dominik George <dominik.george@teckids.org>
+#	mirabilos <thorsten.glaser@teckids.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+
+# Teckids utility subcommand that adds a person
+
+teckids_sourcing_wrapper=1
+. "$(dirname "$0")/teckids"
+
+if (( eltern_subfilter )); then
+	[[ -s $TECKIDS_CACHE_DIR/last_whois ]] || \
+	    die "Missing last “teckids whois” information"
+fi
+
+print "givenName|Vorname
+sn|Nachname
+dateOfBirth|Geburtsdatum (TT.MM.JJJJ)
+mail|E-Mail
+homePostalAddress|Anschrift (privat)
+homePhone|Telefon (privat)
+mobile|Handy
+o|Schule
+l|Schulort
+ou|Klasse" |&
+
+asso_setasso fields
+
+while IFS="|" read -rp f q; do
+	# special casing
+	t=
+	if (( eltern_subfilter )) && [[ $f = homePostalAddress ]]; then
+		t=$(teckids whois -s homePostalAddress)
+	fi
+	[[ -n $t ]] && print -r "Standardwert (einfach Enter zum Übernehmen): $t"
+	read -r "v?$q: "
+	v=${v:-"$t"}
+	[[ -n $v ]] && asso_sets "$v" fields "$f" v
+done
+
+givenName=$(asso_getv fields givenName v)
+sn=$(asso_getv fields sn v)
+
+if [[ -z $givenName || -z $sn ]]; then
+	print -u2 "Vorname und Nachname müssen angegeben werden!"
+	exit 1
+fi
+
+if (( kids_only )); then
+	(( eltern_subfilter )) && die "Conflicting options -E and -K for this script"
+	dn="cn=$givenName $sn,ou=Kids,ou=People,dc=teckids,dc=org"
+elif (( eltern_subfilter )); then
+	dn=$(cat "$TECKIDS_CACHE_DIR"/last_whois)
+	[[ -n $dn ]] || die "Missing last “teckids whois” information"
+	tdn="ou=Eltern,$dn"
+	dn="cn=$givenName $sn,ou=Eltern,$dn"
+else
+	dn="cn=$givenName $sn,ou=People,dc=teckids,dc=org"
+fi
+
+asso_sets "$givenName $sn" fields cn v
+
+ldif=
+(( eltern_subfilter )) && ldif+="dn: $tdn
+changetype: add
+objectClass: organizationalUnit
+ou: Eltern
+
+"
+
+ldif+="dn: $dn
+changetype: add
+objectClass: inetOrgPerson
+objectClass: teckidsPerson
+"
+
+(( eltern_subfilter )) && ldif+="objectClass: teckidsParent
+"
+
+asso_loadk fields
+for f in "${asso_y[@]}"; do
+	ldif+="$f: $(asso_getv fields "$f" v)
+"
+done
+
+ldapmodify -c <<EOF
+$ldif
+EOF
+
+mksh "$(dirname "$0")/whois" dn "$dn"
