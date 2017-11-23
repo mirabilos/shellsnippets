@@ -1,0 +1,17 @@
+#!/bin/sh
+# $Id: Users/ᚦᚢᚱᛋᛏᛅᛁᚾ/misc/fw-off 2766 2012-02-23 08:14:30Z tglase $
+#-
+# Flush all ipfwadm^Wipchains^Wiptables^Wnetfilter rules.
+
+set -e
+printf '%s' 'Stopping firewall and allowing everyone...'
+iptables -F
+iptables -X
+iptables -t nat -F
+iptables -t nat -X
+iptables -t mangle -F
+iptables -t mangle -X
+iptables -P INPUT ACCEPT
+iptables -P FORWARD ACCEPT
+iptables -P OUTPUT ACCEPT
+echo " done"

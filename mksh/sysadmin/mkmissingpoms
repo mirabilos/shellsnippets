@@ -1,0 +1,85 @@
+#!/bin/mksh
+# $Id: mkmissingpoms 4271 2015-01-07 14:13:00Z tglase $
+#-
+# Copyright © 2015
+#	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+
+unset LANG LANGUAGE LC_ADDRESS LC_COLLATE LC_CTYPE LC_IDENTIFICATION \
+    LC_MEASUREMENT LC_MESSAGES LC_MONETARY LC_NAME LC_NUMERIC LC_PAPER \
+    LC_TELEPHONE LC_TIME
+export LC_ALL=C
+
+verbose=0
+while getopts 'v' ch; do
+	case $ch {
+	(v) verbose=1 ;;
+	(+v) verbose=0 ;;
+	(*) print -ru2 "usage: mksh mkmissingpoms [-v]"; exit 1 ;;
+	}
+done
+shift $((OPTIND - 1))
+
+function xml_encode {
+	REPLY=${1//'&'/'&amp;'}
+	REPLY=${REPLY//'<'/'&lt;'}
+}
+
+cd /var/www/maven_repo
+
+find * \( -name \*.zip -o -name \*.jar -o -name \*.tar.\* -o \
+    -name \*.tgz -o -name \*.tbz -o -name \*.tbz2 -o -name \*.txz \) \
+    -printf '%h\0' | sort -zu |&
+while IFS= read -d '' -p -r pathname; do
+	# fn 3rdparty/javax/servlet/servlet-api/2.4/servlet-api-2.4.pom
+	# pn 3rdparty/javax/servlet/servlet-api/2.4
+	if [[ $pathname != */*/*/* ]]; then
+		print -ru2 "W: ignoring too-short $pathname"
+		continue
+	fi
+
+	version=${pathname##*/}
+	artifactId=${pathname%/*}
+	groupId=${artifactId%/*}
+	artifactId=${artifactId##*/}
+	groupId=${groupId#*/}
+	groupId=${groupId//'/'/.}
+
+	[[ -s $pathname/$artifactId-$version.pom ]] && continue
+
+	found=0
+	for x in "$pathname/$artifactId-$version".*; do
+		[[ -e $x ]] || continue
+		if [[ $x = *.@(zip|jar|tar.*|t[gbx]z|tbz2) ]]; then
+			found=1
+			break
+		fi
+	done
+	if (( !found )); then
+		(( verbose )) && \
+		    print -ru2 "W: ignoring no-file-found-in $pathname"
+		continue
+	fi
+
+	print -nr -- "<project>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>${|xml_encode "$groupId";}</groupId>
+  <artifactId>${|xml_encode "$artifactId";}</artifactId>
+  <version>${|xml_encode "$version";}</version>
+</project>" >"$pathname/$artifactId-$version.pom"
+	print -r "created $pathname/$artifactId-$version.pom"
+done

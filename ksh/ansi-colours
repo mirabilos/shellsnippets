@@ -1,8 +1,8 @@
 #!/bin/mksh
-# -*- mode: sh -*-
+# $Id: ansi-colours 3961 2014-03-24 08:41:04Z tglase $
 #-
 # Copyright © 2014
-#	mirabilos <thorsten.glaser@teckids.org>
+#	mirabilos <t.glaser@tarent.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission
@@ -19,16 +19,17 @@
 # damage or existence of a defect, except proven that it results out
 # of said person’s immediate fault when using the work as intended.
 
-script=$(realpath "$(dirname "$0")"/ldif_crc.sh)
-[[ -s $script && -x $script ]] || exit 1
-
-cd "${1:-/etc/ldap/slapd.d}" || exit 1
-find . -type f -print0 |&
-while IFS= read -pr -d '' name; do
-	if [[ $name != *.ldif ]]; then
-		print -ru2 -- "W: '$name' not *.ldif"
-		continue
-	fi
-	content=$(cat "$name"; echo x)
-	print -nr -- "${content%x}" | "$script" >"$name"
+print -n '\033[0m'
+for i in 0 1; do
+	ii=0
+	(( i )) && ii=0\;1
+	is=
+	(( i )) && is='1;'
+	for bg in 4{0,1,2,3,4,5,6,7}; do
+		for fg in 3{0,1,2,3,4,5,6,7}; do
+			print -n "\033[$i;$fg;${bg}m ${is}$fg;${bg}m"
+		done
+		print '\033[0m'
+	done
 done
+print -n '\033[0m'

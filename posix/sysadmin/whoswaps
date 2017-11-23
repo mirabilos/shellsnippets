@@ -1,0 +1,10 @@
+#!/bin/sh
+# $Id: whoswaps 4266 2014-12-29 11:28:16Z tglase $
+#-
+# Quelle: http://sven.stormbind.net/blog/posts/ocol_who_is_sitting_in_my_swap_space/
+
+awk 'BEGIN{printf "%-7s %-16s %s (KB)\n", "PID","COMM","VMSWAP"} {
+if($1 == "Name:"){n=$2}
+if($1 == "Pid:"){p=$2}
+if($1 == "VmSwap:" && $2 != "0"){printf "%-7s %-16s %s\n", p,n,$2 | "sort -nrk3"}
+}' /proc/*/status

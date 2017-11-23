@@ -1,0 +1,90 @@
+#!/bin/mksh
+# $Id: staticHostsGen 2679 2012-01-17 15:08:35Z agocke $
+#-
+# Copyright © 2010
+#	Benjamin Kix <b.kix@tarent.de>
+# Copyright © 2010, 2011
+#	mirabilos <t.glaser@tarent.de>
+# Copyright © 2012
+#	gecko2 <a.gockel@tarent.de>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# Syntax: ./staticHostsGen [-]
+#	-: output to stdout instead of /etc/hosts
+
+DNS="dnsbonn"
+DNIP="172.26.0.64"
+HN="backup-bonn.lan.tarent.de"
+HIP="172.26.0.152"
+ZONES="{,lan.}tarent.de"
+
+# check if dns is alive and responding with sense
+if [[ $(mirhost $HN $DNIP) != \
+    "$HN	A	$HIP" ]]; then
+	print -u2 "DNS on $DNS ($DNIP) is dead."
+	exit 1
+fi
+
+if ! T=$(mktemp -d /tmp/staticHostsGen.XXXXXXXXXX); then
+	print -u2 Cannot create temporary directory.
+	exit 2
+fi
+
+cd "$T"
+
+# read out DNS, write into files
+for i in $ZONES; do
+	mirhost -l $i $DNIP
+done | while read lhs type rhs; do
+	# skip all except A (IPv4 address) and AAAA (IPv6 address) records
+	[[ $type = @(A|AAAA) ]] || continue
+	# skip illegal (in /etc/hosts) wildcard records
+	[[ $lhs = *\** ]] && continue
+	# note for later
+	print -r -- ${lhs%.} >>$rhs
+done
+
+# check if we wrote anything at all
+for i in *; do
+	[[ -e $i && -s $i ]] && break
+	print -u2 DNS does not give answers.
+	cd /
+	rm -rf "$T"
+	exit 3
+done
+
+# create new hosts file
+(
+	# append read-out IPv4 entries, sorted numerically
+	for i in *.*.*.*; do
+		[[ -e $i && -s $i ]] || continue
+		print -r -- $i $(sort <$i)
+	done | sort -t. -nk1,1 -k2,2 -k3,3 -k4,4
+	# append read-out non-IPv4 entries, sorted ASCIIbetically ☹
+	for i in *; do
+		[[ $i = *.*.*.* ]] && continue
+		[[ -e $i && -s $i ]] || continue
+		print -r -- $i $(sort <$i)
+	done
+) | if [[ $1 = - ]]; then
+	cat
+else
+	cat /etc/hosts.template - >/etc/hosts
+fi
+cd /
+rm -rf "$T"
+exit 0

@@ -1,0 +1,15 @@
+#!/bin/sh
+# $Id: Users/ᚦᚢᚱᛋᛏᛅᛁᚾ/misc/fw-on 2766 2012-02-23 08:14:30Z tglase $
+#-
+# Flush all ipfwadm^Wipchains^Wiptables^Wnetfilter rules.
+# Then block all on tcp/80 and all-but-ultimate-marmelade on tcp/443.
+# Use this for Evolvis major upgrades on AurISP machines, etc.
+
+set -e
+cd "$(dirname "$0")"
+./fw-off
+printf '%s' 'Disabling everyone but tarent...'
+iptables -A INPUT -p tcp -m tcp --dport 80 -j REJECT
+iptables -A INPUT -p tcp -m tcp --dport 443 -s 94.198.62.204/32 -j ACCEPT
+iptables -A INPUT -p tcp -m tcp --dport 443 -j REJECT
+echo " done"

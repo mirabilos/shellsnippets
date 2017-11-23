@@ -1,6 +1,26 @@
 #!/bin/mksh
-# $Id: ui.cgi 1104 2010-06-18 12:53:21Z tglase $
+# $Id: ui.cgi 5123 2017-01-16 16:10:38Z tglase $
 # root@dev:/var/www/tarentpgp/ui.cgi
+#-
+# Copyright (c) 2009, 2010, 2012
+#	mirabilos <t.glaser@tarent.de>
+# Copyright (c) 2002, 2003, 2004, 2006, 2007, 2008, 2009
+#	Thorsten Glaser <tg@mirbsd.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un-
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided "AS IS" and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person's immediate fault when using the work as intended.
 
 # for debugging {{{
 #print Content-type: text/plain
@@ -19,25 +39,7 @@ if [[ $AUTH_TYPE != Basic || $HTTPS != on || -z $REMOTE_USER || \
 fi
 
 ### BEGIN imported code {{{
-# $MirOS: src/bin/mksh/dot.mkshrc,v 1.43 2009/05/31 17:17:33 tg Rel $
-#-
-# Copyright (c) 2002, 2003, 2004, 2006, 2007, 2008, 2009
-#	Thorsten Glaser <tg@mirbsd.org>
-#
-# Provided that these terms and disclaimer and all copyright notices
-# are retained or reproduced in an accompanying document, permission
-# is granted to deal in this work without restriction, including un-
-# limited rights to use, publicly perform, distribute, sell, modify,
-# merge, give away, or sublicence.
-#
-# This work is provided "AS IS" and WITHOUT WARRANTY of any kind, to
-# the utmost extent permitted by applicable law, neither express nor
-# implied; without malicious intent or gross negligence. In no event
-# may a licensor, author or contributor be held liable for indirect,
-# direct, other damage, loss, or other issues arising in any way out
-# of dealing in the work, even if advised of the possibility of such
-# damage or existence of a defect, except proven that it results out
-# of said person's immediate fault when using the work as intended.
+# From MirOS: src/bin/mksh/dot.mkshrc,v 1.43 2009/05/31 17:17:33 tg Rel $
 
 allu=QWERTYUIOPASDFGHJKLZXCVBNM
 alll=qwertyuiopasdfghjklzxcvbnm
@@ -85,8 +87,8 @@ v_givenName=
 v_mailPrimaryAddress=
 v_o=
 v_sn=
-env LDAPTLS_CACERT=/etc/ssl/certs/ucs.tarent.de.cer \
-    ldapsearch -x -LLL -ZZ -H ldap://ugs.tarent.de -b dc=tarent,dc=de \
+env LDAPTLS_CACERT=/etc/ssl/certs/dc.lan.tarent.de.cer \
+    ldapsearch -x -LLL -ZZ -H ldap://dc1.lan.tarent.de -b dc=tarent,dc=de \
     uid="$REMOTE_USER" givenName mailPrimaryAddress o sn | \
     tr '\n' '' | sed 's/ //g' | tr '' '\n' |&
 while read -p key value; do

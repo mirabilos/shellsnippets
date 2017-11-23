@@ -1,0 +1,77 @@
+#!/bin/mksh
+# $Id: ipr2hn 2651 2012-01-09 13:52:46Z tglase $
+#-
+# Copyright © 2012
+#	mirabilos <t.glaser@tarent.de>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# Example: ipr2hn 192.168.0.1/24 10.0.0.0/8 >hostnames.txt 2>errs.txt
+
+tab='	'
+
+function iptohex {
+	local i h a save_IFS
+	typeset -Uui n
+
+	save_IFS=$IFS; IFS=.; set -A a -- $1; IFS=$save_IFS
+	h=0x
+	for i in 0 1 2 3; do
+		(( n = 0x100 + 10#${a[i]} ))
+		(( n < 0x100 || n > 0x1FF )) && return 1
+		h=$h${n#16#1}
+	done
+	print $h
+}
+
+function range2ips {
+	local -Uui16 -Z11 basis i maske
+
+	i=$(iptohex ${1%/*})
+	j=${1#*/}
+	if (( j < 0 || j > 32 )); then
+		print -u2 Wrong mask: $1
+		return 1
+	fi
+	if (( j == 32 )); then
+		maske=0xFFFFFFFF
+	else
+		(( maske = ~((1 << (32 - j)) - 1) ))
+	fi
+	(( basis = i & maske ))
+	(( i = basis ))
+	while (( (i & maske) == basis )); do
+		print $((#i & 255)).$((#(i >> 8) & 255)).$((#(i >> 16) & 255)).$((#i >> 24)).in-addr.arpa.
+		let i++
+	done
+}
+
+for range in "$@"; do
+	if [[ $range != +([0-9]).+([0-9]).+([0-9]).+([0-9])/+([0-9]) ]]; then
+		print -u2 Invalid range: $range
+		continue
+	fi
+	range2ips $range || continue
+done | while read ptr; do
+	mirhost -t ptr $ptr 2>/dev/null |&
+	found=0
+	while IFS= read -pr line; do
+		[[ $line = "${ptr%.}${tab}PTR$tab"* ]] || continue
+		print ${line##*$tab}
+		found=1
+	done
+	(( found )) || print -u2 Not found: $ptr
+done
