@@ -1,7 +1,7 @@
 #!/bin/mksh
-# $MirOS: contrib/hosted/tg/rcp,v 1.4 2010/10/06 18:46:18 tg Exp $
+# $MirOS: contrib/hosted/tg/rcp,v 1.5 2013/10/30 20:18:49 tg Exp $
 #-
-# Copyright (c) 2009, 2010
+# Copyright (c) 2009, 2010, 2013
 #	Thorsten Glaser <tg@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -23,7 +23,7 @@ sshx="--rsh=ssh -T"
 set -A args -- "$@"
 i=0
 is_inplace=0
-use_K=-K
+numeric_ids=--numeric-ids
 while (( i < ${#args[*]} )); do
 	case ${args[i]} {
 	(-4)
@@ -43,12 +43,12 @@ while (( i < ${#args[*]} )); do
 	(--inplace)
 		is_inplace=1
 		;;
-	(--no-K|--no-keep-dirlinks)
-		use_K=
+	(--no-numeric-ids)
+		numeric_ids=
 		unset args[i]
 		;;
-	(-K|--keep-dirlinks)
-		use_K=-K
+	(--numeric-ids)
+		numeric_ids=--numeric-ids
 		unset args[i]
 		;;
 	(-*)
@@ -66,4 +66,4 @@ else
 	use_sparse=-S
 fi
 
-exec rsync -xzavPH $use_K $use_sparse --stats "$sshx" "${args[@]}"
+exec rsync -zavPH $numeric_ids $use_sparse --stats "$sshx" "${args[@]}"

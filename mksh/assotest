@@ -1,4 +1,4 @@
-# $MirOS: contrib/hosted/tg/historic/assotest,v 1.3 2013/11/30 13:45:20 tg Exp $
+# $MirOS: contrib/hosted/tg/historic/assotest,v 1.4 2014/11/16 12:16:26 tg Exp $
 #-
 # some number of interactive tests for asso-kit
 
@@ -33,7 +33,7 @@ function somehash {
         print $ASSO_Lcdbhash_result
 }
 
-mydir=$(dirname "$(realpath "$0")")
+mydir=$(realpath "$0/..")
 PATH="$mydir:$mydir/..:$PATH" . assockit.ksh
 
 #asso_setidx 'test' 'foo'

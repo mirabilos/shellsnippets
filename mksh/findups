@@ -1,7 +1,7 @@
 #!/bin/mksh
-# $MirOS: contrib/code/Snippets/findups,v 1.2 2011/01/02 00:15:25 tg Exp $
+# $MirOS: contrib/code/Snippets/findups,v 1.3 2014/02/19 17:43:21 tg Exp $
 #-
-# Copyright (c) 2010, 2011
+# Copyright (c) 2010, 2011, 2014
 #	Thorsten Glaser <tg@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -30,8 +30,8 @@ if stat --help >/dev/null 2>&1; then
 else
 	set -A statcmd stat -f '%z %d %i %N'	# BSD stat (or so we assume)
 fi
-hashalg='cksum -a md4,sfv,oaat1s'; T=$(print | $hashalg 2>/dev/null)
-if [[ ${T//$nl} = 8c5b220bf6f482881a90287a64aea15032D7069366DFECC2 ]]; then
+hashalg='cksum -a md4,sfv,bafh'; T=$(print | $hashalg 2>/dev/null)
+if [[ ${T//$nl} = 8c5b220bf6f482881a90287a64aea15032D70693FA97E319 ]]; then
 	function hashprint {
 		print -r -- "${1//$nl} $2"
 	}

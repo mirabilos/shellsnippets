@@ -1,8 +1,8 @@
 #!/bin/mksh
-# $MirOS: contrib/fonts/unifont/hexpad.sh,v 1.4 2012/09/01 20:57:15 tg Exp $
+# $MirOS: contrib/fonts/unifont/hexpad.sh,v 1.5 2016/09/29 22:37:25 tg Exp $
 #-
 # Copyright © 2012
-#	Thorsten Glaser <tg@mirbsd.org>
+#	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission

@@ -1,0 +1,10 @@
+#!/bin/sh
+# $MirOS: contrib/hosted/tg/deb/hookdir/D00-preseed,v 1.2 2017/11/17 01:24:47 tg Exp $
+#-
+# Not complicated enough for copyright.
+
+set -ex
+debconf-set-selections <<\EOF
+man-db man-db/build-database boolean false
+man-db man-db/auto-update boolean false
+EOF
