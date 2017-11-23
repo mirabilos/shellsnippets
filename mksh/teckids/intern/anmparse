@@ -1,0 +1,171 @@
+#!/bin/mksh
+# -*- mode: sh -*-
+#-
+# Copyright © 2015
+#	mirabilos <thorsten.glaser@teckids.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# Parse an ⚠already MUA-decoded⚠ Teckids-MirWebseite Anmeldeformular
+# from stdin. When called from anmparsemaildir, $origfilename is the
+# (relative to $PWD) pathname of the current item, and $msgid is the
+# Message-ID, without angle brackets, and $outputfilename is where a
+# CSV row should be appended.
+
+export LC_ALL=C.UTF-8
+unset LANGUAGE
+set -U
+
+set -A fieldnames -- Vorname Nachname Geburtsdatum Alter \
+    Schulname Schulort Klasse eMail Kontaktumfang Account \
+    Benutzername Kanal OK_Eltern OK_Datenschutz PW-Hash \
+    Bemerkungen Referer Formular-ID
+set -A fieldvars
+typeset -l lc
+for lc in "${fieldnames[@]}"; do
+	fieldvars+=("${lc//-}")
+done
+fieldvarcnt=${#fieldvars[*]}
+
+function csvencode {
+	REPLY=${1//$'\n'/$'\r'}
+	[[ $REPLY = +([\(-~!\#\$%&]) ]] || REPLY=\"${REPLY//\"/\"\"}\"
+}
+
+if [[ $1 = -o ]]; then
+	print -n "TODO	Message-ID"
+	for x in "${fieldnames[@]}"; do
+		print -nr -- "	${|csvencode "$x";}"
+	done
+	print
+	exit 0
+fi
+
+s=$(cat)
+nl=$'\n'
+
+function die {
+	print -ru2 -- "E: $*"
+	exit 1
+}
+
+function parse_new {
+	print -r -- "${s#*'Eingesendetes Anmeldeformular'*$nl$nl}" |&
+
+	while IFS= read -pr line; do
+		if [[ $line = *( )Bemerkungen: ]]; then
+			bemerkungen=
+			while IFS= read -pr line; do
+				[[ -n $line ]] || break
+				[[ $line = '| '* ]] || die missing empty line \
+				    between Bemerkungen and next field group
+				bemerkungen=${bemerkungen:+$bemerkungen$nl}${line#'| '}
+			done
+			continue
+		elif [[ -z $line ]]; then
+			continue
+		elif [[ $line = +(_) ]]; then
+			break
+		fi
+		i=${#fieldnames[*]}
+		while (( i-- )); do
+			#XXX TODO: multiline fields: 「*( )"${fieldnames[i]}:」
+			[[ $line = *( )"${fieldnames[i]}: "* ]] || continue
+			nameref V=${fieldvars[i]}
+			V=${line#*: }
+			V=${V%%+( )}
+			break
+		done
+		(( i < 0 )) && print -ru2 -- "W: ignoring line: $line"
+	done
+}
+
+function parse_old {
+	fieldnames+=('eMail Kind')
+	fieldvars+=(email)
+
+	print -r -- "${s#*'Eingesendetes Anmeldeformular'*$nl$nl}" |&
+
+	while IFS= read -pr line; do
+		if [[ $line = *( )Bemerkungen: ]]; then
+			bemerkungen=
+			while IFS= read -pr line; do
+				[[ -n $line ]] || break
+				[[ $line = '| '* ]] || die missing empty line \
+				    between Bemerkungen and next field group
+				bemerkungen=${bemerkungen:+$bemerkungen$nl}${line#'| '}
+			done
+			continue
+		elif [[ $line = 'Geburtsdatum: '*' Alter: '* ]]; then
+			geburtsdatum=${line##'Geburtsdatum:'+( )}
+			geburtsdatum=${geburtsdatum%%+( )Alter: *}
+			alter=${line##*' Alter:'+( )}
+			alter=${alter%%+( )}
+			continue
+		elif [[ $line = 'Schulort: '*' Klasse: '* ]]; then
+			schulort=${line##'Schulort:'+( )}
+			schulort=${schulort%%+( )Klasse: *}
+			klasse=${line##*' Klasse:'+( )}
+			klasse=${klasse%%+( )}
+			continue
+		elif [[ $line = OK:+( )Eltern\ *,\ Datenschutz\ * ]]; then
+			ok_eltern=${line#* Eltern }
+			ok_datenschutz=${ok_eltern#*, Datenschutz }
+			ok_eltern=${ok_eltern%%, Datenschutz *}
+			ok_eltern=${ok_eltern%%+( )}
+			ok_datenschutz=${ok_datenschutz%%+( )}
+			continue
+		elif [[ -z $line ]]; then
+			continue
+		elif [[ $line = +(_) ]]; then
+			break
+		fi
+		i=${#fieldnames[*]}
+		while (( i-- )); do
+			[[ $line = *( )"${fieldnames[i]}: "* ]] || continue
+			nameref V=${fieldvars[i]}
+			V=${line#*: }
+			V=${V##+( )}
+			V=${V%%+( )}
+			break
+		done
+		(( i < 0 )) && print -ru2 -- "W: ignoring line: $line"
+	done
+}
+
+if [[ $s = *' Vorname: '* ]]; then
+	parse_new
+elif [[ $s = *"${nl}Vorname:  "* ]]; then
+	parse_old
+else
+	die could not detect format
+fi
+typeset +n V
+unset i lc line s V
+
+if [[ -z $outputfilename ]]; then
+	typeset -p #debug
+	exit 0
+fi
+
+o=".	${|csvencode "$msgid";}"
+i=-1
+while (( ++i < fieldvarcnt )); do
+	nameref V=${fieldvars[i]}
+	o+="	${|csvencode "$V";}"
+done
+print -r -- "$o" >>"$outputfilename"
+exit 0

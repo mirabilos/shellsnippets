@@ -1,0 +1,107 @@
+#!/bin/mksh
+# -*- mode: sh -*-
+#-
+# Copyright © 2015, 2016
+#	Dominik George <dominik.george@teckids.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+
+export LC_ALL=C
+unset LANGUAGE
+cd /usr/src/verein
+
+nl=$'\n'
+
+# Find the LDAP kit
+PATH=/usr/local/share/teckids/mk:$PWD/../../www/mk:$PATH . assoldap.ksh
+
+# Find and load users (LDAP)
+asso_setldap_sasl users -- -b ou=People,dc=teckids,dc=org -s children "(objectClass=posixAccount)" uid cn
+asso_loadk users
+
+# Iterate over all users
+for user in "${asso_y[@]}"; do
+	uid=$(asso_getv users "$user" uid 0)
+	cn=$(asso_getv users "$user" cn 0)
+
+	if [[ $user != cn=*"+"uid=*,* ]]; then
+		rdn="cn=$cn+uid=$uid"
+		ldapmodrdn "$user" "$rdn"
+	fi
+done
+
+# Find and load groups (LDAP)
+asso_setldap_sasl groups -- -b ou=Groups,dc=teckids,dc=org -s children "(objectClass=posixGroup)" cn member
+asso_loadk groups
+
+# Iterate over all groups
+for group in "${asso_y[@]}"; do
+	cn=$(asso_getv groups "$group" cn)
+	# Is there a parents group?
+	if [[ $cn = *-kids ]]; then
+		cn_e=${cn/kids/eltern}
+	else
+		cn_e=$cn-eltern
+	fi
+	asso_setldap_sasl groups_e -- -b ou=Groups,dc=teckids,dc=org -s children "(cn=$cn_e)" cn
+	asso_loadk groups_e
+	dn_e=${asso_y[0]}
+	ldif_e=
+
+	asso_loadk groups "$group" member
+
+	ldif=
+	# Iterate over DNs
+	for n in "${asso_y[@]}"; do
+		[[ $n = count ]] && continue
+		dn=$(asso_getv groups "$group" member $n)
+
+		if [[ $dn = cn=*([!,+])"+"uid=*,* ]]; then
+			# Extract uid
+			uid=${dn#*\+uid=}
+			uid=${uid%%,*}
+
+			# Append to LDIF
+			[[ $nl$ldif = *"${nl}memberUid: $uid$nl"* ]] || ldif="${ldif}memberUid: $uid$nl"
+		fi
+
+		# Is there a parents group?
+		if [[ -n $dn_e ]]; then
+			asso_setldap_sasl eltern -- -b "$dn" -s children "(objectClass=inetOrgPerson)"
+			asso_loadk eltern
+
+			for e in "${asso_y[@]}"; do
+				[[ $nl$ldif_e = *"${nl}member: $e$nl"* ]] || ldif_e="${ldif_e}member: $e$nl"
+			done
+		fi
+	done
+
+	cat <<-EOF
+		dn: $group
+		changetype: modify
+		replace: memberUid
+		${ldif}-
+
+	EOF
+
+	[[ -n $dn_e ]] && cat <<-EOF
+		dn: $dn_e
+		changetype: modify
+		replace: member
+		${ldif_e}-
+
+	EOF
+done | ldapmodify -c

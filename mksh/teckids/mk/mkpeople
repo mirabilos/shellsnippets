@@ -1,0 +1,127 @@
+# -*- mode: sh -*-
+
+# This file is part of the Teckids website, which is copyrighted
+# material, please read https://www.teckids.org/LICENCE.htm for details.
+
+export LC_ALL=C
+unset LANGUAGE
+cd "$(dirname "$0")"
+export TOP=$(realpath ..)
+
+function ldapsearch {
+	local _cmd=ldapsearch _x
+
+	for _x in "$@"; do
+		_cmd+=" ${_x@Q}"
+	done
+	ssh ticdesk.teckids.org "$_cmd"
+}
+
+PATH=$TOP/mk:$PATH . assoldap.ksh
+PATH=$TOP/mk:$PATH . base64.ksh
+. ./common
+
+asso_setldap_sasl users -- -b ou=Members,ou=People,dc=teckids,dc=org \
+    '(&(objectClass=inetOrgPerson)(title=*))'
+
+cd "$DST"
+rm -rf people
+mkdir people
+cat <<'EOT'
+# *** GENERATED FILE, DO NOT EDIT ***
+#-
+# This file is part of the Teckids website, which is copyrighted
+# material, please read https://www.teckids.org/LICENCE.htm for details.
+
+mws_usesidebar
+mws_setname people 'Vereinsmitglieder'
+mws_setheadline 'Steckbriefe der Vereinsmitglieder'
+mws_putheader
+mws_content <<'EOF'
+
+<p>
+ Auf dieser Seite werden nur Vorstellungen von Mitgliedern angezeigt,
+ die diese verfasst haben und der Veröffentlichung zugestimmt haben!
+</p>
+
+EOF
+
+mws_maketoc
+mws_content <<'EOF'
+
+EOT
+
+asso_loadk users
+i=-1
+for user_dn in "${asso_y[@]}"; do
+	sn=$(asso_getv users "$user_dn" sn 0)
+	givenName=$(asso_getv users "$user_dn" givenName 0)
+	print -r -- "$sn $givenName $((++i))"
+done | LC_ALL=de_DE.UTF-8 sort -f | while IFS= read -r x; do
+	i=${x##* }
+	user_dn=${asso_y[i]}
+	uid=$(xhtml_escape "$(asso_getv users "$user_dn" uid 0)")
+	cn=$(xhtml_escape "$(asso_getv users "$user_dn" cn 0)")
+	displayName=$(xhtml_escape "$(asso_getv users "$user_dn" displayName 0)")
+	mail=$(xhtml_escape "$(asso_getv users "$user_dn" mail 0)")
+	title=$(xhtml_escape "$(asso_getv users "$user_dn" title 0)")
+	description=$(asso_getv users "$user_dn" description 0)
+	jpegPhoto=$(asso_getv users "$user_dn" jpegPhoto 0)
+	displayName=${displayName:-$cn}
+	img=pics/people.jpg
+	alt="kein Foto vorhanden"
+	if [[ -n $jpegPhoto ]]; then
+		img=people/$uid.jpg
+		alt="Foto von $displayName"
+		fn="people/$(asso_getv users "$user_dn" uid 0).jpg"
+		Lb64decode "$jpegPhoto" >"$fn"
+		print -ru3 -- "$fn"
+	fi
+	if [[ -z $description ]]; then
+		description="<i>Vorstellungstext folgt!</i>"
+	fi
+	if [[ -e ../data/blog_$uid.cfg ]]; then
+		blog=", <a href=\"@@RELPATH@@blog_$uid.htm\">Mitglieds-Blog</a>"
+	else
+		blog=
+	fi
+	cat <<EOT
+<h2 id="$uid">Steckbrief von $displayName</h2>
+<table border="1" style="width:98%;">
+<tr>
+ <td style="width:200px; height:267px; padding:0px; vertical-align:top; text-align:left;"
+  rowspan="3"><img src="$img" alt="$alt" style="height:267px; width:200px;" /></td>
+ <th style="width:64px; height:1em; vertical-align:top; text-align:left;">Name:</th>
+ <td style="height:1em; vertical-align:top; text-align:left;">$displayName (<a
+  href="mailto:$mail">E-Mail</a>$blog)</td>
+</tr><tr>
+ <th style="width:64px; height:1em; vertical-align:top; text-align:left;">Rolle:</th>
+ <td style="height:1em; vertical-align:top; text-align:left;">$title</td>
+</tr><tr>
+ <td style="vertical-align:top; text-align:left;" colspan="2">$description</td>
+</tr></table>
+
+EOT
+done
+
+cat <<'EOT'
+<p>Alle Rechte auf die Bilder und Profildaten bleiben den jeweiligen
+ Mitgliedern vorbehalten; eine weitergehende Nutzung ist nicht gestattet
+ ohne explizite Einwilligung der betroffenen Mitglieder!</p>
+EOF
+
+#DEPEND tpl/tosidebar
+mws_calltemplate tosidebar
+
+mws_content <<'EOF'
+<h2>Mitglieder-Blogs</h2>
+EOF
+
+#DEPEND OBJ:blogs.cut
+. "${DST}/blogs.cut"
+
+#DEPEND tpl/footerwithsidebar
+mws_putfooter withsidebar
+exit 0
+EOT
+exit 0

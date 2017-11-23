@@ -1,0 +1,106 @@
+#!/bin/mksh
+# -*- mode: sh -*-
+#-
+# Copyright © 2013, 2014
+#	Thorsten Glaser <tg@mirbsd.org>
+# Copyright © 2014
+#	Dominik George <dominik.george@teckids.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+
+export LC_ALL=C
+unset LANGUAGE
+cd /usr/src/verein
+
+# Find the LDAP kit
+PATH=/usr/local/share/teckids/mk:$PWD/../../www/mk:$PATH . assoldap.ksh
+
+HOSTNAME=${HOSTNAME:-$(hostname -s)}
+
+if [[ $HOSTNAME != terra ]]; then
+	function ldapsearch {
+		local _cmd=ldapsearch _x
+
+		for _x in "$@"; do
+			_cmd+=" ${_x@Q}"
+		done
+		ssh terra.teckids.org "$_cmd"
+	}
+fi
+
+# Find and load users
+asso_setldap_sasl users -- -b ou=Members,ou=People,dc=teckids,dc=org "(&(objectClass=posixAccount)(title=*)(mail=*))" uid cn title mail
+
+kd=$(mktemp -d)
+
+asso_loadk users
+for user_dn in "${asso_y[@]}"; do
+	uid=$(asso_getv users "$user_dn" uid 0)
+	cn=$(asso_getv users "$user_dn" cn 0)
+	title=$(asso_getv users "$user_dn" title 0)
+
+	cat >"$kd/$uid" <<EOF
+$cn ($title)
+Teckids e.V. - Erkunden, Entdecken, Erfinden.
+https://www.teckids.org
+EOF
+done
+
+# Copy signatures to user homes
+cd "$kd"
+for uid in *; do
+	[[ -e "$uid" ]] || continue
+
+	# Get home path from OTTO-Versandhandel
+	eval "home=~$uid"
+
+	# Copy signature
+	cp "$uid" "$home/.signature"
+	chown "$uid":root "$home/.signature"
+	chmod 0644 "$home/.signature"
+done
+
+cd -
+rm -rf "$kd"
+
+kd=$(mktemp -d)
+
+asso_loadk users
+for user_dn in "${asso_y[@]}"; do
+	uid=$(asso_getv users "$user_dn" uid 0)
+	mail=$(asso_getv users "$user_dn" mail 0)
+
+	print -r -- "$mail" >"$kd"/"$uid"
+done
+# Copy files to user homes
+cd "$kd"
+for uid in *; do
+	[[ -e "$uid" ]] || continue
+
+	# Ensure home existence
+	su -c /bin/true "$uid"
+
+	# Get home path from OTTO-Versandhandel
+	eval "home=~$uid"
+
+	# Copy signature
+	cp "$uid" "$home/.mailfrom"
+	chown "$uid":root "$home/.mailfrom"
+	chmod 0644 "$home/.mailfrom"
+done
+
+cd -
+rm -rf "$kd"

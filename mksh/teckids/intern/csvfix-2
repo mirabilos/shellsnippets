@@ -1,0 +1,28 @@
+sort -u <schools2.ssv | while IFS=$'\x1C' read l1 l2 o1 o2; do
+	ldapsearch -QLLL "(&(l=$l1)(o=$o1))" dn | \
+	    tr '\n' $'\a' | sed -e $'s/\a //g' | tr $'\a' '\n' |&
+	while IFS= read -pr foo; do
+		[[ -n $foo ]] || continue
+		if [[ $foo != 'dn:'* ]]; then
+			print -ru2 "E: $foo"
+			exit 1
+		fi
+		dn=${foo#* }
+		[[ $foo = dn::* ]] && dn=$(print -r -- "$dn" | base64 -di)
+		if [[ $dn != *,dc=teckids,dc=org ]]; then
+			print -ru2 "E: dn kaputt: $dn / $foo"
+			exit 1
+		fi
+		cat <<-EOF
+			dn: $dn
+			changetype: modify
+			replace: o
+			o: $o2
+			-
+			replace: l
+			l: $l2
+			-
+
+		EOF
+	done
+done >schools3.ldif

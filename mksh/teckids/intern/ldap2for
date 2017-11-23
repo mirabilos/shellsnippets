@@ -1,0 +1,83 @@
+#!/bin/mksh
+# -*- mode: sh -*-
+#-
+# Copyright © 2013, 2014
+#	Thorsten Glaser <tg@mirbsd.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# ldap2for script ldapopts -- attributes
+
+export LC_ALL=C
+unset LANGUAGE
+wd=$(realpath .)
+cd "$(dirname "$0")"
+
+if [[ $HOSTNAME != terra ]]; then
+	function ldapsearch {
+		local _cmd=ldapsearch _x
+
+		for _x in "$@"; do
+			_cmd+=" ${_x@Q}"
+		done
+		ssh terra.teckids.org "$_cmd"
+	}
+fi
+
+PATH=$PWD/../../www/mk:$PATH . assoldap.ksh
+
+if (( $# < 3 )); then
+	print -u2 Syntax error
+	exit 1
+fi
+script=$1
+shift
+set -A ldapopts
+while (( $# )); do
+	[[ $1 = -- ]] && break
+	ldapopts+=("$1")
+	shift
+done
+if [[ $1 != -- ]]; then
+	print -u2 Syntax error
+	exit 1
+fi
+shift
+set -A attributes -- "$@"
+for x in "${attributes[@]}"; do
+	[[ $x = [a-zA-Z]*([0-9a-zA-Z_]) ]] && continue
+	print -ru2 "Invalid field name ${x@Q}"
+	exit 1
+done
+
+asso_setldap_sasl res -- "${ldapopts[@]}"
+
+asso_loadk res
+cd "$wd"
+typeset -Uui16 -Z11 i=0
+for dn in "${asso_y[@]}"; do
+	export dn lfd_nr=${i#16#}
+	for k in "${attributes[@]}"; do
+		v=$(asso_getv res "$dn" "$k" 0)
+		[[ -n $v ]] || continue 2
+		eval $k=\$v
+		eval export $k
+	done
+	print -ru2 "Running script for #$lfd_nr: $dn"
+	mksh "$script" dn "${attributes[@]}"
+	let ++i
+done
+print -u2 "done"

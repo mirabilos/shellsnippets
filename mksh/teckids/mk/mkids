@@ -1,0 +1,188 @@
+#!/bin/mksh
+# -*- mode: sh -*-
+#-
+# Copyright © 2014, 2017
+#	Thorsten Glaser <tg@mirbsd.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# Rewrite all ID (and, for Teckids, Author) fields in all data/*.inc
+# files on a MirWebseite setup.
+
+export LC_ALL=C
+unset LANGUAGE
+cd "$(dirname "$0")"
+export TOP=$(realpath ..)
+cd "$TOP"
+
+if ! read ax <data/mirwebseite.ids || [[ $ax != [1-9]*([0-9]) ]]; then
+	print -u2 E: mirwebseite.ids broken
+	exit 255
+fi
+typeset -i10 cx=$ax
+
+[[ -n $ASSO_VAL ]] || PATH="$TOP/mk:$PATH" . assockit.ksh
+
+# just in case, unset the target array and create it as associative
+asso__lookup 1 authors
+asso__r_free
+asso__r_setf $ASSO_AASS
+# parse authors.txt into associative array
+#DEPEND OBJ:authors.txt
+if [[ ! -s $TOP/obj/authors.txt ]]; then
+	print -u2 E: generate authors.txt first
+	exit 1
+fi
+while IFS='=' read -r uid cn; do
+	asso_sets "$cn" authors "$uid"
+done <"$TOP/obj/authors.txt"
+
+asso__lookup 1 ids
+asso__r_free
+asso__r_setf $ASSO_AASS
+
+save_IFS=$' \t\n'
+nl=$'\n'
+integer state
+typeset -l parser_lctmp
+
+function parsedate {
+	local ta
+	IFS=$IFS:.
+	set -A ta -- ${e_date}
+	IFS=$save_IFS
+	typeset -i -Z2 e_tmpd=10#0${ta[0]}
+	typeset -i -Z2 e_tmpm=10#0${ta[1]}
+	typeset -i -Z4 e_tmpy=10#0${ta[2]}
+	e_date=$e_tmpd.$e_tmpm.$e_tmpy
+}
+
+find data -name \*.inc -print0 |&
+while IFS= read -d '' -p -r fn; do
+	if head "$fn" | grep -a '^#MWS=mbsd$' >/dev/null; then
+		print -ru2 "I: skipping $fn (not for us)"
+		continue
+	fi
+	print -ru2 "I: processing $fn"
+	exec 3>"$fn.new"
+	state=1
+	set -A wheader
+	nwheader=0 nwheaderx=-1
+	e_id= e_date= e_author= e_authoruid= e_authormail= ei_body=
+	while IFS= read -r line; do
+		if [[ $line = ---- ]]; then
+#debug, remove later
+oldid=${e_id}
+			if [[ -z ${e_id} ]]; then
+				id=f$((# ++cx))
+				if [[ -z ${e_author} ]]; then
+					print -ru2 "E: No author in a line in $fn"
+					exit 1
+				fi
+				IFS=';'
+				set -- $e_author
+				IFS=$' \t\n'
+				e_authoruid=
+				e_author=
+				e_authormail=
+				for x_author in "$@"; do
+					x=$(asso_getv authors "$x_author")
+					if [[ -z $x ]]; then
+						print -ru2 \
+						    "E: Unknown author in $fn:" \
+						    "$x_author ($e_author)"
+						print -u2 "I: Deleting authors.txt," \
+						    for autofixing in next run
+						rm -f "$TOP/obj/authors.txt"
+						exit 1
+					fi
+					id=${id}-${x_author}
+					e_authoruid+=${e_authoruid:+;}${x_author}
+					e_author+=${e_author:+;}$x
+					typeset -l x=${x// /.}@teckids.org
+					e_authormail+=${e_authormail:+;}$x
+					unset x
+				done
+				e_id=$id
+			fi
+			if asso_isset ids "$e_id"; then
+				[[ $e_id = f+([0-9]) ]] || e_id=f$((# ++cx))
+				if asso_isset ids "$e_id"; then
+					print -u2 "E: ID $e_id given twice, data inconsistent"
+					exit 1
+				fi
+			fi
+			asso_setnull ids "$e_id"
+#debug, remove later
+if asso_isset ids "$e_id"; then if [[ -z $oldid ]]; then print -u2 "I: ID $e_id given out."; else print -u2 "I: ID $e_id kept."; fi; fi
+			state=2
+			i=-1
+			while (( ++i < nwheader )); do
+				print -ru3 -- "${wheader[i]}"
+				if (( i == nwheaderx )); then
+					print -ru3 -- "ID: $e_id"
+					print -ru3 -- "Author: $e_author"
+					print -ru3 -- "Authormail: $e_authormail"
+					print -ru3 -- "AuthorUID: $e_authoruid"
+				fi
+			done
+			print -ru3
+			print -ru3 -- "$ei_body"----
+			if (( cx < ax )); then
+				print -u2 E: integer overflow, change the code
+				exit 255
+			fi
+			set -A wheader
+			nwheader=0 nwheaderx=-1
+			e_id= e_date= e_author= e_authoruid= e_authormail= ei_body=
+		elif (( state > 0 )); then
+			wheader[nwheader++]=$line
+			if [[ $line = @([A-Za-z]*([A-Za-z0-9_]):\ *) ]]; then
+				x=${line##+([A-Za-z0-9_]):+([	 ])}	# value
+				parser_lctmp=${line/%:+([	 ])"$x"} # key
+				[[ $parser_lctmp = @(id|date|author|authoruid|authormail) ]] && \
+				    eval e_$parser_lctmp=\$x
+			elif [[ -z $line ]]; then
+				(( --nwheader ))
+				state=0
+				continue
+			elif [[ $line = \#* ]]; then
+				continue	# ignore comment
+			else
+				print -ru2 "Unknown header in $fn:" \
+				    "$line"
+				exit 1
+			fi
+			state=1
+			if [[ $parser_lctmp = date ]]; then
+				parsedate
+				(( nwheaderx = nwheader - 1 ))
+			elif [[ $parser_lctmp = @(id|author|authormail|authoruid) ]]; then
+				(( --nwheader ))
+			fi
+		else
+			ei_body+=$line$nl
+		fi
+	done <"$fn"
+	if (( state != 2 )); then
+		print -ru2 "Last line of $fn not a separator!"
+		exit 1
+	fi
+	exec 3>&-
+	print $cx >data/mirwebseite.ids
+	mv -f "$fn.new" "$fn"
+done
+print -ru2 "I: done"

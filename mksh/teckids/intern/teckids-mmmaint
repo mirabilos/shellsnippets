@@ -1,0 +1,265 @@
+#!/bin/mksh
+# -*- mode: sh -*-
+#-
+# Copyright © 2015
+#	Thorsten „mirabilos“ Glaser <thorsten.glaser@teckids.org>
+# Copyright © 2013, 2014
+#	Thorsten Glaser <tg@mirbsd.org>
+# Copyright © 2014
+#	Dominik George <dominik.george@teckids.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+
+#XXX This script does need extensive re-factoring.
+
+export LC_ALL=C
+unset LANGUAGE
+cd /usr/src/verein
+
+if [[ -s /var/lock/teckids-mmmaint ]]; then
+	grep . /var/lock/teckids-mmmaint
+	print -ru2 -- E: einer reicht
+	exit 1
+fi
+echo $$ >/var/lock/teckids-mmmaint
+
+set +U
+function str2python {
+#	[[ -o utf8-mode ]]; local u=$?
+#	set +U
+
+	local s="$*" t=\"
+	local -i i=0 n=${#s}
+	local -Uui16 -Z5 hv
+
+	while (( i < n )); do
+		hv=1#${s:(i++):1}
+		t+=\\x${hv#16#}
+	done
+	t+=\"
+	print -nr -- "$t"
+
+#	(( u )) || set -U
+}
+
+# Find the LDAP kit
+PATH=/usr/local/share/teckids/mk:$PWD/../../www/mk:$PATH . assoldap.ksh
+
+# Find and load lists (LDAP)
+if [[ -n $1 ]]; then
+	filter="(cn=$1)"
+else
+	filter="(!(cn=schulen*))"
+fi
+asso_setldap_sasl l -- -b ou=Groups,dc=teckids,dc=org -s children $filter
+asso_loadk l
+set -sA lists -- "${asso_y[@]}"
+
+# Find and load lists (Mailman)
+list_lists -b |&
+while IFS= read -pr list; do
+	asso_setnull e "$list"
+done
+
+# Get all members of vorstand as main mailing list owner
+asso_setldap_sasl v -- "(memberOf=cn=vorstand,ou=Groups,dc=teckids,dc=org)" uid
+set -A vorstand_uids
+asso_loadk v
+for vorstand_dn in "${asso_y[@]}"; do
+	uid=$(asso_getv v "$vorstand_dn" uid 0)
+	[[ -n $uid ]] && vorstand_uids+=("$uid")
+done
+
+# Temporary file for mailman config input
+if ! mct=$(mktemp); then
+	print -ru2 E: cannot create temporary file
+	rm -f /var/lock/teckids-mmmaint
+	exit 255
+fi
+
+# Cache for user listadmin configs
+if ! lad=$(mktemp -d); then
+	rm -f "$mct"
+	print -ru2 E: cannot create temporary directory
+	rm -f /var/lock/teckids-mmmaint
+	exit 255
+fi
+
+# Iterate over all lists
+for list in "${lists[@]}"; do
+	cn=$(asso_getv l "$list" cn 0)
+	[[ -n $cn ]] || continue
+	d=$(asso_getv l "$list" description 0)
+
+	pw=$(pwgen 8 1)
+
+	# Owner finden
+	owner=""
+	uid_done=:
+	asso_loadk l "$list" owner
+	for i in "${asso_y[@]}"; do
+		[[ $i = count ]] && continue
+		owner_dn=$(asso_getv l "$list" owner $i)
+
+		if [[ $owner_dn = *',ou=People,'* ]]; then
+			g_mail=
+			asso_setldap_sasl x -- -b "$owner_dn" -s base mail uid
+		elif [[ $owner_dn = *',ou=Groups,'* ]]; then
+			# Determine group mail address
+			g_mail=${owner_dn#cn=}
+			g_mail=${g_mail%%,*}@lists.teckids.org
+			owner+=", '$g_mail'"
+			asso_setldap_sasl x -- "(memberOf=$owner_dn)" mail uid
+		else
+			continue
+		fi
+
+		asso_loadk x
+		for owner_dn in "${asso_y[@]}"; do
+			o_mail=$(asso_getv x "$owner_dn" mail 0)
+			[[ -n $o_mail ]] || continue
+			[[ -z $g_mail ]] && owner+=", '$o_mail'"
+			o_uid=$(asso_getv x "$owner_dn" uid 0)
+			[[ -n $o_uid ]] || continue
+
+			#XXX check if “asso_isset e” style is faster
+			[[ $uid_done = *:"$o_uid":* ]] && continue
+			uid_done+=$o_uid:
+			cat >>"$lad/$o_uid" <<EOF
+username $o_mail
+password "$pw"
+spamlevel 8
+adminurl https://www.teckids.org/mailman/admindb/{list}
+
+$cn@lists.teckids.org
+
+EOF
+		done
+	done
+	for o_uid in "${vorstand_uids[@]}"; do
+		[[ $uid_done = *:"$o_uid":* ]] && continue
+		uid_done+=$o_uid:
+		cat >>"$lad/$o_uid" <<EOF
+username vorstand@lists.teckids.org
+password "$pw"
+spamlevel 8
+adminurl https://www.teckids.org/mailman/admindb/{list}
+
+$cn@lists.teckids.org
+
+EOF
+	done
+	if [[ -n $owner ]]; then
+		owner=${owner/#, /\[}']'
+	else
+		owner="['vorstand@lists.teckids.org']"
+	fi
+
+	# Check list existence
+	if ! asso_isset e "$cn"; then
+		# Create and configure if not existent
+		logger -t ldap2ml "Creating new mailing list $cn"
+		print | newlist -q -l de -u www.teckids.org "$cn"@lists.teckids.org vorstand@teckids.org "$pw"
+		cat >"$mct" <<EOF
+# ~*~ coding: utf-8 ~*~
+private_roster = 2
+archive = True
+archive_private = 1
+subscribe_policy = 1
+EOF
+		config_list -i "$mct" "$cn"
+	fi
+	# Sync description and subject tag as well as owner list
+	cat >"$mct" <<EOF
+# ~*~ coding: utf-8 ~*~
+description = $(str2python "$d")
+subject_prefix = $(str2python "[Teckids $cn] ")
+owner = $owner
+EOF
+	config_list -i "$mct" "$cn"
+
+	# Sync members
+	logger -t ldap2ml "Syncing members of mailing list $cn"
+	{
+		# Sync direct members the memberOf overlay knows of
+		#XXX speed this up: streaming mode, avoid assockit
+		asso_setldap_sasl m -- "(&(memberOf=$list)(mail=*))" cn mail
+		asso_loadk m
+		for dn in "${asso_y[@]}"; do
+			n=$(asso_getv m "$dn" cn 0)
+			print -r -- "${n:-no name} <$(asso_getv m "$dn" mail 0)>"
+		done
+	} >"$mct"
+	if inv=$(LC_ALL=C pcregrep -a -v '^[^<]* <(?=.{1,254}\$)(?=.{1,64}@)[-!#-'\''*+/-9=?A-Z^-~]+(\.[-!#-'\''*+/-9=?A-Z^-~]+)*@[0-9A-Za-z]([-0-9A-Za-z]{0,61}[0-9A-Za-z])?(\.[0-9A-Za-z]([-0-9A-Za-z]{0,61}[0-9A-Za-z])?)*>$' "$mct"); then
+		print -r -- "$inv" | LC_ALL=C.UTF-8 mailx \
+		    -s "teckids-mmmaint: invalid addresses for list: $cn" root >&2
+		LC_ALL=C pcregrep -a '^[^<]* <(?=.{1,254}\$)(?=.{1,64}@)[-!#-'\''*+/-9=?A-Z^-~]+(\.[-!#-'\''*+/-9=?A-Z^-~]+)*@[0-9A-Za-z]([-0-9A-Za-z]{0,61}[0-9A-Za-z])?(\.[0-9A-Za-z]([-0-9A-Za-z]{0,61}[0-9A-Za-z])?)*>$' "$mct"
+	else
+		cat "$mct"
+	fi | sync_members -w=n -g=n -d=n -a=n -f - "$cn"
+
+	# Set password to what we generated and stored to listadmin configs earlier
+	/usr/lib/mailman/bin/change_pw -q -l "$cn" -p "$pw"
+done
+print -u2 "done"
+
+rm -f "$mct"
+
+# Copy listadmin configs to user homes
+cd "$lad"
+for uid in *; do
+	[[ -e "$uid" ]] || continue
+
+	# Get home path from OTTO-Versandhandel
+	eval "home=~$uid"
+
+	# Copy listadmin config and secure it
+	cp "$uid" "$home/.listadmin.ini"
+	chown "$uid":root "$home/.listadmin.ini"
+	chmod 0460 "$home/.listadmin.ini"
+done
+cd /
+rm -rf "$lad"
+
+# Copies mailman archives to cache folder and sets permissions
+# so groups can read
+
+mkdir -p /var/cache/mailmanarch
+cd /var/lib/mailman/archives/private
+
+for d in *.mbox; do
+	[[ $d = "*.mbox" || ! -d "$d" ]] && continue
+
+	f=$d/$d
+	t=/var/cache/mailmanarch/${d%.mbox}
+	g=${d%.mbox}
+	[[ $g = mailman ]] && g=list
+
+	if ! [[ -e "$f" ]]; then
+		rm -f "$t"
+	fi
+
+	if [[ "$f" -nt "$t" ]]; then
+		cp "$f" "$t"
+		if ! chown root:"$g" "$t"; then
+			rm -f "$t"
+		else
+			chmod 0640 "$t"
+		fi
+	fi
+done
+
+rm -f /var/lock/teckids-mmmaint

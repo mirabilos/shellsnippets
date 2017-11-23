@@ -1,0 +1,470 @@
+# -*- mode: sh -*-
+
+# Copyright © 2013, 2014, 2015, 2017
+#	Thorsten „mirabilos“ Glaser <thorsten.glaser@teckids.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+
+mydir=$(dirname "$(realpath "$0")")
+docmannumber=$1; [[ $1 = +([0-9]) ]] || exit 1
+srctree=$2
+dsttree=$3
+
+subdir_levels=1
+x=$dsttree
+while [[ $x = */* ]]; do
+	let ++subdir_levels
+	x=${x#*/}
+done
+
+[[ -n $ASSO_VAL ]] || PATH="$mydir:$mydir/..:$PATH" . assockit.ksh
+(( common_read )) || PATH="$mydir:$mydir/..:$PATH" . common
+
+cwd=$(realpath .)
+mkdir -p docman$docmannumber
+uwd=$cwd/docman$docmannumber
+
+function fdie {
+	print -ru2 "E: '$srcf' $*"
+	exit 1
+}
+
+function fwarn {
+	print -ru2 "W: '$srcf' $*"
+}
+
+typeset -l lk
+typeset -Uui16 -Z11 dword
+
+exec >"$uwd/tree.hts~"
+print '#DEPEND mk/docman'
+
+cd "$srctree"
+set -A all_srcf
+for srcf in $(fgrep -arl TECKIDSMETA . | fgrep -v /drafts/); do
+	srcf=${srcf#./}
+	all_srcf+=("$srcf")
+	print -r -- "#DEPEND $srctree/$srcf"
+	[[ -s $srcf ]] || fdie "does not exist"
+	case $srcf {
+	(*.tex)
+		dstf=${srcf%tex}pdf
+		;;
+	(*)
+		print -ru2 "W: '$srcf' has unknown extension, skipping"
+		continue
+		# NOTREACHED
+		print -ru2 "W: '$srcf' has unknown extension, assuming copy"
+		dstf=$srcf
+		;;
+	}
+	od=$uwd/t
+	[[ $dstf = */* ]] && od=$uwd/t/${dstf%/*}
+	mkdir -p "$od"
+	bn=${dstf##*/}
+	sed -n '/TECKIDSMETA:BEGIN$/,/TECKIDSMETA:END$/p' \
+	    <"$srcf" >"$od/in-$bn"
+	[[ -s $od/in-$bn ]] || fdie "has format errors: no BEGIN/END markers"
+	exec <"$od/in-$bn"
+	IFS= read -r line
+	marker=${line%TECKIDSMETA:BEGIN}
+	last="Filename: $dstf"
+	while IFS= read -r line; do
+		[[ $line = "$marker"* ]] || fdie "malformed input line '$line'"
+		line=${line#"$marker"}
+		if [[ $line = ' .' ]]; then
+			last+=$'\r'
+		elif [[ $line = ' '* ]]; then
+			last+=$line
+		elif [[ $line != *:* ]]; then
+			fdie "not a key:value line: '$line'"
+		else
+			k=${last%%:*}
+			lk=$k
+			v=${last#*:}
+			v=${v##+([	 ])}
+			asso_sets "$v" filekeys "$srcf" "$k"
+			asso_sets "$v" lokeys "$srcf" "$lk"
+			last=$line
+		fi
+	done
+	[[ $last = TECKIDSMETA:END ]] || \
+	    fdie "has format errors: '$last' no END marker"
+
+	havefb=0 havest=0 havekurs=0 haveeinh=0 havetype=0 havebl=0 havet=0
+	asso_loadk lokeys "$srcf"
+	for k in "${asso_y[@]}"; do
+		case $k {
+		(fachbereich)	havefb=1 ;;
+		(stufen)	havest=1 ;;
+		(kurs)		havekurs=1 ;;
+		(einheit)	haveeinh=1 ;;
+		(materialart)	havetype=1 ;;
+		(blatt)		havebl=1 ;;
+		(titel)		havet=1 ;;
+		}
+	done
+
+	(( havefb )) || fdie 'missing mandatory field Fachbereich'
+	(( havest )) || fdie 'missing mandatory field Stufen'
+	(( havekurs )) || fdie 'missing mandatory field Kurs'
+	(( haveeinh )) || fdie 'missing mandatory field Einheit'
+	(( havetype )) || fdie 'missing mandatory field Materialart'
+	type=$(asso_getv lokeys "$srcf" "materialart")
+	lk=$type
+	case $lk {
+	(unterrichtsplan)
+		(( havebl )) && fdie "type '$type' has no Blatt field"
+		(( havet )) && fwarn "type '$type' needs no Titel field"
+		;;
+	(arbeitsblatt)
+		(( havebl )) || fdie "missing mandatory field Blatt for type '$type'"
+		(( havet )) || fdie "missing mandatory field Titel for type '$type'"
+		;;
+	(*)
+		fwarn "unknown type '$type'"
+		(( havet )) || fdie "missing mandatory field Titel for type '$type'"
+		;;
+	}
+
+	fb=$(asso_getv lokeys "$srcf" "fachbereich")
+	st= x=$(asso_getv lokeys "$srcf" "stufen")
+	kurs=$(asso_getv lokeys "$srcf" "kurs")
+	einh=$(asso_getv lokeys "$srcf" "einheit")
+	[[ $einh = [1-9]*([0-9])' - '* ]] || fdie "malformed Einheit '$einh'"
+	for y in $x; do
+		case $y {
+		(+([0-9])-+([0-9]))
+			i=${y%-*}
+			j=${y#*-}
+			while (( i <= j )); do
+				st+=\ $((i++))
+			done
+			;;
+		(+([0-9])?(,))
+			i=${y%,}
+			st+=\ $((i))
+			;;
+		(*)
+			fdie "malformed '$x' in field Stufen"
+			;;
+		}
+	done
+	[[ -n $st ]] || fdie 'missing mandatory field Stufen'
+	st+=\ all
+	hr="$fb [$x] $kurs (${einh/ - /. }) "
+	case $lk {
+	(unterrichtsplan)
+		x=$(asso_getv lokeys "$srcf" "beschreibung")
+		for i in $st; do
+			asso_isset hier "$fb" $i "$kurs" "$einh" planfile && \
+			    fdie 'is a duplicate'
+			asso_sets "$x" hier "$fb" $i "$kurs" "$einh" desc
+			asso_sets "$srcf" hier "$fb" $i "$kurs" "$einh" planfile
+		done
+		hr+=Unterrichtsplan
+		;;
+	(arbeitsblatt)
+		blatt=$(asso_getv lokeys "$srcf" "blatt")
+		[[ $blatt = [1-9]*([0-9]) ]] || \
+		    fdie "malformed '$blatt' in field Blatt"
+		(( dword = blatt ))
+		y=${dword#16#}
+		x=$(asso_getv lokeys "$srcf" "titel")
+		for i in $st; do
+			asso_isset hier "$fb" $i "$kurs" "$einh" p$y file && \
+			    fdie 'is a duplicate'
+			asso_sets "$((dword)). $x" hier "$fb" $i "$kurs" "$einh" p$y title
+			asso_sets "$srcf" hier "$fb" $i "$kurs" "$einh" p$y file
+		done
+		hr+="$((dword)). $x"
+		;;
+	(*)
+		x=$(asso_getv lokeys "$srcf" "titel")
+		for i in $st; do
+			asso_isset hier "$fb" $i "$kurs" "$einh" other "$x" && \
+			    fdie 'is a duplicate'
+			asso_sets "$srcf" hier "$fb" $i "$kurs" "$einh" other "$x"
+			asso_seti 1 hier "$fb" $i "$kurs" "$einh" hasother
+		done
+		hr+="? $x"
+		;;
+	}
+	asso_sets "$hr" hr "$srcf"
+done
+
+function printunless {
+	nameref key=$1
+	shift
+
+	(( key )) && return
+	print "$@"
+	key=1
+}
+
+function printif {
+	nameref key=$1
+	shift
+
+	(( key )) || return
+	print "$@"
+	key=0
+}
+
+function dstlink {
+	local dstf title=$1
+
+	dstf=$(asso_getv lokeys "$srcf" "filename")
+	[[ -n $dstf ]] || fdie "Missing destination file"
+	dstf=${dsttree:+$dsttree/}$dstf
+	lastlink=/${dstf%.pdf}.htm
+	print -nr -- "<a href=\"$(xhtml_escape \
+	    "$lastlink")\">$(xhtml_escape \
+	    "$title")</a>"
+}
+
+function treeadd {
+	local iconclosed=null iconopen=null
+
+	if [[ $1 = -i ]] && (( $# > 3 )); then
+		shift
+		iconclosed=$(json_escape "$1"); shift
+		iconopen=$(json_escape "$1"); shift
+	fi
+
+	local parent=$1 text=$2 link=$3 title=$4
+
+	if (( $# > 1 )); then
+		text=$(json_escape "$text")
+	else
+		text=null
+	fi
+	if (( $# > 2 )); then
+		link=$(json_escape "$link")
+	else
+		link=null
+	fi
+	if (( $# > 3 )); then
+		title=$(json_escape "$title")
+	else
+		title=null
+	fi
+
+	jslines+=("$treename.add($((treeid++)), $((parent)), $text, $link, $title, null, $iconclosed, $iconopen);")
+}
+
+# hier $fb $st $kurs $einh desc = Beschreibung der Einheit
+# hier $fb $st $kurs $einh planfile = SRCF mit Plan
+# hier $fb $st $kurs $einh hasother = 1
+# hier $fb $st $kurs $einh other $titel = SRCF
+# hier $fb $st $kurs $einh p$blatt title = $blatt - $titel
+# hier $fb $st $kurs $einh p$blatt file = SRCF
+cd "$uwd"
+print 'mws_content <<"EOI_DOCMAN"'
+print '<div class="docman_tree">'
+set -A jslines
+treeno=0
+print "<div id=\"docman_tree_nojs\">"
+asso_loadk hier
+set -sA all_fb -- "${asso_y[@]}"
+ul_fb=0
+for fb in "${all_fb[@]}"; do
+	printunless ul_fb "<ul><!-- Fachbereich -->"
+	print -r " <li>$(xhtml_escape "$fb")"
+	treename=d$((treeno++))d
+	jslines+=("var $treename = new dTree('$treename');")
+	jslines+=("$treename.icon.root = '/dtree.img/globe.gif';")
+	treeid=0
+	treeadd -1 "$fb"
+	asso_loadk hier "$fb"
+	set -A all_st
+	for x in "${asso_y[@]}"; do
+		[[ $x = all ]] || all_st[x]=$x
+	done
+	ul_st=0
+	for st in "${all_st[@]}" all; do
+		stx="$st. Klasse ("
+		case $st {
+		(5) stx+=Ⅵ/Sexta\) ;;
+		(6) stx+=Ⅴ/Quinta\) ;;
+		(7) stx+=Ⅳ/Quarta\) ;;
+		(8) stx+=UⅢ/Untertertia\) ;;
+		(9) stx+=OⅢ/Obertertia\) ;;
+		(10) stx+=UⅡ/Untersekunda\) ;;
+		(11) stx+=EF,\ OⅡ/Obersekunda\) ;;
+		(12) stx+=Q1,\ UⅠ/Unterprima\) ;;
+		(13) stx+=Q2,\ OⅠ/Oberprima\) ;;
+		(all) stx=Alle ;;
+		(*) stx=$st ;;
+		}
+		printunless ul_st -r "  <ul><!-- Stufe (FB $(xhtml_escape "$fb")) -->"
+		print -r "   <li>$(xhtml_escape "$stx")"
+		js_st=$treeid
+		treeadd 0 "$stx"
+		asso_loadk hier "$fb" "$st"
+		set -sA all_kurs -- "${asso_y[@]}"
+		ul_kurs=0
+		for kurs in "${all_kurs[@]}"; do
+			printunless ul_kurs -r "    <ul><!-- Kurs (FB $(xhtml_escape "$fb") ST $(xhtml_escape "$st")) -->"
+			print -r "     <li>$(xhtml_escape "$kurs")"
+			js_kurs=$treeid
+			treeadd $js_st "$kurs"
+			asso_loadk hier "$fb" "$st" "$kurs"
+			set -A all_einh
+			for x in "${asso_y[@]}"; do
+				i=${x%% *}
+				all_einh[i]=$x
+			done
+			ul_einh=0
+			for einh in "${all_einh[@]}"; do
+				printunless ul_einh -r "      <ul><!-- Einheit (FB $(xhtml_escape "$fb") ST $(xhtml_escape "$st") Kurs $(xhtml_escape "$kurs")) -->"
+				print -r "       <li>$(xhtml_escape "${einh/ - /. }")"
+				x=$(asso_getv hier "$fb" "$st" "$kurs" "$einh" desc)
+				js_einh=$treeid
+				if [[ -n $x ]]; then
+					treeadd -i /dtree.img/question.gif /dtree.img/question.gif \
+					    $js_kurs "${einh/ - /. }" "" "$x"
+				else
+					treeadd $js_kurs "${einh/ - /. }"
+				fi
+#				[[ -n $x ]] && print -r "        <br />$(
+#				    xhtml_escape "$x" | sed $'s!\r!<br />!g')"
+				ul_ineinh=0
+				if srcf=$(asso_getv hier "$fb" "$st" "$kurs" "$einh" planfile); then
+					printunless ul_ineinh -r "        <ul>"
+					print -nr "         <li>"
+					dstlink 'Unterrichtsplan'
+					treeadd $js_einh "Unterrichtsplan" "$lastlink"
+					print "</li>"
+				fi
+				asso_loadk hier "$fb" "$st" "$kurs" "$einh"
+				set -sA all_items -- "${asso_y[@]}"
+				ul_arbbl=0
+				for x in "${all_items[@]}"; do
+					[[ $x = p+([0-9A-F]) ]] || continue
+					if (( !ul_arbbl )); then
+						js_arbbl=$treeid
+						treeadd $js_einh "Arbeitsblätter"
+					fi
+					printunless ul_ineinh -r "        <ul>"
+					printunless ul_arbbl -r "         <li>Arbeitsblätter<ul>"
+					y=$(asso_getv hier "$fb" "$st" "$kurs" "$einh" "$x" title)
+					srcf=$(asso_getv hier "$fb" "$st" "$kurs" "$einh" "$x" file)
+					print -nr "          <li>"
+					dstlink "$y"
+					treeadd $js_arbbl "$y" "$lastlink"
+					print "</li>"
+				done
+				printif ul_arbbl "          </ul></li><!-- /Arbeitsblätter -->"
+				if x=$(asso_getv hier "$fb" "$st" "$kurs" "$einh" hasother) && \
+				    [[ $x = 1 ]]; then
+					asso_loadk hier "$fb" "$st" "$kurs" "$einh" other
+					set -sA all_items -- "${asso_y[@]}"
+					for x in "${all_items[@]}"; do
+						printunless ul_ineinh -r "        <ul>"
+						print -nr "         <li>"
+						srcf=$(asso_getv hier "$fb" "$st" "$kurs" "$einh" other "$x")
+						dstlink "$x"
+						treeadd $js_einh "$x" "$lastlink"
+						print "</li>"
+					done
+				fi
+				printif ul_ineinh "        </ul>"
+				print "        </li>"
+			done
+			printif ul_einh -r "      </ul><!-- /Einheit -->"
+			print "      </li>"
+		done
+		printif ul_kurs -r "    </ul><!-- /Kurs -->"
+		print "    </li>"
+	done
+	printif ul_st -r "  </ul><!-- /Stufe -->"
+	print "  </li>"
+	jslines+=("document.write($treename);")
+done
+printif ul_fb "</ul><!-- /Fachbereich -->"
+print "</div><!-- /#docman_tree_nojs -->"
+print "<div id=\"docman_tree_js\">"
+print '<script type="text/javascript"><!--//--><![CDATA[//><!--'
+for x in "${jslines[@]}"; do
+	print -r -- "$x"
+done
+print '//--><!]]></script>'
+print "</div><!-- /#docman_tree_js -->"
+print "</div><!-- /.docman_tree -->"
+print EOI_DOCMAN
+
+exec >"$uwd/Makefile.inc"
+cd "$cwd"
+for srcf in "${all_srcf[@]}"; do
+	if ! dstf=$dsttree/$(asso_getv lokeys "$srcf" "filename"); then
+		print -u2 "W: skipping '$srcf'"
+		continue
+	fi
+	[[ $dstf = *.pdf ]] || fdie "dst map file '$dstf' not *.pdf"
+	dbn=${dstf%.pdf}
+	print -r -- "#DEPSRCS+=$dbn.hts"
+	print -r -- "OBJS+=$dbn.htm~"
+	print -r -- "DOCMAN${docmannumber}_SRCS+=$srctree/$srcf"
+	print -r -- "$dbn.hts: docman${docmannumber}/tree.hts"
+
+	htsf=$cwd/$dbn.hts
+	mkdir -p "${htsf%/*}"
+	{
+		hr=$(asso_getv hr "$srcf")
+		cat <<-EOHTS
+			mws_subdir $subdir_levels
+			mws_usedocman
+			mws_setname ${dbn@Q} ${hr@Q}
+			mws_setheadline Dokument:\ ${hr@Q}
+			mws_putheader
+			mws_content <<"EOCNT"
+			<div>
+			EOCNT
+			#DEPEND OBJ:docman$docmannumber/tree.hts
+			. "\${DST}/docman$docmannumber/tree.hts"
+			mws_content <<"EOCNT"
+			<div class="docman_info">
+			<h2>Download</h2>
+			<p><a href="$(xhtml_escape "${dstf##*/}")"><img
+			 src="@@RELPATH@@pics/disk.png" style="border:0px;"
+			 alt="Disc icon" /> Lade dieses Blatt herunter</a></p>
+			<h2>Informationen</h2>
+			<table width="100%" border="0">
+		EOHTS
+		asso_loadk filekeys "$srcf"
+		# output some metadata keys in order first, then the rest
+		for k in Filename Titel Fachbereich Kurs Stufen Einheit \
+		    Materialart Blatt Beschreibung "${asso_y[@]}"; do
+			lk=$k
+			x=$(asso_getv lokeys "$srcf" "$lk")
+			[[ -n $x ]] || continue
+			asso_sets "" lokeys "$srcf" "$lk"
+			print -r -- " <tr><th>$(xhtml_escape "$k"):</th><td>$(
+			    xhtml_escape "$x" | sed $'s!\r!<br />!g')</td></tr>"
+		done
+		cat <<-EOHTS
+			</table>
+			</div>
+			</div>
+			EOCNT
+			mws_putfooter
+			exit 0
+		EOHTS
+	} >"$htsf"
+done
+
+mv "$uwd/tree.hts~" "$uwd/tree.hts"

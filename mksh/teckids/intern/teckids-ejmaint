@@ -1,0 +1,159 @@
+#!/bin/mksh
+# -*- mode: sh -*-
+#-
+# Copyright © 2015, 2017
+#	Dominik George <dominik.george@teckids.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+
+export LC_ALL=C
+unset LANGUAGE
+cd /usr/src/verein
+
+# Config
+domain=mercurius.teckids.org
+muc_domain=conference.$domain
+
+# Find the LDAP kit
+PATH=/usr/local/share/teckids/mk:$PWD/../../www/mk:$PATH . assoldap.ksh
+
+# Replace ldapsearch with SSH-wrapped function if not running on LDAP host
+HOSTNAME=${HOSTNAME:-$(hostname -s)}
+if [[ $HOSTNAME != terra ]]; then
+	function ldapsearch {
+		local _cmd=ldapsearch _x
+
+		for _x in "$@"; do
+			_cmd+=" ${_x@Q}"
+		done
+		ssh terra.teckids.org "$_cmd"
+	}
+fi
+
+###### MUC room maintenance ############
+
+# Load existing MUC rooms
+rooms=$(ejabberdctl muc_online_rooms ${domain} | sed s/@.*// | tr \\n @)
+
+# Find and load chat rooms
+asso_setldap_sasl groups -- -b ou=Groups,dc=teckids,dc=org "(teckidsChatroom=TRUE)" cn description memberUid owner
+
+asso_loadk groups
+for group_dn in "${asso_y[@]}"; do
+	cn=$(asso_getv groups "$group_dn" cn 0)
+	desc=$(asso_getv groups "$group_dn" description 0)
+
+	# Strip ' from desc
+	desc=${desc//\'}
+
+	if ! [[ @$rooms@ = *"@$cn@"* ]]; then
+		# Create room if not existent
+		logger -t teckids-ejmaint "Creating room for $cn…"
+		ejabberdctl create_room "$cn" ${muc_domain} ${domain}
+	fi
+
+	# Set various MUC options
+	logger -t teckids-ejmaint "Setting room options for $cn…"
+	ejabberdctl change_room_option "$cn" ${muc_domain} title "'$desc'"
+	ejabberdctl change_room_option "$cn" ${muc_domain} description "'$desc'"
+	ejabberdctl change_room_option "$cn" ${muc_domain} allow_change_subj false
+	ejabberdctl change_room_option "$cn" ${muc_domain} persistent true
+	ejabberdctl change_room_option "$cn" ${muc_domain} anonymous false
+	ejabberdctl change_room_option "$cn" ${muc_domain} members_only true
+	ejabberdctl change_room_option "$cn" ${muc_domain} allow_user_invites true
+	ejabberdctl change_room_option "$cn" ${muc_domain} mam true
+
+	# Get members of LDAP group
+	mu_count=$(asso_getv groups "$group_dn" memberUid count)
+	set -A mus
+	i=0; while (( i < mu_count )); do
+		mus+=($(asso_getv groups "$group_dn" memberUid $i))
+		(( i++ ))
+	done
+
+	# Get currently affiliated MUC members
+	set -A members -- $(ejabberdctl get_room_affiliations "$cn" ${muc_domain} | sed "s/\t.*//")
+
+	# Iterate over MUC members and remove if not in LDAP
+	for member in "${members[@]}"; do
+		if ! [[ " ${mus[@]} " = *" $member "* ]]; then
+			logger -t teckids-ejmaint "Removing user $member from room $cn…"
+			ejabberdctl set_room_affiliation "$cn" ${muc_domain} "$member@${domain}" none
+		fi
+	done
+
+	# Iterate over LDAP members and add affiliation if not set yet
+	for mu in "${mus[@]}"; do
+		if ! [[ " ${members[@]} " = *" $mu "* ]]; then
+			logger -t teckids-ejmaint "Adding user $mu to room $cn…"
+			ejabberdctl set_room_affiliation "$cn" ${muc_domain} "$mu@${domain}" member
+		fi
+	done
+
+	# Get owners of LDAP group
+	o_count=$(asso_getv groups "$group_dn" owner count)
+	set -A os
+	i=0; while (( i < o_count )); do
+		dn="$(asso_getv groups "$group_dn" owner $i)"
+		# Get owner object from LDAP
+		asso_setldap_sasl owner -- -b "$dn" -s base cn uid memberUid
+
+		# Check whether owner is a person or a group
+		if [[ $dn = *,ou=People,* ]]; then
+			# Add single uid to owners
+			os+=($(asso_getv owner "$dn" uid 0))
+		else
+			# Iterate over group member uids
+			mu_count=$(asso_getv owner "$dn" memberUid count)
+			j=0; while (( j < mu_count )); do
+				os+=($(asso_getv owner "$dn" memberUid $j))
+				(( j++ ))
+			done
+		fi
+
+		(( i++ ))
+	done
+
+	# Iterate over owners and raise affiliation to owner
+	for o in "${os[@]}"; do
+		logger -t teckids-ejmaint "Raising $o to owner of room $cn…"
+		ejabberdctl set_room_affiliation "$cn" ${muc_domain} "$o@${domain}" owner
+	done
+
+	# Iterate over members and manage MUC bookmarks
+	for mu in "${mus[@]}"; do
+		# Get all local MUC bookmarks of that user
+		bms=$(ejabberdctl private_get "$mu" ${domain} storage storage:bookmarks | \
+		    xmlstarlet sel -T -t -m "//*[@jid]" -v @jid -n | \
+		    grep "@${muc_domain}" | \
+		    sed 's/@.*//' | tr \\n @)
+
+		# Create bookmark if it does not exist yet
+		if ! [[ @$bms@ = *"@$cn@"* ]]; then
+			newxml=$(ejabberdctl private_get "$mu" ${domain} storage storage:bookmarks | \
+			    xmlstarlet ed -O \
+			        -s "/*" -t elem -n conference \
+			        -i "//conference[last()]" -t attr -n jid -v "$cn@${muc_domain}" \
+			        -i "//conference[last()]" -t attr -n autojoin -v true | \
+			    tr -d "\n" | sed 's/  */ /g' | tr "'" "\"")
+			logger -t teckids-ejmaint "Adding bookmark for room $cn to user $mu…"
+			ejabberdctl private_set "$mu" ${domain} "$newxml"
+
+			# Send direct invite to MUC to join without reloading bookmarks
+			ejabberdctl send_direct_invitation $cn ${muc_domain} none none $mu@${domain}
+		fi
+	done
+done

@@ -1,0 +1,128 @@
+#!/bin/mksh
+# -*- mode: sh -*-
+#-
+# Copyright © 2015
+#	mirabilos <thorsten.glaser@teckids.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# Decode all command line arguments (assumed to be Maildir files) to
+# 8-bit plaintext with RFC822 header, then pass that, with the file‐
+# name exported as $origfilename, to anmparse.
+#
+# Exit status:
+# – bit0 ⇒ error in at least one file
+# – bit1 ⇒ anmparse returned nōnzero for at least one file
+# – bit2 ⇒ errors related to the CSV output file
+
+export LC_ALL=C
+unset LANGUAGE
+set +U
+
+me=$(realpath "$0/..")
+nl=$'\n'
+rv=0
+typeset -l l
+
+. "$me/../../www/mk/progress-bar"
+
+usage() {
+	print -ru2 "Usage: $0 -o output.csv /path/to/maildir/*"
+	exit ${1:-1}
+}
+
+outputfilename=
+while getopts "ho:" c; do
+	case $c {
+	(h)	usage 0 ;;
+	(o)	outputfilename=$OPTARG ;;
+	(*)	usage ;;
+	}
+done
+shift $((OPTIND - 1))
+
+[[ -n $outputfilename ]] || usage
+
+if [[ -s $outputfilename ]]; then
+	print -ru2 "E: output file ${outputfilename@Q} already exists"
+	exit 4
+fi
+if ! mksh "$me/anmparse" -o >"$outputfilename" || [[ ! -s $outputfilename ]]; then
+	print -ru2 "E: output file ${outputfilename@Q} could not be created"
+	exit 4
+fi
+
+export msgid origfilename outputfilename
+init_progress_bar $#
+for origfilename in "$@"; do
+	draw_progress_bar
+
+	b=$(tr -d '\r' <"$origfilename")
+	h=${b%%"$nl$nl"*}
+	b=${b#*"$nl$nl"}
+	h=${h//"$nl "/ }
+	l=$nl$h$nl
+
+	if [[ $l != *"${nl}message-id: <"+([ -~])">$nl"* ]]; then
+		print -ru2 "E: missing Message-ID for ${origfilename@Q}, skipping"
+		(( rv |= 1 ))
+		continue
+	fi
+	msgid=${h##*"$nl"[Mm][Ee][Ss][Ss][Aa][Gg][Ee]-[Ii][Dd]': <'}
+	msgid=${msgid%%'>'*}
+
+	if [[ $l != *"${nl}content-type: text/plain; charset="?([\'\"])'utf-8'?([\'\"])"$nl"* ]]; then
+		print -ru2 "E: wrong Content-Type for ${origfilename@Q}, skipping"
+		(( rv |= 1 ))
+		continue
+	fi
+
+	if [[ $l = *"${nl}content-transfer-encoding: base64$nl"* ]]; then
+		if ! b=$(print -r -- "$b" | base64 -di); then
+			print -ru2 "E: base64 decode error for ${origfilename@Q}, skipping"
+			(( rv |= 1 ))
+			continue
+		fi
+		b=${b//$'\r'}
+	elif [[ $l = *"${nl}content-transfer-encoding: quoted-printable$nl"* ]]; then
+		if ! b=$(print -r -- "$b" | perl -pe \
+		    's/=(\n|[a-fA-F0-9]{2})/$1 eq "\n" ? "" : pack("C",hex($1))/eg'); then
+			print -ru2 "E: qp decode error for ${origfilename@Q}, skipping"
+			(( rv |= 1 ))
+			continue
+		fi
+		b=${b//$'\r'}
+	elif [[ $l = *"${nl}content-transfer-encoding: "@(8bit|7bit|binary)"$nl"* ]]; then
+		:
+	elif [[ $l = *"${nl}content-transfer-encoding:"* ]]; then
+		print -ru2 "E: wrong Content-Transfer-Encoding for ${origfilename@Q}, skipping"
+		(( rv |= 1 ))
+		continue
+	fi
+
+	x=$(print -r -- "$h$nl$nl$b" | mksh "$me/anmparse")
+	rc=$?
+	if [[ -n $x ]]; then
+		print -ru2 "I: anmparse output for ${origfilename@Q} follows:"
+		print -r -- "$x" | sed 's/^/N: /'
+	fi
+	if (( rc )); then
+		print -ru2 "W: anmparse errorlevel $rc for ${origfilename@Q}"
+		(( rv |= 2 ))
+	fi
+done
+done_progress_bar
+exit $rv

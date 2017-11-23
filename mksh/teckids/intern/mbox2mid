@@ -1,0 +1,91 @@
+# -*- mode: sh -*-
+#-
+# Copyright © 2014
+#	Thorsten Glaser <tg@mirbsd.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# Creates a Message-ID to Subject list from an mbox (or mbx).
+
+function Lb64decode {
+	[[ -o utf8-mode ]]; local u=$?
+	set +U
+	local c s="$*" t=
+	[[ -n $s ]] || { s=$(cat; print x); s=${s%x}; }
+	local -i i=0 j=0 n=${#s} p=0 v x
+	local -i16 o
+
+	while (( i < n )); do
+		c=${s:(i++):1}
+		case $c {
+		(=)	break ;;
+		([A-Z])	(( v = 1#$c - 65 )) ;;
+		([a-z])	(( v = 1#$c - 71 )) ;;
+		([0-9])	(( v = 1#$c + 4 )) ;;
+		(+)	v=62 ;;
+		(/)	v=63 ;;
+		(*)	continue ;;
+		}
+		(( x = (x << 6) | v ))
+		case $((p++)) {
+		(0)	continue ;;
+		(1)	(( o = (x >> 4) & 255 )) ;;
+		(2)	(( o = (x >> 2) & 255 )) ;;
+		(3)	(( o = x & 255 ))
+			p=0
+			;;
+		}
+		t+=\\x${o#16#}
+		(( ++j & 4095 )) && continue
+		print -n $t
+		t=
+	done
+	print -n $t
+	(( u )) || set -U
+}
+
+unset mid
+unset sbj
+tr '\n' '' | sed -e 's///g' -e 's/[	 ]/ /g' | tr '' '\n' | \
+    while IFS= read -r line; do
+	typeset -l llow=$line
+	case x$llow {
+	(x)
+		[[ -n $mid && -n $sbj ]] && print -r -- \
+		    "$mid	$sbj"
+		unset mid
+		unset sbj
+		;;
+	(xmessage-id:*)
+		mid=${line#*:}
+		mid=${mid##+([	 ])}
+		;;
+	(xsubject:*)
+		sr=${line#*:}
+		sr=${sr##+([	 ])}
+		sr=${sr//'?='+([	 ])'=?'/'?==?'}
+		sbj=
+		while [[ $sr = *'=?'[Uu][Tt][Ff]'-8?B?'*'?='* ]]; do
+			sl=${sr%%'?='*}
+			sr=${sr#"$sl"'?='}
+			sm=${sl##*'=?'[Uu][Tt][Ff]'-8?B?'}
+			sl=${sl%'=?'*}
+			sbj=$sbj$sl$(Lb64decode "$sm")
+		done
+		sbj=$sbj$sr
+		;;
+	}
+done

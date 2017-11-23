@@ -1,0 +1,5 @@
+s=$'\x1C'
+while IFS=$s read l1 o1 l2 o2; do
+	[[ $l1 = "$l2" && $o1 = "$o2" ]] && continue
+	print -r -- "$l1$s$l2$s$o1$s$o2"
+done <schools.ssv >schools2.ssv
