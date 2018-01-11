@@ -1,7 +1,7 @@
 #!/bin/mksh
 #-
-# Copyright © 2013, 2014
-#	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
+# Copyright © 2013, 2014, 2018
+#	mirabilos <t.glaser@tarent.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission
@@ -112,5 +112,6 @@ case ${DIST%/*} {
 	;;
 }
 
+unset TMPDIR
 set -x
 exec sudo "${cmd[@]}" cowbuilder "$@"
