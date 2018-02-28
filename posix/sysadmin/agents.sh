@@ -1,6 +1,6 @@
-# $Id: agents.sh 5263 2017-06-27 23:37:42Z tglase $
+# $Id: agents.sh 5263+fixtty 2017-06-27 23:37:42Z tglase $
 #-
-# Copyright © 2009, 2012, 2015, 2017
+# Copyright © 2009, 2012, 2015, 2017, 2018
 #	Thorsten Glaser <t.glaser@tarent.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -110,9 +110,14 @@ else
 fi
 
 : "${GNUPGHOME:=$HOME/.gnupg}"
-GPG_TTY=$(tty); export GPG_TTY
 find_gpg_agent() {
 	local PID_FILE="$GNUPGHOME/gpg-agent-info-$(hostname)"
+	local mytty
+
+	if mytty=$(tty); then
+		GPG_TTY=$mytty
+		export GPG_TTY
+	fi
 
 	test -d "$GNUPGHOME" || return 0
 	export GNUPGHOME
