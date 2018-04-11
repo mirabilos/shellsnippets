@@ -24,6 +24,7 @@
 #
 # Example:
 # c lenny/i386 DEB_BUILD_OPTIONS=parallel=4 linux32 --build foo*.dsc
+# c bp:stretch/i386 --debbuildopts -v1.0-1 foo*.dsc
 
 unset LANGUAGE
 export LC_ALL=C
@@ -32,7 +33,8 @@ if [[ -z $1 ]]; then
 	print -u2 E: No operation specified
 	exit 1
 fi
-DIST=$1
+REALDIST=$1
+DIST=${REALDIST#*:}
 
 # workaround for supporting old and new eatmydata; cf. #765579
 eatmydata='LD_LIBRARY_PATH=/usr/lib/libeatmydata LD_PRELOAD=libeatmydata.so'
@@ -48,7 +50,7 @@ if [[ $1 = --keepmydata ]]; then
 fi
 
 # construct command line
-set -A cmd env "DIST=$DIST" LANG=C LC_CTYPE=C LC_NUMERIC=C \
+set -A cmd env "DIST=$REALDIST" LANG=C LC_CTYPE=C LC_NUMERIC=C \
     LC_TIME=C LC_COLLATE=C LC_MONETARY=C LC_MESSAGES=C LC_PAPER=C \
     LC_NAME=C LC_ADDRESS=C LC_TELEPHONE=C LC_MEASUREMENT=C \
     LC_IDENTIFICATION=C LC_ALL=C $eatmydata
@@ -96,7 +98,7 @@ case ${DIST%/*} {
 }
 (( setarch_seen )) || case x$setarch_cmd {
 (x)
-	print -ru2 "W: no setarch for architecture part of '$DIST'!"
+	print -ru2 "W: no setarch for architecture part of '$REALDIST'!"
 	;;
 (x-)
 	if (( setarch_26 )); then
