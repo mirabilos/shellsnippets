@@ -1,0 +1,19 @@
+# Set the xterm window title to the current working directory
+# plus either the currently executing command line or “<mksh>”
+
+PS1='#'; (( USER_ID )) && PS1='$'; PS1=$'\001\r''${|
+	\\builtin typeset e=$?
+
+	(( e )) && REPLY+="$e|"
+	REPLY+=${USER}@${HOSTNAME%%.*}:
+
+	\\builtin typeset d=${PWD:-?}/ p=~; [[ $p = ?(*/) ]] || d=${d/#$p\//\~/}
+	d=${d%/}; \\builtin typeset m=${%d} n p=...; (( m > 0 )) || m=${#d}
+	(( m > (n = (COLUMNS/3 < 7 ? 7 : COLUMNS/3)) )) && d=${d:(-n)} || p=
+	REPLY+=$p$d
+
+	print >/dev/tty -nr -- $'\''\001\e]2;'\''"[$PWD] <mksh>"$'\''\a\001'\''
+
+	\\builtin return $e
+} '"$PS1 "
+bind -m '^M=^U^Y^Y^X^X^[ IFS= read -rN-1 _cmd <<\EOF^V^J^E^V^JEOF^V^Jprint >/dev/tty -nr -- $'\''\e]2;'\''"[$PWD] ${_cmd%?}"$'\''\a'\''^[^E^J'
