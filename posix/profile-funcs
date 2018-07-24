@@ -69,17 +69,6 @@ wp() {
 	${BROWSER:-lynx} "http://www.mirbsd.org/wp.cgi?$1"
 }
 
-# Benefind search
-bf() {
-	local _q _IFS
-
-	_IFS=$IFS
-	IFS=+
-	_q="$*"
-	IFS=$_IFS
-	${BROWSER:-lynx} "https://www.benefind.de/web.php?org=1647&q=$_q"
-}
-
 # DuckDuckGo search
 ddg() {
 	local _q _IFS
