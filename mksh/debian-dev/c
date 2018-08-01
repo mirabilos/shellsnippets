@@ -35,6 +35,7 @@ if [[ -z $1 ]]; then
 fi
 REALDIST=$1
 DIST=${REALDIST#*:}
+shift
 
 # workaround for supporting old and new eatmydata; cf. #765579
 eatmydata='LD_LIBRARY_PATH=/usr/lib/libeatmydata LD_PRELOAD=libeatmydata.so'
@@ -54,7 +55,6 @@ set -A cmd env "DIST=$REALDIST" LANG=C LC_CTYPE=C LC_NUMERIC=C \
     LC_TIME=C LC_COLLATE=C LC_MONETARY=C LC_MESSAGES=C LC_PAPER=C \
     LC_NAME=C LC_ADDRESS=C LC_TELEPHONE=C LC_MEASUREMENT=C \
     LC_IDENTIFICATION=C LC_ALL=C $eatmydata
-shift
 while [[ $1 = *=* ]]; do
 	cmd[${#cmd[@]}]=$1
 	shift
