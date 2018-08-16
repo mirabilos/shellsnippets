@@ -11,3 +11,13 @@ xv() {
 	done
 	return $rv
 }
+
+# show appointments
+function showtermine {
+	[[ -s ~/.etc/Termine ]] || return 0
+	calendar -f ~/.etc/Termine | while IFS='	' read a b; do
+		typeset -L8 a
+		b=$(fold -sw 70 <<<"$b")
+		print -r -- "‣ $a${b//$'\n'/$'\n\t  '}"
+	done
+}
