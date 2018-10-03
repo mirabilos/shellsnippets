@@ -47,7 +47,7 @@ while IFS= read -r line; do
 		;|
 	(2,"$p"-----END\ PGP\ MESSAGE-----)
 		c+=${line#"$p"}
-		c=$(print -r -- "$c" | gpg "$@") || die gpg failed
+		c=$(print -r -- "$c" | gpg1 "$@") || die gpg failed
 		x=
 		[[ -z $cs ]] || if x=$(print -r -- "$c" | \
 		    iconv -f "$cs" -t utf-8); then
