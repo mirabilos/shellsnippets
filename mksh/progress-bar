@@ -28,8 +28,8 @@
 # – after:	done_progress_bar
 #
 # init_progress_bar trashes the EXIT and SIGWINCH traps, which later
-# are cleared, again, by done_progress_bar. Note that signals do not
-# work well with “wait” except in a “while [[ -n $(jobs) ]]” loop.
+# are cleared, again, by done_progress_bar; note this forces using a
+# “while [[ -n $(jobs) ]]; do wait; done” loop instead of just wait.
 
 # global variables used by this library
 _cnt_progress_bar=0
