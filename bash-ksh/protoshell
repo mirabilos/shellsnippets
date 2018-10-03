@@ -1,0 +1,21 @@
+#!/usr/mpkg/bin/bash
+function dumpargv {
+	local i=0 j
+	for j in "$@"; do
+		printf '%s' " $((i++))<$j>"
+	done
+}
+function dumpinfo {
+	echo === BEGIN $(date)
+	echo ENVIRONMENT:
+	typeset -p
+	echo -n ARGV:
+	dumpargv "$@"
+	echo
+	echo === RUNNING
+}
+dumpinfo >>/tmp/protoshell.log
+/bin/mksh "$@"
+rv=$?
+echo === $rv END $(date) >>/tmp/protoshell.log
+exit $rv
