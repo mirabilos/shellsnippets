@@ -1,0 +1,53 @@
+#!/bin/mksh
+#-
+# Copyright © 2013
+#	Thorsten Glaser <t.glaser@tarent.de>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# Sum all letters (by their value) and digits in the input.
+
+set -U
+set -A spec
+spec[1#ä]=6
+spec[1#ö]=20
+spec[1#ü]=26
+spec[1#ß]=38
+spec[1#Ä]=6
+spec[1#Ö]=20
+spec[1#Ü]=26
+spec[1#ẞ]=38
+
+res=0
+read -aN -1
+n=${#REPLY[*]} i=-1
+while (( ++i < n )); do
+	(( c = REPLY[i] ))
+	if [[ -n ${spec[c]} ]]; then
+		(( res += spec[c] ))
+		continue
+	fi
+	(( c < 1#0 )) && continue
+	if (( c <= 1#9 )); then
+		(( res += c - 1#0 ))
+		continue
+	fi
+	(( c < 1#A || c > 1#z )) && continue
+	(( c < 1#a )) && (( c += 1#a - 1#A ))
+	(( c < 1#a || c > 1#z )) && continue
+	(( res += c - 1#a + 1 ))
+done
+print -- $res
