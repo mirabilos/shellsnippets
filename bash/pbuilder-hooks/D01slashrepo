@@ -1,7 +1,7 @@
 #!/bin/bash
-# $MirOS: contrib/hosted/tg/deb/hookdir/D00local,v 1.6 2018/04/11 16:10:27 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/D01slashrepo,v 1.2 2018/04/11 16:10:27 tg Exp $
 #-
-# Copyright © 2014, 2016, 2018
+# Copyright © 2014, 2018
 #	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -23,8 +23,8 @@
 # • base must be URI safe since we do not encode it for sources.list
 # • this must be a valid basename for sources.list.d: [A-Za-z0-9._-]
 
-base=/var/cache/apt
-this=D00local
+base=/repo
+this=D01slashrepo
 
 
 unset LANGUAGE
