@@ -12,6 +12,18 @@ xv() {
 	return $rv
 }
 
+# might wish to call these in ~/.profile near the end:
+
+# show weather
+function showweather {
+	local loc=${1:-Bonn}
+
+	(( (${EPOCHREALTIME%.*}-$(date -r ~/.etc/weather +%s)) > 3600 )) && \
+	    (ansiweather -l "$loc" -u metric -d true
+	    ansiweather -l "$loc" -u metric -f 3 -s true) >~/.etc/weather
+	cat ~/.etc/weather
+}
+
 # show appointments
 function showtermine {
 	[[ -s ~/.etc/Termine ]] || return 0
