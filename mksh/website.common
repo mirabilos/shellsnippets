@@ -1,0 +1,146 @@
+# From $MirOS: www/mk/common,v 1.11 2018/08/29 02:54:14 tg Exp $
+#-
+# Copyright © 2007, 2008, 2012, 2013, 2014, 2018
+#	Thorsten “mirabilos” Glaser <tg@mirbsd.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# Anything not already in timefns but also used by MirWebsite, while
+# being more generally useful; teckids/mk/common has an older adapt‐
+# ed fork while website.shar contains an even older version of this.
+
+# RFC 2396 and some optional characters _plus_ apostrophe
+# -> escapes all shell meta-characters as well
+function uri_escape {
+	if (( $# )); then
+		print -nr -- "$@"
+	else
+		cat
+	fi | sed -e '
+	    s.%.%25.g
+	    s.;.%3B.g
+	    s./.%2F.g
+	    s.?.%3F.g
+	    s.:.%3A.g
+	    s.@.%40.g
+	    s.&.%26.g
+	    s.=.%3D.g
+	    s.+.%2B.g
+	    s.\$.%24.g
+	    s.,.%2C.g
+	    s.	.%09.g
+	    s. .%20.g
+	    s.<.%3C.g
+	    s.>.%3E.g
+	    s.#.%23.g
+	    s.".%22.g
+	    s.{.%7B.g
+	    s.}.%7D.g
+	    s.|.%7C.g
+	    s.\\.%5C.g
+	    s.\^.%5E.g
+	    s.\[.%5B.g
+	    s.\].%5D.g
+	    s.`.%60.g
+	    s.'\''.%27.g
+	'
+}
+
+# escape XHTML characters (three mandatory XML ones plus double quotes,
+# the latter in an XML safe fashion numerically though)
+function xhtml_escape {
+	if (( $# )); then
+		print -nr -- "$@"
+	else
+		cat
+	fi | sed \
+	    -e 's&\&amp;g' \
+	    -e 's<\&lt;g' \
+	    -e 's>\&gt;g' \
+	    -e 's"\&#34;g'
+}
+
+# same as valsub avoiding fork
+function xhtml_fesc {
+	REPLY=${1//'&'/'&amp;'}
+	REPLY=${REPLY//'<'/'&lt;'}
+	REPLY=${REPLY//'>'/'&gt;'}
+	REPLY=${REPLY//'"'/'&#34;'}
+}
+
+# escape string into JSON string (with surrounding quotes)
+function json_escape {
+	[[ -o utf8-mode ]]; local u=$?
+	set -U
+	local o=\" s
+	if (( $# )); then
+		read -raN-1 s <<<"$*"
+		unset s[${#s[*]}-1]
+	else
+		read -raN-1 s
+	fi
+	local -i i=0 n=${#s[*]} wc
+	local -Uui16 -Z7 x
+	local -i1 ch
+
+	while (( i < n )); do
+		(( ch = x = wc = s[i++] ))
+		case $wc {
+		(8) o+=\\b ;;
+		(9) o+=\\t ;;
+		(10) o+=\\n ;;
+		(12) o+=\\f ;;
+		(13) o+=\\r ;;
+		(34) o+=\\\" ;;
+		(92) o+=\\\\ ;;
+		(*)
+			if (( wc < 0x20 || wc > 0xFFFD || \
+			    (wc >= 0xD800 && wc <= 0xDFFF) || \
+			    (wc > 0x7E && wc < 0xA0) )); then
+				o+=\\u${x#16#}
+			else
+				o+=${ch#1#}
+			fi
+			;;
+		}
+	done
+	(( u )) && set +U
+	print -nr -- "$o\""
+}
+
+# escape ampersands for sed (pipe only: post-processing)
+function sed_escape {
+	local REPLY=$1
+
+	REPLY=${REPLY//\\/\\\\}
+	REPLY=${REPLY//[&]/\\&}
+	REPLY=${REPLY//$'\n'/\\n}
+	print -nr -- "$REPLY"
+}
+
+# filter stdin into an HTML/XHTML JavaScript block
+function script_escape {
+	print -r -- "<script type=\"text/javascript\"><!--//--><![CDATA[//><!--"
+	print -r -- "$(cat)"
+	print -r -- "//--><!]]></script>"
+}
+
+# filter stdin into an HTML/XHTML inline CSS block
+function css_escape {
+	print -r -- "<style type=\"text/css\"><!--/*--><![CDATA[/*><!--*/"
+	print -r -- "$(cat)"
+	print -r -- "/*]]>*/--></style>"
+}

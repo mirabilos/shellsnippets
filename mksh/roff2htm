@@ -1,4 +1,4 @@
-roff2htm_rcsid='$MirOS: src/scripts/roff2htm,v 1.88 2017/01/29 00:51:06 tg Exp $'
+roff2htm_rcsid='$MirOS: src/scripts/roff2htm,v 1.90 2018/01/07 23:27:30 tg Exp $'
 # $ekkoBSD: catman2html.sh,v 1.2 2004/03/07 03:02:53 stephen Exp $
 #-
 # Copyright (c) 2004, 2005, 2006, 2007, 2011, 2012, 2014, 2015,
@@ -76,7 +76,7 @@ function set_conversion_paper {
 set_conversion_man
 
 function set_target_absolute {
-	roff2htm_rel=https://www.mirbsd.org/
+	roff2htm_rel=http://www.mirbsd.org/
 }
 function set_target_relative {
 	roff2htm_rel=../
@@ -212,7 +212,7 @@ function output_header {
  <meta name="MSSmartTagsPreventParsing" content="TRUE" />
  <title>RTFM '$1\($2')</title>
  <meta name="robots" content="index, follow" />
- <link rel="canonical" href="https://www.mirbsd.org/man'$roff2htm_machine/$1.$2'" />
+ <link rel="canonical" href="http://www.mirbsd.org/man'$roff2htm_machine/$1.$2'" />
  <style type="text/css"><!--/*--><![CDATA[/*><!--*/
 	body {
 		background-color:#000000;
@@ -277,8 +277,8 @@ function output_footer {
 <p>These manual pages and other documentation are <a
  href="'$roff2htm_rel'man7/BSD-Licence.htm">copyrighted</a> by their respective writers;
  their source is available at our <a href="http://cvs.mirbsd.de/">CVSweb</a>,
- AnonCVS, and other mirrors. The rest is Copyright © 2002–2017 <a
- href="https://www.mirbsd.org/">The MirOS Project</a>, Germany.<br /><span
+ AnonCVS, and other mirrors. The rest is Copyright © 2002–2018 <a
+ href="http://www.mirbsd.org/">MirBSD</a>.<br /><span
  style="font-size:3pt; font-style:italic;">This product includes material
  provided by <b>mirabilos</b>.</span></p>
 <p style="font-size:x-small;">This manual page’s HTML representation

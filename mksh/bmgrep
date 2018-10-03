@@ -1,0 +1,20 @@
+#!/bin/mksh
+set -A args
+blub=0
+for x in "$@"; do
+	case $blub:$x {
+	(0:--)
+		blub=1
+		;;
+	(0:-*)
+		args[${#args[*]}]=$x
+		;;
+	(*)
+		args[${#args[*]}]=-e
+		args[${#args[*]}]=$x
+		;;
+	}
+done
+wc -l ~/.etc/*.htm
+print -ru2 -- + fgrep "${args[@]}"
+exec fgrep -n "${args[@]}" -- ~/.etc/*.htm

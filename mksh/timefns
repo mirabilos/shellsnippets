@@ -1,6 +1,6 @@
-# From MirOS: www/mk/common,v 1.4 2012/07/15 13:06:14 tg Exp $
+# From $MirOS: www/mk/common,v 1.11 2018/08/29 02:54:14 tg Exp $
 #-
-# Copyright © 2012
+# Copyright © 2007, 2008, 2012, 2013, 2014, 2018
 #	Thorsten “mirabilos” Glaser <tg@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -176,4 +176,65 @@ function mjd_implode {
 	(( day += 1461 * (y % 25) + 36524 * (y / 25) ))
 
 	print -- $day $sec
+}
+
+# convenience function to check (German) date input (no time-of-day)
+# input is $2, MJD is written to $$1, normalised date to $$3 if $3 is set
+function dtchk {
+	local tm mjd x saveIFS r iso=1 to
+	set -A tm
+	set -A mjd
+	set -A x
+	local -i10 -Z2 ra rb rc
+	local -i10 -Z4 ry
+
+	errstr="'$2' not in YYYY-MM-DD (ISO 8601) or DD.MM.YYYY (obsolete German) format"
+	if [[ $2 = +([0-9]).+([0-9]).+([0-9]) ]]; then
+		iso=0
+	elif [[ $2 != +([0-9])-+([0-9])-+([0-9]) ]]; then
+		return 1
+	fi
+	saveIFS=$IFS
+	IFS=.-
+	set -A x -- $2
+	IFS=$saveIFS
+	set -A tm -- 0 0 0 $((x[2])) $((x[1] - 1)) $((x[0] - 1900)) - - - 0 -
+
+	if (( !iso )); then
+		tm[3]=$((x[0]))
+		tm[5]=$((x[2] - 1900))
+	fi
+
+	set -A mjd -- $(mjd_implode "${tm[@]}")
+	set -A x -- $(mjd_explode "${mjd[0]}" 0)
+
+	(( ra = x[3] ))
+	(( rb = x[4] + 1 ))
+	(( ry = x[5] + 1900 ))
+	if (( iso )); then
+		to=$ry-$rb-$ra
+	else
+		to=$ra.$rb.$ry
+	fi
+
+	(( ra = x[2] ))
+	(( rb = x[1] ))
+	(( rc = x[0] ))
+
+	errstr="invalid date $2, normalises to $to $ra:$rb:$rc"
+	[[ ${tm[0]} = ${x[0]} ]] || return 1
+	[[ ${tm[1]} = ${x[1]} ]] || return 1
+	[[ ${tm[2]} = ${x[2]} ]] || return 1
+	errstr="bogus date $2, normalises to $to"
+	[[ ${tm[3]} = ${x[3]} ]] || return 1
+	[[ ${tm[4]} = ${x[4]} ]] || return 1
+	[[ ${tm[5]} = ${x[5]} ]] || return 1
+	errstr=
+	nameref r=$1
+	r=${mjd[0]}
+	if [[ -n $3 ]]; then
+		nameref rr=$3
+		rr=$to
+	fi
+	return 0
 }
