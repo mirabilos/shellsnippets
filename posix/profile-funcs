@@ -192,8 +192,12 @@ command -v rot13 >/dev/null 2>&1 || rot13() {
 
 # csh like setenv
 setenv() {
-	eval $1=\$2
-	eval export $1
+	if test $# -eq 0; then
+		env
+	else
+		eval $1=\$2
+		eval export $1
+	fi
 }
 
 # benchmark machine with python
