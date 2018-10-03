@@ -1,0 +1,2 @@
+#!/bin/sh
+egrep -ve ' has (quit|joined|left) ' -e '-\!- (ServerMode|Netsplit|Irssi)' -e 'is now known as' -e '^--- ' "$@"
