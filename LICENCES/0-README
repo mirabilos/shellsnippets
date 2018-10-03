@@ -1,0 +1,7 @@
+Creative Commons licence to URI mapping:
+
+CC-(BY(?:.*))_(\d+\.\d+)\.txt ⇒
+https://creativecommons.org/licenses/${1:L}/$2/legalcode.txt
+
+CC0_1.0.txt ⇒
+https://creativecommons.org/publicdomain/zero/1.0/legalcode.txt
