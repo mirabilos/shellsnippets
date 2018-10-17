@@ -1,6 +1,6 @@
 #!/bin/mksh
 #-
-# Copyright © 2015
+# Copyright © 2015, 2018
 #	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -26,7 +26,7 @@ shift; shift
 [[ $_fm = *'*' ]] || _fm=${_fm@Q}
 
 trap "" INT
-ssh "$_h" find "$_fm" -type f -print0 | sort -R "" | \
+ssh "$_h" find "$_fm" -follow -type f -print0 | sort -R "" | \
     while IFS= read -r -d "" _i; do
 	print -r "◖${_i}◗"
 	ssh -n "$_h" cat "${_i@Q}" | "$@"

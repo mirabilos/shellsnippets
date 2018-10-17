@@ -1,7 +1,7 @@
 #!/usr/bin/env mksh
 # From MirOS: contrib/code/Snippets/shuffle,v 1.7 2012/10/19 18:59:39 tg Exp $
 #-
-# Copyright © 2006, 2010, 2011, 2012, 2015, 2017
+# Copyright © 2006, 2010, 2011, 2012, 2015, 2017, 2018
 #	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -31,7 +31,7 @@ set -A files
 integer nfiles=0
 
 trap "" INT
-ssh -n "$_h" find "$_fm" -type f -print0 |&
+ssh -n "$_h" find "$_fm" -follow -type f -print0 |&
 while IFS= read -p -r -d "" _i; do
 	files[nfiles++]=$_i
 done
