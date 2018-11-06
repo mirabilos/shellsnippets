@@ -1,6 +1,6 @@
 #!/bin/mksh
 #-
-# Copyright © 2016
+# Copyright © 2016, 2018
 #	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -27,6 +27,8 @@ if [[ $1 = ?([a-z][a-z]?([a-z]|-CN|-TW))[:=]?([a-z][a-z]?([a-z]|-CN|-TW))*('+'?(
 	shift
 fi
 unset BROWSER DISPLAY
-trans -show-original n -show-dictionary n -no-view $langs -- "$*" | \
+what="$*"
+[[ -n $what ]] || what=$(cat)
+trans -show-original n -show-dictionary n -no-view $langs -- "$what" | \
     sed -ne '1,/^$/H' -e '1,/^$/!p' -e '${x;s/\n$//;p;}'
 exit ${PIPESTATUS[0]}
