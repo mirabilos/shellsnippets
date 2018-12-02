@@ -1,5 +1,8 @@
 # -*- mode: sh -*-
+# $MirOS: contrib/hosted/tg/progress-bar,v 1.2 2018/12/02 07:01:17 tg Exp $
 #-
+# Copyright © 2018
+#	mirabilos <m@mirbsd.org>
 # Copyright © 2017
 #	mirabilos <t.glaser@tarent.de>
 # Copyright © 2015, 2017
@@ -30,6 +33,7 @@
 # init_progress_bar trashes the EXIT and SIGWINCH traps, which later
 # are cleared, again, by done_progress_bar; note this forces using a
 # “while [[ -n $(jobs) ]]; do wait; done” loop instead of just wait.
+# Use “redo_progress_bar [±]$n” to rerender updating the estimate.
 
 # global variables used by this library
 _cnt_progress_bar=0
@@ -91,6 +95,22 @@ function draw_progress_bar {
 		_cur_progress_bar=$_cnt_progress_bar
 	fi
 	# remaining drawing code
+	draw_progress_bar_internal
+}
+
+function redo_progress_bar {
+	if [[ $1 = +* ]]; then
+		(( _cnt_progress_bar += ${1#+} ))
+	elif [[ $1 = -* ]]; then
+		(( _cnt_progress_bar -= ${1#-} ))
+	else
+		_cnt_progress_bar=$1
+	fi
+	if (( _cur_progress_bar > _cnt_progress_bar )); then
+		print -ru2 W: new estimate $_cnt_progress_bar too low \
+		    after $_cur_progress_bar calls
+		_cur_progress_bar=$_cnt_progress_bar
+	fi
 	draw_progress_bar_internal
 }
 
