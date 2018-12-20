@@ -1,0 +1,65 @@
+#!/usr/bin/env mksh
+# -*- mode: sh -*-
+#-
+# Copyright © 2016, 2017, 2018
+#	mirabilos <t.glaser@tarent.de>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# Update all locally-existing *.xml files from the same directory as
+# this script from a remote Jenkins’ job configuration (needs root).
+
+jenkins=ci-busyapps.lan.tarent.de
+
+LC_ALL=C; export LC_ALL
+unset LANGUAGE
+
+set -e
+set -o pipefail
+cd "$(dirname "$0")"
+
+for x in *.xml; do
+	if [[ ! -e $x ]]; then
+		print -r -- "E: ${x@Q} does not exist!"
+		exit 1
+	fi
+	print -nr -- "I: Processing $x…"
+	x=${x%.xml}
+
+	ssh -n -l root $jenkins "
+		cat /var/lib/jenkins/jobs/${x@Q}/config.xml
+		echo
+	    " | sed --posix \
+	    -e 's!\([&]\)apos[;]!\1#39;!g' \
+	    -e 's!\([&]\)quot[;]!\1#34;!g' \
+	    -e 's!\(-Dgpg.passphrase=\)[^ "]*\([ "]\)!\1<SECRET/>\2!g' \
+	    >"$x.xml~"
+
+	while IFS= read -r line; do
+		print -r -- "$line"
+		[[ $line = '    <hudson.security.AuthorizationMatrixProperty>' ]] || \
+		    continue
+		while IFS= read -r line; do
+			[[ $line = '    </hudson.security.AuthorizationMatrixProperty>' ]] && \
+			    break
+			print -r -- "$line"
+		done | sort -u
+		print -r -- '    </hudson.security.AuthorizationMatrixProperty>'
+	done <"$x.xml~" >"$x.xml"
+	print " done."
+done
+rm -f *~
+print "I: All done, success."
