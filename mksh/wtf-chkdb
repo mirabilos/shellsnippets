@@ -1,0 +1,82 @@
+#!/bin/mksh
+# $MirOS: src/usr.bin/wtf/chkdb,v 1.6 2017/08/02 10:15:11 tg Exp $
+#-
+# Copyright © 2015, 2016, 2017
+#	mirabilos <m@mirbsd.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# Check the acronyms database for validity.
+
+acronyms=${ACRONYMDB:-/usr/share/misc/acronyms}
+
+function die {
+	print -ru2 -- "E: $*"
+	exit 1
+}
+rv=0
+function warn {
+	print -ru2 -- "W: $*"
+	rv=1
+}
+
+[[ -s $acronyms ]] || die "acronyms database ${acronyms@Q} missing or empty"
+
+exec <"$acronyms"
+IFS= read -r line || die "acronyms database ${acronyms@Q} empty"
+[[ $line = '  '* ]] || die "acronyms database ${acronyms@Q} does not start with caseconv pairs"
+
+set -U
+[[ $line = ' '+( ?/?) ]] || die "acronyms database ${acronyms@Q} caseconv pairs line syntax error"
+set +U
+set -A ucsrch -- $line
+
+lline=$line
+num=1
+last= nacr=0 nexp=0 lots=${EPOCHREALTIME%?????}
+while IFS= read -r line; do
+	(( ++num ))
+	[[ $line = *@([ 	]) ]] && warn "whitespace at EOL: $line"
+	if [[ $line != *'	'* ]]; then
+		[[ $line = ' '* ]] || warn "does not begin with a space: $line"
+		[[ $line < $lline ]] && warn "not sorted: $line"
+		lline=$line
+		continue
+	fi
+	let ++nexp
+	target=${line%%	*}
+	[[ $target = "$last" ]] || let ++nacr
+	last=$target
+	exp=${line#*	}
+	[[ $exp = *'	'* ]] && warn "tab in expansion: $line"
+	typeset -u tgsrch=$target
+	if [[ $tgsrch = *[A-Z].* ]]; then
+		warn "never matched, contains dots: $line"
+		target=${target//.}
+		tgsrch=${tgsrch//.}
+	fi
+	for p in "${ucsrch[@]}"; do
+		eval 'tgsrch=${tgsrch//'"$p}"
+	done
+	[[ $target != "$tgsrch" ]] && warn "never matched, not case-folded: $line"
+	[[ $tgsrch < $lline ]] && warn "not sorted: $line"
+	lline=$tgsrch
+	[[ $lots = ${EPOCHREALTIME%?????} ]] && continue
+	print -n "$num...\r"
+	lots=${EPOCHREALTIME%?????}
+done
+(( rv )) && die "acronyms database ${acronyms@Q} contains errors"
+print "I: counted $num lines ($nacr acronyms with $nexp expansions), all OK"
