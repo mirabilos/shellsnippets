@@ -23,7 +23,14 @@ pts() {
 	elif [[ $p = b[dp]:* ]]; then
 		${BROWSER:-lynx} "https://buildd.debian.org/status/package.php?p=${p#bd:}"
 	elif [[ $p = f:* ]]; then
-		${BROWSER:-lynx} "https://packages.debian.org/search?searchon=contents&keywords=${1#f:}&mode=path&suite=unstable&arch=any"
+		# paths ending with
+		${BROWSER:-lynx} "https://packages.debian.org/search?suite=unstable&arch=any&searchon=contents&keywords=${1#f:}"
+	elif [[ $p = fm:* ]]; then
+		# within filename
+		${BROWSER:-lynx} "https://packages.debian.org/search?suite=unstable&arch=any&mode=filename&searchon=contents&keywords=${1#f:}"
+	elif [[ $p = fn:* ]]; then
+		# filename, exact
+		${BROWSER:-lynx} "https://packages.debian.org/search?suite=unstable&arch=any&mode=exactfilename&searchon=contents&keywords=${1#f:}"
 	elif [[ $p = p:* ]]; then
 		${BROWSER:-lynx} "https://packages.debian.org/${p#p:}"
 	elif [[ $p = ap:* ]]; then
