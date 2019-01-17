@@ -1,5 +1,8 @@
 # -*- mode: sh -*-
+# $MirOS: contrib/hosted/tg/progress-bar,v 1.4 2018/12/02 08:12:31 tg Exp $
 #-
+# Copyright © 2018
+#	mirabilos <m@mirbsd.org>
 # Copyright © 2017
 #	mirabilos <t.glaser@tarent.de>
 # Copyright © 2015, 2017
@@ -30,12 +33,14 @@
 # init_progress_bar trashes the EXIT and SIGWINCH traps, which later
 # are cleared, again, by done_progress_bar; note this forces using a
 # “while [[ -n $(jobs) ]]; do wait; done” loop instead of just wait.
+# Use “redo_progress_bar [±]$n” to rerender updating the estimate.
 
 # global variables used by this library
 _cnt_progress_bar=0
 _cur_progress_bar=0
 isin_progress_bar=0
 nlin_progress_bar=0
+_cch_progress_bar=
 
 if [[ $KSH_VERSION = @(\@\(#\)MIRBSD KSH R)@(5[5-9]|[6-9][0-9]|[1-9][0-9][0-9])\ * ]]; then
 	alias global='typeset -g'
@@ -47,8 +52,9 @@ fi
 function init_progress_bar {
 	global -i _cnt_progress_bar=$1 _cur_progress_bar=0
 	global -i nlin_progress_bar=$LINES isin_progress_bar=1
+	_cch_progress_bar=
 
-	trap 'done_progress_bar 1' EXIT
+	trap 'done_progress_bar $?' EXIT
 	trap 'sigwinch_progress_bar' WINCH
 	# set up scrolling region, draw initial empty bar
 	sigwinch_progress_bar
@@ -74,12 +80,14 @@ function sigwinch_progress_bar {
 function done_progress_bar {
 	(( isin_progress_bar )) || return 0
 	isin_progress_bar=0
+	_cch_progress_bar=
 	# save position; clear scrolling region; restore position;
 	# save position; clear rest of screen; restore position
 	print -nu2 "\\e7\\e[0;0r\\e8\\e7\\e[J\\e8"
 	trap - WINCH
 	trap - EXIT
-	[[ -n $1 ]] || (( _cur_progress_bar == _cnt_progress_bar )) || \
+	[[ -z $1 ]] || return $1
+	(( _cur_progress_bar == _cnt_progress_bar )) || \
 	    print -ru2 W: expected $_cnt_progress_bar draw_progress_bar calls, \
 	    got only $_cur_progress_bar
 }
@@ -94,10 +102,29 @@ function draw_progress_bar {
 	draw_progress_bar_internal
 }
 
+function redo_progress_bar {
+	if [[ $1 = +* ]]; then
+		(( _cnt_progress_bar += ${1#+} ))
+	elif [[ $1 = -* ]]; then
+		(( _cnt_progress_bar -= ${1#-} ))
+	else
+		_cnt_progress_bar=$1
+	fi
+	if (( _cur_progress_bar > _cnt_progress_bar )); then
+		print -ru2 W: new estimate $_cnt_progress_bar too low \
+		    after $_cur_progress_bar calls
+		_cur_progress_bar=$_cnt_progress_bar
+	fi
+	_cch_progress_bar=
+	draw_progress_bar_internal
+}
+
 function draw_progress_bar_internal {
-	local bar num w=$COLUMNS
+	local bar num w=$COLUMNS pct
 
 	((# num = (_cur_progress_bar * w * 8) / _cnt_progress_bar ))
+	((# pct = _cur_progress_bar * 100 / _cnt_progress_bar ))
+	[[ $_cch_progress_bar != $num.$pct ]] || return 0
 	while ((# num >= 8 )); do
 		bar+=█
 		((# num -= 8 ))
@@ -112,11 +139,12 @@ function draw_progress_bar_internal {
 	(1) bar+=▏ ;;
 	}
 	# fill complete line, right-align completion percentage display
-	local -R$w spc="$((# _cur_progress_bar * 100 / _cnt_progress_bar))%"
+	local -R$w spc="$pct%"
 	# elide percentage when it stops fitting
 	((# (_cur_progress_bar * w / _cnt_progress_bar) > (w - 4) )) && spc=
 	# save position; go to last line; set colours;
 	# output a line full of spaces (and completion percentage);
 	# jump to first column; output bar (line præfix); restore position
 	print -nu2 -- "\\e7\\e[$nlin_progress_bar;1H\\e[0;1;33;44m$spc\\r$bar\\e8"
+	_cch_progress_bar=$num.$pct
 }
