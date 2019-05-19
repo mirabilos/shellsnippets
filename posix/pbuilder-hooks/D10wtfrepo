@@ -1,5 +1,5 @@
 #!/bin/sh
-# $MirOS: contrib/hosted/tg/deb/hookdir/D10wtfrepo,v 1.6 2017/11/17 01:10:07 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/D10wtfrepo,v 1.7 2019/03/23 19:48:13 tg Exp $
 #-
 # Not complicated enough for copyright.
 
@@ -9,9 +9,9 @@ LC_ALL=C; export LC_ALL
 d=${DIST%/*}
 d=${d%-backports*}
 case $d in
-(sarge|etch|lenny|squeeze|wheezy|jessie|sid)
+(sarge|etch|lenny|squeeze|wheezy|jessie|stretch|buster|sid)
 	;;
-(stretch|buster|bullseye)
+(bullseye)
 	d=sid
 	;;
 (*)
@@ -49,6 +49,12 @@ EOF
 
 cat >>/etc/apt/sources.list <<EOF
 deb http://www.mirbsd.org/~tg/Debs/ $d wtf
+EOF
+
+# note: sarge/wtf almost certainly needs sarge-backports
+
+test x"$d" = x"squeeze" && cat >>/etc/apt/sources.list <<EOF
+deb http://www.mirbsd.org/~tg/Debs/ lenny wtf
 EOF
 
 apt-get update
