@@ -21,6 +21,9 @@
 #-
 # Shows all packages whose installed version is not available from a
 # repository any more.
+#
+# Suggested extra usage:
+# apt-cache policy $(mksh showlcl.sh | while read a b; do echo $a; done) | less
 
 unset LANGUAGE
 export LC_ALL=C
