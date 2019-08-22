@@ -1,8 +1,8 @@
 #!/bin/mksh
-rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.76 2017/05/06 22:26:18 tg Exp $'
+rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.77 2019/05/18 18:39:07 tg Exp $'
 #-
 # Copyright © 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015,
-#	      2016, 2017
+#	      2016, 2017, 2019
 #	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -155,6 +155,7 @@ for suite in dists/*; do
 	[[ $suites = : || $suites = *:"$suite":* ]] || continue
 	archs=
 	distribution=
+	dcodename=
 	debootstrap_compat=0
 	. $suite/distinfo.sh
 	suitearchs=${archs:-${normarchs[*]}}
@@ -302,7 +303,7 @@ for suite in dists/*; do
 		Origin: ${repo_origin}
 		Label: ${repo_label}
 		Suite: ${distribution:-${suite##*/}}
-		Codename: ${suite##*/}
+		Codename: ${dcodename:-${suite##*/}}
 		Date: $(date -Ru)
 		Architectures: all ${dpkgarchs[*]} source
 		$components
@@ -388,6 +389,8 @@ br='<br />'
 
 # syntax:	${suitename}/${distname}/${pN}/${pp} <suite>
 # example:	sid/wtf/openntpd/i386 lenny
+# not here:	squeeze/wtf/xz-utils/% backport-source
+# binary-only?	sid/wtf/pbuilder/= something
 if [[ -s mkdebidx.lnk ]]; then
 	while read pn pd; do
 		[[ $pn = '#'* ]] && continue
