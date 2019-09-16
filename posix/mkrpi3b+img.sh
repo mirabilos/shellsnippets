@@ -27,16 +27,16 @@
 # SETUP #
 #########
 
-LANGUAGE=C
-LC_ALL=C.UTF-8
-export LC_ALL
-unset LANGUAGE
 ht='	'
 nl='
 '
 IFS=" $ht$nl"
 POSIXLY_CORRECT=1
 export POSIXLY_CORRECT
+LANGUAGE=C
+LC_ALL=C.UTF-8
+export LC_ALL
+unset LANGUAGE
 safe_PATH=/bin:/sbin:/usr/bin:/usr/sbin
 PATH=$PATH:$safe_PATH  # just to make sure
 export safe_PATH PATH
