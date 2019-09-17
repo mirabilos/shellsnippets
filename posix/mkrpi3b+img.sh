@@ -876,6 +876,54 @@ Press Enter to continue.' 12 72 || :)
 			adduser '$userid' \$group
 		done
 		: end of pre-scripted post-bootstrap steps
+		set +x
+		userid='$userid'
+	EOF
+
+	##############################################################
+	# PERMIT MANUAL STEPS BY SWITCHING (UNDER EMULATION) TO USER #
+	##############################################################
+
+	cat <<-'EOF'
+		whiptail --backtitle 'mkrpi3b+img.sh' \
+		    --msgbox "We will now (chrooted into the target system, under emulation, so it will be really slooooow…) run a login shell as the user account we just created ($userid), so you can do any manual post-installation steps desired.
+
+Please use “sudo -S command” to run things as root, if necessary.
+
+Press Enter to continue; exit the emulation with the “exit” command." 14 72
+		unset DEBIAN_FRONTEND POSIXLY_CORRECT
+		export HOME=/  # later overridden by su
+		>>/var/log/syslog print -r -- "$(date +"%b %d %T")" \
+		    "${HOSTNAME%%.*} mkrpi3b+img.sh[$$]:" \
+		    soliciting manual post-installation steps
+		chown 0:adm /var/log/syslog
+		chmod 640 /var/log/syslog
+		find /usr/lib -name libeatmydata.so\* -a -type f -print0 | \
+		    xargs -0r chmod u+s --
+		su - "$userid"
+		find /usr/lib -name libeatmydata.so\* -a -type f -print0 | \
+		    xargs -0r chmod u-s --
+		print -ru2 -- 'I: running apt-get autoremove,' \
+		    'acknowledge as desired'
+		apt-get --purge autoremove
+		print -ru2 -- 'I: finally, cleaning up'
+		apt-get clean
+		pwck -s
+		grpck -s
+		rm -f /etc/{passwd,group,{,g}shadow,sub{u,g}id}-
+		if whence -p etckeeper >/dev/null; then
+			etckeeper commit 'Finish installation'
+			etckeeper vcs gc
+		fi
+		rm -f /var/log/bootstrap.log
+		# from /lib/init/bootclean.sh
+		cd /run
+		find . ! -xtype d ! -name utmp ! -name innd.pid -delete
+		# fine𝄐
+		>>/var/log/syslog print -r -- "$(date +"%b %d %T")" \
+		    "${HOSTNAME%%.*} mkrpi3b+img.sh[$$]:" \
+		    finishing up installation\; once booted natively on the \
+		    device, you can nuke /usr/bin/qemu-aarch64-static manually
 	EOF
 ) >"$mpt/root/munge-it.sh" || die 'post-installation script creation failure'
 
@@ -893,56 +941,11 @@ unshare --uts chroot "$mpt" /usr/bin/env -i TERM="$TERM" /usr/bin/eatmydata \
     /bin/mksh /root/munge-it.sh || die 'post-bootstrap failed'
 rm -f "$mpt/root/munge-it.sh"
 
-##############################################################
-# PERMIT MANUAL STEPS BY CHROOTING (UNDER EMULATION) TO USER #
-##############################################################
-
-w --msgbox "We will now chroot into the target system (under emulation, so it will be really slooooow…) as the user account we just created ($userid), so you can do any manual post-installation steps desired.
-
-Please use “sudo -S command” to run things as root, if necessary.
-
-Press Enter to continue; exit the emulation with the “exit” command." 14 72
-unshare --uts chroot "$mpt" /usr/bin/env -i TERM="$TERM" /usr/bin/eatmydata \
-    /bin/mksh -c '
-	unset LANGUAGE
-	export HOME=/ LC_ALL=C.UTF-8 PATH=/usr/sbin:/usr/bin:/sbin:/bin
-	export HOSTNAME=$(</etc/hostname)
-	hostname "$HOSTNAME"
-	print -r -- "$(date +"%b %d %T") ${HOSTNAME%%.*} mkrpi3b+img.sh[$$]:" \
-	    soliciting manual post-installation steps >>/var/log/syslog
-	chown 0:adm /var/log/syslog
-	chmod 640 /var/log/syslog
-	find /usr/lib -name libeatmydata.so\* -a -type f -print0 | \
-	    xargs -0r chmod u+s --
-	su - '"$userid"'
-	find /usr/lib -name libeatmydata.so\* -a -type f -print0 | \
-	    xargs -0r chmod u-s --
-	print -ru2 -- "I: running apt-get autoremove, acknowledge as desired"
-	apt-get --purge autoremove
-	print -ru2 -- "I: finally cleaning up"
-	apt-get clean
-	pwck -s
-	grpck -s
-	rm -f /etc/{passwd,group,{,g}shadow,sub{u,g}id}-
-	if whence -p etckeeper >/dev/null; then
-		etckeeper commit "Finish installation"
-		etckeeper vcs gc
-	fi
-	rm -f /var/log/bootstrap.log
-	# from /lib/init/bootclean.sh
-	cd /run
-	find . ! -xtype d ! -name utmp ! -name innd.pid -delete
-	# fine𝄐
-	print -r -- "$(date +"%b %d %T") ${HOSTNAME%%.*} mkrpi3b+img.sh[$$]:" \
-	    finishing up installation, nuke /usr/bin/qemu-aarch64-static \
-	    manually later, once booted up natively >>/var/log/syslog
-'
-
 #######################
 # FINISH AND CLEAN UP #
 #######################
 
-w --infobox 'OK. We will now clean up the system.' 7 72
+w --infobox 'OK. We will now clean up the target system.' 7 72
 
 fstrim -v "$mpt/boot/firmware"
 fstrim -v "$mpt"
