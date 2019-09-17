@@ -747,7 +747,7 @@ swap                /tmp            tmpfs  defaults,relatime,nosuid,nodev  0  0
 		auto lo
 		iface lo inet loopback
 
-		# An onboard Ethernet NIC
+		# First Ethernet interface
 		auto eth0
 		iface eth0 inet dhcp
 	EOF
