@@ -23,6 +23,9 @@
 # ly up-to-date tools), using qemu-user/binfmt_misc emulation to run
 # the foreign architecture steps in a chroot.
 
+echo still WIP, please wait until testing finished
+exit 1
+
 #########
 # SETUP #
 #########
@@ -790,6 +793,9 @@ swap                /tmp            tmpfs  defaults,relatime,nosuid,nodev  0  0
 		printf '%s\n' \
 		    'Package: systemd' 'Pin: version *' 'Pin-Priority: -1' '' \
 		    >/etc/apt/preferences.d/systemd
+		(: >/etc/init.d/.legacy-bootordering)
+		grep FANCYTTY /etc/lsb-base-logging.sh >/dev/null 2>&1 || \
+		    echo FANCYTTY=0 >>/etc/lsb-base-logging.sh
 	EOF
 	# install base packages
 	cat <<-'EOF'
