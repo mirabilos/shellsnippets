@@ -650,7 +650,7 @@ eatmydata debootstrap --arch=arm64 --include=eatmydata,makedev,mksh $init \
     http://deb.debian.org/debian sid || die 'debootstrap (first stage) failed'
     # script specified here as it’s normally what buster symlinks to,
     # to achieve compatibility with more host distros
-# we need this early
+# we need this early; Debian #700633
 (
 	set -e
 	cd "$mpt"
@@ -952,6 +952,7 @@ fstrim -v "$mpt"
 dd if=/dev/urandom bs=64 count=1 conv=notrunc of="$mpt$rnd" || \
     p 'W: dd rnd3 failed'
 p "I: done installing on $dvname ($tgtimg)"
+# Debian #801614
 test -n "$dropsd" || p 'W: when installing X11, you’ll need these extra steps:' \
     'N: 1. install the package xserver-xorg-legacy' \
     'N: 2. edit /etc/X11/Xwrapper.config to add the two lines:' \
