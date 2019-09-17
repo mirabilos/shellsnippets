@@ -540,7 +540,7 @@ Most users will say “No” here." 10 72; then
 	(7)
 		#### EXTRA PACKAGES TO INSTALL
 		if test x"$pkgadd" = x"-"; then
-			pkgadd='bind9-host bridge-utils postfix bsd-mailx curl etckeeper ethtool openssh-server patch pv reportbug unscd wget _WLAN_'
+			pkgadd='anacron bind9-host bridge-utils postfix bsd-mailx curl etckeeper ethtool openssh-server patch pv reportbug unscd wget _WLAN_'
 			blurb=' We have provided you with a selection of default useful system utilities and services, which you can change if you wish, of course.'
 		else
 			blurb=
@@ -803,7 +803,9 @@ swap                /tmp            tmpfs  defaults,relatime,nosuid,nodev  0  0
 		rm -f /var/cache/apt/archives/*.deb
 		export DEBIAN_FRONTEND=dialog
 		# basic configuration
-		print -r -- linux_logo -uy >/etc/profile.d/linux_logo.sh
+		print -r -- '(. /etc/os-release 2>/dev/null; linux_logo' \
+		    '-uy ${PRETTY_NAME+-t "OS version: $PRETTY_NAME"} || :)' \
+		    >/etc/profile.d/linux_logo.sh
 		(whiptail --backtitle 'mkrpi3b+img.sh' --msgbox \
 		    'We will now reconfigure some packages, so you can set up some basic things about your system: timezone (default UTC), keyboard layout, console font, and the system locale (and possibly whether additional locales are to be installed).
 
