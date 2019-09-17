@@ -910,9 +910,22 @@ unshare --uts chroot "$mpt" /usr/bin/env -i TERM="$TERM" /usr/bin/eatmydata \
 	su - '"$userid"'
 	find /usr/lib -name libeatmydata.so\* -a -type f -print0 | \
 	    xargs -0r chmod u-s --
-	apt-get clean
 	print -ru2 -- "I: running apt-get autoremove, acknowledge as desired"
 	apt-get --purge autoremove
+	print -ru2 -- "I: finally cleaning up"
+	apt-get clean
+	pwck -s
+	grpck -s
+	rm -f /etc/{passwd,group,{,g}shadow,sub{u,g}id}-
+	if whence -p etckeeper >/dev/null; then
+		etckeeper commit "Finish installation"
+		etckeeper vcs gc
+	fi
+	rm -f /var/log/bootstrap.log
+	# from /lib/init/bootclean.sh
+	cd /run
+	find . ! -xtype d ! -name utmp ! -name innd.pid -delete
+	# fine𝄐
 	print -r -- "$(date +"%b %d %T") ${HOSTNAME%%.*} mkrpi3b+img.sh[$$]:" \
 	    finishing up installation, nuke /usr/bin/qemu-aarch64-static \
 	    manually later, once booted up natively >>/var/log/syslog
