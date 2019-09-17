@@ -909,6 +909,8 @@ unshare --uts chroot "$mpt" /usr/bin/env -i TERM="$TERM" /usr/bin/eatmydata \
 	find /usr/lib -name libeatmydata.so\* -a -type f -print0 | \
 	    xargs -0r chmod u-s --
 	apt-get clean
+	print -ru2 -- "I: running apt-get autoremove, acknowledge as desired"
+	apt-get --purge autoremove
 	print -r -- "$(date +"%b %d %T") ${HOSTNAME%%.*} mkrpi3b+img.sh[$$]:" \
 	    finishing up installation, nuke /usr/bin/qemu-aarch64-static \
 	    manually later, once booted up natively >>/var/log/syslog
