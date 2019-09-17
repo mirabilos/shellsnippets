@@ -107,10 +107,6 @@ die() {
 	diecleanup
 	exit 1
 }
-dieif() {
-	dieif_reason=$1; shift
-	"$@" || die "$dieif_reason"
-}
 trap 'p "I: exiting, cleaning up…"; diecleanup; exit 0' EXIT
 trap 'p "E: caught SIGHUP, cleaning up…"; diecleanup; exit 129' HUP
 trap 'p "E: caught SIGINT, cleaning up…"; diecleanup; exit 130' INT
@@ -615,24 +611,24 @@ dd if=pt of=mbr bs=1 seek=446 conv=notrunc 2>/dev/null || die 'dd mbr4 failed'
 # write to disc, wiping pre-partition space as well
 dd if=mbr bs=1048576 of="$dvname" 2>/dev/null || die 'dd mbr5 failed'
 rm mbr
-# create partitions
-dieif 'fdisk failed' \
-    fdisk -c=nondos -t MBR -w always -W always "$tgtimg" <<'EOF'
-n
-p
-1
-2048
-262143
-n
-p
-2
-262144
+# layout partition table (per board-specific requirements)
+(fdisk -c=nondos -t MBR -w always -W always "$tgtimg" <<-'EOF'
+	n
+	p
+	1
+	2048
+	262143
+	n
+	p
+	2
+	262144
 
-t
-1
-c
-w
-EOF
+	t
+	1
+	c
+	w
+	EOF
+) || die 'fdisk failed'
 # map partitions so we can access them under a fixed name
 kpx=/dev/mapper/${dvname##*/}
 kpartx -a -f -v -p p -t dos -s "$dvname" || die 'kpartx failed'
