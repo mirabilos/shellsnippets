@@ -91,6 +91,9 @@ dieteardown() {
 	loopdev=
 }
 diecleanup() {
+	stty sane <&2 2>/dev/null
+	tput cnorm 2>/dev/null
+	tput sgr0 2>/dev/null
 	dieteardown
 	if test -n "$T"; then
 		cd /
@@ -169,6 +172,7 @@ chkhosttool eatmydata /usr/bin/eatmydata
 chkhosttool fdisk /sbin/fdisk
 chkhosttool kpartx /sbin/kpartx
 chkhosttool mount /bin/mount /bin/umount /sbin/losetup
+chkhosttool ncurses-bin /usr/bin/tput
 chkhosttool qemu-user-static /usr/bin/qemu-aarch64-static
 chkhosttool util-linux /bin/lsblk /sbin/fstrim /usr/bin/unshare
 chkhosttool whiptail /usr/bin/whiptail
