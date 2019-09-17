@@ -23,9 +23,6 @@
 # ly up-to-date tools), using qemu-user/binfmt_misc emulation to run
 # the foreign architecture steps in a chroot.
 
-echo still WIP, please wait until testing finished
-exit 1
-
 #########
 # SETUP #
 #########
@@ -543,7 +540,7 @@ Most users will say “No” here." 10 72; then
 	(7)
 		#### EXTRA PACKAGES TO INSTALL
 		if test x"$pkgadd" = x"-"; then
-			pkgadd='anacron bind9-host bridge-utils postfix bsd-mailx curl etckeeper ethtool openssh-server patch pv reportbug unscd wget _WLAN_'
+			pkgadd='anacron bind9-host bridge-utils postfix bsd-mailx curl etckeeper ethtool ntp openssh-server patch pv rdate reportbug unscd wget _WLAN_'
 			blurb=' We have provided you with a selection of default useful system utilities and services, which you can change if you wish, of course.'
 		else
 			blurb=
@@ -749,6 +746,10 @@ swap                /tmp            tmpfs  defaults,relatime,nosuid,nodev  0  0
 		# The loopback network interface
 		auto lo
 		iface lo inet loopback
+
+		# An onboard Ethernet NIC
+		auto eth0
+		iface eth0 inet dhcp
 	EOF
 	# for bootstrapping in chroot
 	cat /etc/resolv.conf >"$mpt/etc/resolv.conf"
@@ -948,5 +949,10 @@ fstrim -v "$mpt"
 dd if=/dev/urandom bs=64 count=1 conv=notrunc of="$mpt$rnd" || \
     p 'W: dd rnd3 failed'
 p "I: done installing on $dvname ($tgtimg)"
+test -n "$dropsd" || p 'W: when installing X11, you’ll need these extra steps:' \
+    'N: 1. install the package xserver-xorg-legacy' \
+    'N: 2. edit /etc/X11/Xwrapper.config to add the two lines:' \
+    'N:     allowed_users=anybody  # or as you desire' \
+    'N:     needs_root_rights=yes'
 # remaining cleanup and unwinding done in the EXIT trap
 exit 0
