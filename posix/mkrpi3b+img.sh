@@ -122,6 +122,7 @@ trap 'p "E: caught SIGTERM, cleaning up…"; diecleanup; exit 143' TERM
 # PREREQUISITE CHECKING #
 #########################
 
+# ensure $TERM is set to something the chroot can use
 case $TERM in
 (Eterm|Eterm-color|ansi|cons25|cons25-debian|cygwin|dumb|hurd|linux|mach|mach-bold|mach-color|mach-gnu|mach-gnu-color|pcansi|rxvt|rxvt-basic|rxvt-m|rxvt-unicode|rxvt-unicode-256color|screen|screen-256color|screen-256color-bce|screen-bce|screen-s|screen-w|screen.xterm-256color|sun|vt100|vt102|vt220|vt52|wsvt25|wsvt25m|xterm|xterm-256color|xterm-color|xterm-debian|xterm-mono|xterm-r5|xterm-r6|xterm-vt220|xterm-xfree86)
 	# list from ncurses-base (6.1+20181013-2+deb10u1)
@@ -143,6 +144,7 @@ case $TERM in
 	    'Maybe run this script in GNU screen?' ;;
 esac
 
+# check that all utilities we use exist
 rv=0
 chkhosttool() {
 	chkhosttool_prog=$1; shift
@@ -185,11 +187,13 @@ if test -n "$needprintf"; then
 fi
 unset needprintf
 
+# needs direct device I/O and chroot
 case $(id -u) in
 (0) ;;
 (*) die 'Please run this as root.' ;;
 esac
 
+# create temporary directory as base of operations
 T=$(mktemp -d /tmp/mkrpi3b+img.XXXXXXXXXX) || \
     die 'cannot create temporary directory'
 case $T in
@@ -203,7 +207,7 @@ cd "$T" || die 'cannot cd into temporary directory'
 # DIALOGUE PREPARATIONS #
 #########################
 
-# assign tgtvar fallback glob
+# syntax: assign tgtvar fallback glob
 assign() {
 	assign_tgt=$1; shift
 	assign_nil=$1; shift
@@ -212,12 +216,14 @@ assign() {
 	eval "$assign_tgt=\$*"
 }
 
+# wrap around whiptail
 w() {
 	whiptail --backtitle 'mkrpi3b+img.sh' --output-fd 4 4>res "$@"
 	rv=$?
 	res=$(cat res) || die cannot read whiptail result file
 	return $rv
 }
+# w plus advance the state machine
 dw() {
 	if w "$@"; then
 		s=$(($s+1))
@@ -311,14 +317,16 @@ done
 # DIALOGUE LOOP #
 #################
 
+# default values
 assign devices '' /dev/sd[a-z]
 tgtdev=MANUAL
 tgtimg=/dev/sdX
 myfqdn=rpi3bplus.lan.tarent.invalid
 userid=pi
-setcma=
-dropsd=--defaultno
-pkgadd=-
+setcma=			# empty means yes (set CMA to higher value by default)
+dropsd=--defaultno	# nonempty means no (do not drop systemd by default)
+pkgadd=-		# - means out default values
+# state machine (menu question number)
 s=0
 while test x"$s" != x"9"; do
 	case $s in
@@ -389,6 +397,7 @@ If you do not with to create it, press Escape to go back instead.' \
 		if test -b "$tgtimg"; then
 			dvname=$tgtimg
 		elif test -f "$tgtimg"; then
+			# losetup -f does not echo chosen devicem which we need
 			dvname=$(losetup -f) || die 'losetup failed in get'
 			case $dvname in
 			(/dev/loop*) ;;
@@ -408,6 +417,7 @@ If you do not with to create it, press Escape to go back instead.' \
 		([0-9]*) ;;
 		(*) die 'lsblk returned empty result' ;;
 		esac
+		# use bc for arithmetic: numbers too large for shell
 		case $(echo "a=0; if($sz<(1536*1048576)) a=1; a" | bc) in
 		(0) ;;
 		(1)
@@ -540,6 +550,8 @@ Most users will say “No” here." 10 72; then
 	(7)
 		#### EXTRA PACKAGES TO INSTALL
 		if test x"$pkgadd" = x"-"; then
+			# openssh-server will generate the server keys using
+			# random bytes from the host, in the chroot (good!)
 			pkgadd='anacron bind9-host bridge-utils postfix bsd-mailx curl etckeeper ethtool ntp openssh-server patch pv rdate reportbug unscd wget _WLAN_'
 			blurb=' We have provided you with a selection of default useful system utilities and services, which you can change if you wish, of course.'
 		else
@@ -583,10 +595,11 @@ done
 p 'I: ok, proceeding; this may take some time…' \
   'N: be prepared to interactively answer more questions though'
 sleep 3
-# store some random seed for later, 1ˢᵗ half
+# store some random seed for later, 1ˢᵗ half (taken from host CSPRNG)
 dd if=/dev/urandom bs=256 count=1 of=rnd 2>/dev/null || die 'dd rnd1 failed'
 # create MBR with empty BIOS partition table
 s='This SD card boots on a Raspberry Pi 3B+ only!'
+# x86 machine code outputting message then stopping
 printf '\xE8\x'$(echo "obase=16; ${#s}+5" | bc)'\0\r\n' >data
 printf '%s' 'This SD card boots on a Raspberry Pi 3B+ only!' | tee txt >>data
 printf '\r\n\0\x5E\16\x1F\xAC\10\xC0\x74\xFE\xB4\16\xBB\7\0\xCD\20\xEB\xF2' \
@@ -599,6 +612,7 @@ dd if=mbr bs=1048576 of="$dvname" seek=1 2>/dev/null || die 'dd clr1 failed'
 dd if=mbr bs=1048576 of="$dvname" seek=128 2>/dev/null || die 'dd clr2 failed'
 dd if=data of=mbr conv=notrunc 2>/dev/null || die 'dd mbr3 failed'
 dd if=pt of=mbr bs=1 seek=446 conv=notrunc 2>/dev/null || die 'dd mbr4 failed'
+# write to disc, wiping pre-partition space as well
 dd if=mbr bs=1048576 of="$dvname" 2>/dev/null || die 'dd mbr5 failed'
 rm mbr
 # create partitions
@@ -619,6 +633,7 @@ t
 c
 w
 EOF
+# map partitions so we can access them under a fixed name
 kpx=/dev/mapper/${dvname##*/}
 kpartx -a -f -v -p p -t dos -s "$dvname" || die 'kpartx failed'
 # create filesystems
@@ -645,6 +660,9 @@ if test -n "$dropsd"; then
 else
 	init=--no-merged-usr
 fi
+# added programs: eatmydata to speed up APT/dpkg; makedev needs to be
+# run very early as we can’t use udev or the host’s /dev filesystem,
+# mksh because the post-install script is written in it for simplicity
 eatmydata debootstrap --arch=arm64 --include=eatmydata,makedev,mksh $init \
     --force-check-gpg --verbose --foreign buster "$mpt" \
     http://deb.debian.org/debian sid || die 'debootstrap (first stage) failed'
@@ -692,12 +710,15 @@ mount --bind /dev/pts "$mpt/dev/pts" || die 'bind-mount /dev/pts failed'
 
 # standard configuration files (generic)
 if test -n "$dropsd"; then
+	# path apparently varies with init system
 	rnd=/var/lib/systemd/random-seed
 else
+	# traditional path (content is identical though)
 	rnd=/var/lib/urandom/random-seed
 fi
 (
 	set -ex
+	# as set by d-i
 	printf '%s\n' '0.0 0 0.0' 0 UTC >"$mpt/etc/adjtime"
 	cat >"$mpt/etc/apt/sources.list" <<-'EOF'
 deb http://deb.debian.org/debian buster main non-free contrib
@@ -705,7 +726,7 @@ deb http://deb.debian.org/debian-security buster/updates main non-free contrib
 deb http://deb.debian.org/debian buster-updates main non-free contrib
 deb http://deb.debian.org/debian buster-backports main non-free contrib
 	EOF
-	# from console-setup (1.193) config/keyboard
+	# from console-setup (1.193) config/keyboard (d-i)
 	cat >"$mpt/etc/default/keyboard" <<-'EOF'
 		# KEYBOARD CONFIGURATION FILE
 
@@ -718,12 +739,15 @@ deb http://deb.debian.org/debian buster-backports main non-free contrib
 
 		BACKSPACE=guess
 	EOF
+	# avoids early errors, configured properly later
 	: >"$mpt/etc/default/locale"
+	# target-appropriate
 	cat >"$mpt/etc/fstab" <<-'EOF'
 LABEL=RasPi3B+root  /               ext4   defaults,relatime,discard       0  2
 LABEL=RPi3BpFirmw   /boot/firmware  vfat   defaults,noatime,discard        0  1
 swap                /tmp            tmpfs  defaults,relatime,nosuid,nodev  0  0
 	EOF
+	# hostname and hosts (generic)
 	case $myfqdn in
 	(*.*)	myhost="$myfqdn ${myfqdn%%.*}" ;;
 	(*)	myhost=$myfqdn ;;
@@ -739,8 +763,10 @@ swap                /tmp            tmpfs  defaults,relatime,nosuid,nodev  0  0
 		ff02::2 ip6-allrouters
 		ff02::3 ip6-allhosts
 	EOF
+	# like d-i
 	rm -f "$mpt/etc/mtab"
 	ln -sfT /proc/self/mounts "$mpt/etc/mtab"
+	# so the user can ssh in straight after booting
 	cat >>"$mpt/etc/network/interfaces" <<-'EOF'
 
 		# The loopback network interface
@@ -753,7 +779,7 @@ swap                /tmp            tmpfs  defaults,relatime,nosuid,nodev  0  0
 	EOF
 	# for bootstrapping in chroot
 	cat /etc/resolv.conf >"$mpt/etc/resolv.conf"
-	# base directory, init system-dependent
+	# base directory, init system-dependent but identical
 	mkdir -p "$mpt${rnd%/*}"
 	test -d "$mpt${rnd%/*}"/.
 	chown 0:0 "$mpt${rnd%/*}"
@@ -771,20 +797,24 @@ swap                /tmp            tmpfs  defaults,relatime,nosuid,nodev  0  0
 		#!/bin/mksh
 		set -e
 		set -o pipefail
+		# reset environment so we can work
 		unset LANGUAGE
 		export DEBIAN_FRONTEND=teletype HOME=/root LC_ALL=C.UTF-8 \
 		    PATH=/usr/sbin:/usr/bin:/sbin:/bin POSIXLY_CORRECT=1
+		# necessary to avoid leaking the host’s /dev
 		print -ru2 -- 'I: the MAKEDEV step is extremely slow…'
 		set -x
 		(cd /dev && exec MAKEDEV std sd console ttyS0)
+		# because this is picked up by packages, e.g. postfix
 		hostname "$(</etc/hostname)"
+		# sanitise APT state
 		apt-get clean
 		apt-get update
 		# for debconf (required)
 		apt-get --purge -y install --no-install-recommends \
 		    libterm-readline-gnu-perl
 		export DEBIAN_FRONTEND=readline
-		# just in case
+		# just in case there were security uploads
 		apt-get --purge -y dist-upgrade
 	EOF
 	# switch to sysvinit?
@@ -794,25 +824,29 @@ swap                /tmp            tmpfs  defaults,relatime,nosuid,nodev  0  0
 		printf '%s\n' \
 		    'Package: systemd' 'Pin: version *' 'Pin-Priority: -1' '' \
 		    >/etc/apt/preferences.d/systemd
+		# make it suck slightly less, mostly already in sid
 		(: >/etc/init.d/.legacy-bootordering)
 		grep FANCYTTY /etc/lsb-base-logging.sh >/dev/null 2>&1 || \
 		    echo FANCYTTY=0 >>/etc/lsb-base-logging.sh
 	EOF
 	# install base packages
 	cat <<-'EOF'
-		rm -f /var/cache/apt/archives/*.deb
+		rm -f /var/cache/apt/archives/*.deb  # save temp space
+		# kernel, initrd and base firmware
 		apt-get --purge -y install --no-install-recommends \
 		    busybox firmware-brcm80211 firmware-linux-free \
 		    linux-image-arm64
-		rm -f /var/cache/apt/archives/*.deb
+		rm -f /var/cache/apt/archives/*.deb  # save temp space
+		# some tools and bootloader firmware
 		apt-get --purge -y install --no-install-recommends \
-		    adduser ed linuxlogo raspi3-firmware whiptail
-		rm -f /var/cache/apt/archives/*.deb
+		    adduser ed linuxlogo raspi3-firmware sudo whiptail
+		rm -f /var/cache/apt/archives/*.deb  # save temp space
 		export DEBIAN_FRONTEND=dialog
 		# basic configuration
 		print -r -- '(. /etc/os-release 2>/dev/null; linux_logo' \
 		    '-uy ${PRETTY_NAME+-t "OS version: $PRETTY_NAME"} || :)' \
 		    >/etc/profile.d/linux_logo.sh
+		# user configuration
 		(whiptail --backtitle 'mkrpi3b+img.sh' --msgbox \
 		    'We will now reconfigure some packages, so you can set up some basic things about your system: timezone (default UTC), keyboard layout, console font, and the system locale (and possibly whether additional locales are to be installed).
 
@@ -830,46 +864,49 @@ Press Enter to continue.' 12 72 || :)
 			w
 			q
 		EODB
+		# enact the changes
 		/etc/initramfs/post-update.d/z50-raspi3-firmware
 	EOF
 	# remaining packages and configuration
 	cat <<-'EOF'
-		: remaining user configuration may error out
+		: remaining user configuration may error out intermittently
 		set +e
 		# make man-db faster at cost of no apropos(1) lookup database
 		debconf-set-selections <<-'EODB'
 			man-db man-db/build-database boolean false
 			man-db man-db/auto-update boolean false
 		EODB
-		: install basic packages
+		: install basic packages  # change at your own risk but ok
 		apt-get --purge -y install --no-install-recommends \
 		    bc ca-certificates ifupdown iproute2 jupp joe-jupp less \
 		    lsb-release lynx man-db mc mlocate molly-guard net-tools \
 		    netcat-openbsd openssh-client popularity-contest procps \
-		    rsync screen sharutils sudo
-		rm -f /var/cache/apt/archives/*.deb
+		    rsync screen sharutils
+		rm -f /var/cache/apt/archives/*.deb  # save temp space
 	EOF
 	set -o noglob
 	set -- $pkgadd
 	set +o noglob
 	pkgs= s=
 	for pkg in "$@"; do
+		# macro substitution of tools often found together
 		case $pkg in
 		(_WLAN_) pkg='crda wireless-tools wpasupplicant' ;;
 		esac
+		# collect list of packages to install
 		pkgs="$pkgs$s$pkg" s=' '
 	done
-	# list of groups from user-setup (1.81)
+	# list of groups from user-setup (1.81), i.e. d-i,
 	# debian/user-setup.templates: passwd/user-default-groups
 	set -- audio bluetooth cdrom debian-tor dip floppy lpadmin \
 	    netdev plugdev scanner video
-	# we add adm and sudo
+	# we add adm and sudo (at least sudo done by d-i as well)
 	groups="$* adm sudo"
 	cat <<-EOF
 		: install extra packages
 		apt-get --purge install --no-install-recommends $pkgs
-		rm -f /var/cache/apt/archives/*.deb
-		: create initial user account, do remember password set
+		rm -f /var/cache/apt/archives/*.deb  # save temp space
+		: create initial user account, asking for password
 		adduser '$userid'
 		: ignore errors for nonexisting groups, please
 		for group in $groups; do
@@ -877,6 +914,7 @@ Press Enter to continue.' 12 72 || :)
 		done
 		: end of pre-scripted post-bootstrap steps
 		set +x
+		# prepare for manual steps as desired
 		userid='$userid'
 	EOF
 
@@ -885,32 +923,40 @@ Press Enter to continue.' 12 72 || :)
 	##############################################################
 
 	cat <<-'EOF'
+		# instruct the user what they can do now
 		whiptail --backtitle 'mkrpi3b+img.sh' \
 		    --msgbox "We will now (chrooted into the target system, under emulation, so it will be really slooooow…) run a login shell as the user account we just created ($userid), so you can do any manual post-installation steps desired.
 
 Please use “sudo -S command” to run things as root, if necessary.
 
 Press Enter to continue; exit the emulation with the “exit” command." 14 72
+		# clean environment for interactive use
 		unset DEBIAN_FRONTEND POSIXLY_CORRECT
 		export HOME=/  # later overridden by su
+		# create an initial entry in syslog
 		>>/var/log/syslog print -r -- "$(date +"%b %d %T")" \
 		    "${HOSTNAME%%.*} mkrpi3b+img.sh[$$]:" \
 		    soliciting manual post-installation steps
 		chown 0:adm /var/log/syslog
 		chmod 640 /var/log/syslog
+		# avoids warnings with sudo, cf. Debian #922349
 		find /usr/lib -name libeatmydata.so\* -a -type f -print0 | \
 		    xargs -0r chmod u+s --
 		su - "$userid"
+		# revert the above change again
 		find /usr/lib -name libeatmydata.so\* -a -type f -print0 | \
 		    xargs -0r chmod u-s --
+		# might not do anything, but allow the user refusal
 		print -ru2 -- 'I: running apt-get autoremove,' \
 		    'acknowledge as desired'
 		apt-get --purge autoremove
+		# remove installation debris
 		print -ru2 -- 'I: finally, cleaning up'
 		apt-get clean
 		pwck -s
 		grpck -s
 		rm -f /etc/{passwd,group,{,g}shadow,sub{u,g}id}-
+		# record initial /etc state
 		if whence -p etckeeper >/dev/null; then
 			etckeeper commit 'Finish installation'
 			etckeeper vcs gc
@@ -927,18 +973,21 @@ Press Enter to continue; exit the emulation with the “exit” command." 14 72
 	EOF
 ) >"$mpt/root/munge-it.sh" || die 'post-installation script creation failure'
 
-# now place initial random seed
+# now place initial random seed in the target location
 mv rnd "$mpt$rnd" || die 'mv rnd failed'
 chown 0:0 "$mpt$rnd" || die 'chown rnd failed'
 chmod 600 "$mpt$rnd" || die 'chmod rnd failed'
+# second half (collected from host’s CSPRNG now)
 dd if=/dev/urandom bs=256 count=1 >>"$mpt$rnd" || die 'dd rnd2 failed'
 
 ########################################################
 # POST-BOOTSTRAP SCRIPT RUN IN CHROOT, UNDER EMULATION #
 ########################################################
 
+# run the script concatenated together above in the chroot
 unshare --uts chroot "$mpt" /usr/bin/env -i TERM="$TERM" /usr/bin/eatmydata \
     /bin/mksh /root/munge-it.sh || die 'post-bootstrap failed'
+# remove the oneshot script
 rm -f "$mpt/root/munge-it.sh"
 
 #######################
@@ -947,10 +996,13 @@ rm -f "$mpt/root/munge-it.sh"
 
 w --infobox 'OK. We will now clean up the target system.' 7 72
 
+# to minimise size of backing sparse image file (also good for SSD)
 fstrim -v "$mpt/boot/firmware"
 fstrim -v "$mpt"
+# add another couple of random bytes, so the first boot isn’t without
 dd if=/dev/urandom bs=64 count=1 conv=notrunc of="$mpt$rnd" || \
     p 'W: dd rnd3 failed'
+# that’s it
 p "I: done installing on $dvname ($tgtimg)"
 # Debian #801614
 test -n "$dropsd" || p 'W: when installing X11, you’ll need these extra steps:' \
