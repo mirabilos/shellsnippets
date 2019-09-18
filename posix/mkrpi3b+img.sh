@@ -806,6 +806,7 @@ swap                /tmp            tmpfs  defaults,relatime,nosuid,nodev  0  0
 		unset LANGUAGE
 		export DEBIAN_FRONTEND=teletype HOME=/root LC_ALL=C.UTF-8 \
 		    PATH=/usr/sbin:/usr/bin:/sbin:/bin POSIXLY_CORRECT=1
+		export SUDO_USER=root USER=root # for etckeeper
 		# necessary to avoid leaking the host’s /dev
 		print -ru2 -- 'I: the MAKEDEV step is extremely slow…'
 		set -x
@@ -954,7 +955,7 @@ Press Enter to continue; exit the emulation with the “exit” command." 14 72
 		# avoids warnings with sudo, cf. Debian #922349
 		find /usr/lib -name libeatmydata.so\* -a -type f -print0 | \
 		    xargs -0r chmod u+s --
-		su - "$userid"
+		(unset SUDO_USER USER; exec su - "$userid")
 		# revert the above change again
 		find /usr/lib -name libeatmydata.so\* -a -type f -print0 | \
 		    xargs -0r chmod u-s --
