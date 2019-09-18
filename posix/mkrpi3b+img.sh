@@ -1023,9 +1023,9 @@ p "I: done installing on $dvname ($tgtimg), cleaning up…"
 diecleanup
 trap - EXIT
 # Debian #801614
-test -n "$dropsd" || p 'W: when installing X11, you’ll need these extra steps:' \
+p 'W: when installing X11, you’ll need these extra steps:' \
     'N: 1. install the package xserver-xorg-legacy' \
-    'N: 2. edit /etc/X11/Xwrapper.config to add the two lines:' \
-    'N:     allowed_users=anybody  # or as you desire' \
+    'N: 2. add to /etc/X11/Xwrapper.config the line:' \
     'N:     needs_root_rights=yes'
+p 'I: installation finished successfully'
 exit 0
