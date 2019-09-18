@@ -442,7 +442,7 @@ If you do not with to create it, press Escape to go back instead.' \
 		# and it’s big enough for the Debian installation; accept
 		s=2
 		sz=$(echo "scale=2; $sz/1048576" | bc) || die 'bc cannot divide'
-		dw --title 'Accept target device' \
+		dw --title 'Accept target device' --defaultno \
 		    --yesno "Your chosen target device: $tgtimg
 
 Block device $dvname of size $sz MiB
