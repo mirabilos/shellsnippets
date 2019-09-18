@@ -191,6 +191,14 @@ if test -n "$needprintf"; then
 	unset p_arg
 fi
 unset needprintf
+# retrieve path to the command (its existence was tested above)
+qemu_user_static=$(command -v qemu-aarch64-static) || die 'huh?'
+case $qemu_user_static in
+(/*) ;;
+(*) die 'qemu-aarch64-static cannot be found' ;;
+esac
+test -x "$qemu_user_static" || \
+    die "qemu-aarch64-static $qemu_user_static is not executable"
 
 # needs direct device I/O and chroot
 case $(id -u) in
@@ -686,8 +694,8 @@ eatmydata debootstrap --arch=arm64 --include=eatmydata,makedev,mksh $init \
 	done
 	rm -f a
 ) || die 'failure extracting eatmydata early'
-# the user can delete this later, from the booted system (or apt will)
-cp /usr/bin/qemu-aarch64-static "$mpt/usr/bin/" || die 'cp failed'
+# the user can delete this later, from the booted system
+cp "$qemu_user_static" "$mpt/usr/bin/qemu-aarch64-static" || die 'cp failed'
 
 ##################################################
 # INSTALL DEBIAN, SECOND STAGE (UNDER EMULATION) #
