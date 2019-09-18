@@ -143,19 +143,22 @@ case $TERM in
 	    'Maybe run this script in GNU screen?' ;;
 esac
 
-# check that all utilities we use exist
+# check that all utilities we use exist; give Debian paths for missing ones
 rv=0
 chkhosttool() {
 	chkhosttool_prog=$1; shift
 	chkhosttool_missing=0
-	while test $# -gt 0; do
-		test -x "$1" || {
+	for chkhosttool_fullpath in "$@"; do
+		chkhosttool_basename=${chkhosttool_fullpath##*/}
+		# POSIX way to check for utility (builtin or $PATH)
+		if command -v "$chkhosttool_basename" >/dev/null 2>&1; then
+			: # let’s hope it’s compatible with Debian’s
+		else
 			test $chkhosttool_missing = 1 || \
 			    p "E: please install $chkhosttool_prog to continue!"
 			chkhosttool_missing=1
-			p "N: missing: $1"
-		}
-		shift
+			p "N: missing: $chkhosttool_fullpath"
+		fi
 	done
 	test $chkhosttool_missing = 0 || rv=1
 }
@@ -178,6 +181,8 @@ chkhosttool util-linux /bin/lsblk /sbin/fstrim /usr/bin/unshare
 chkhosttool whiptail /usr/bin/whiptail
 unset chkhosttool_prog
 unset chkhosttool_missing
+unset chkhosttool_fullpath
+unset chkhosttool_basename
 test x"$rv" = x"0" || exit "$rv"
 if test -n "$needprintf"; then
 	p() {
