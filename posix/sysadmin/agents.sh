@@ -123,7 +123,7 @@ agents_sh_sshcheck() {
 	# no agent found?
 	while test x"$fnd" = x" "; do
 		unset SSH_AUTH_SOCK SSH_AGENT_PID
-		eval $(ssh-agent -s)
+		eval $(ssh-agent -s) >/dev/null
 		test -n "$SSH_AUTH_SOCK" || break
 		test -n "$SSH_AGENT_PID" || break
 		test -S "$SSH_AUTH_SOCK" || break
