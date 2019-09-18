@@ -565,7 +565,10 @@ Most users will say “No” here." 10 72; then
 		if dw --title 'Extra packages to install' \
 		    --inputbox "Enter extra packages to install, separated by space.$blurb Some other extra packages, like less and sudo, are always installed.
 
-You can use _WLAN_ to select packages needed to support WiFi. Press ^U (Ctrl-U) to delete the entire line; enter just - to restore the default and edit anew." \
+You can use the macro _WLAN_ to select packages needed to support WiFi. To install packages from Backports, append “/buster-backports” to the package name, e.g. “musescore3/buster-backports”. Removing packages by appending “-” to their name is also possible, as this list is passed as-is to apt-get install.
+
+Press ^U (Ctrl-U) to delete the entire line.
+Enter just - to restore the default and start editing anew." \
 		    20 72 "$pkgadd"; then
 			pkgadd=$res
 			test x"$pkgadd" = x"-" && s=7
