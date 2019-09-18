@@ -1019,12 +1019,13 @@ fstrim -v "$mpt"
 dd if=/dev/urandom bs=64 count=1 conv=notrunc of="$mpt$rnd" || \
     p 'W: dd rnd3 failed'
 # that’s it
-p "I: done installing on $dvname ($tgtimg)"
+p "I: done installing on $dvname ($tgtimg), cleaning up…"
+diecleanup
+trap - EXIT
 # Debian #801614
 test -n "$dropsd" || p 'W: when installing X11, you’ll need these extra steps:' \
     'N: 1. install the package xserver-xorg-legacy' \
     'N: 2. edit /etc/X11/Xwrapper.config to add the two lines:' \
     'N:     allowed_users=anybody  # or as you desire' \
     'N:     needs_root_rights=yes'
-# remaining cleanup and unwinding done in the EXIT trap
 exit 0
