@@ -1,0 +1,66 @@
+# DP: diff to install a 32-bit system (armhf) instead
+
+--- a/posix/mkrpi3b+img.sh
++++ b/posix/mkrpi3b+img.sh
+@@ -176,7 +176,7 @@ chkhosttool fdisk /sbin/fdisk
+ chkhosttool kpartx /sbin/kpartx
+ chkhosttool mount /bin/mount /bin/umount /sbin/losetup
+ chkhosttool ncurses-bin /usr/bin/tput
+-chkhosttool qemu-user-static /usr/bin/qemu-aarch64-static
++chkhosttool qemu-user-static /usr/bin/qemu-arm-static
+ chkhosttool util-linux /bin/lsblk /sbin/fstrim /usr/bin/unshare
+ chkhosttool whiptail /usr/bin/whiptail
+ unset chkhosttool_prog
+@@ -192,13 +192,13 @@ if test -n "$needprintf"; then
+ fi
+ unset needprintf
+ # retrieve path to the command (its existence was tested above)
+-qemu_user_static=$(command -v qemu-aarch64-static) || die 'huh?'
++qemu_user_static=$(command -v qemu-arm-static) || die 'huh?'
+ case $qemu_user_static in
+ (/*) ;;
+-(*) die 'qemu-aarch64-static cannot be found' ;;
++(*) die 'qemu-arm-static cannot be found' ;;
+ esac
+ test -x "$qemu_user_static" || \
+-    die "qemu-aarch64-static $qemu_user_static is not executable"
++    die "qemu-arm-static $qemu_user_static is not executable"
+ 
+ # needs direct device I/O and chroot
+ case $(id -u) in
+@@ -679,7 +679,7 @@ fi
+ # added programs: eatmydata to speed up APT/dpkg; makedev needs to be
+ # run very early as we can’t use udev or the host’s /dev filesystem,
+ # mksh because the post-install script is written in it for simplicity
+-eatmydata debootstrap --arch=arm64 --include=eatmydata,makedev,mksh $init \
++eatmydata debootstrap --arch=armhf --include=eatmydata,makedev,mksh $init \
+     --force-check-gpg --verbose --foreign buster "$mpt" \
+     http://deb.debian.org/debian sid || die 'debootstrap (first stage) failed'
+     # script specified here as it’s normally what buster symlinks to,
+@@ -695,7 +695,7 @@ eatmydata debootstrap --arch=arm64 --include=eatmydata,makedev,mksh $init \
+ 	rm -f a
+ ) || die 'failure extracting eatmydata early'
+ # the user can delete this later, from the booted system
+-cp "$qemu_user_static" "$mpt/usr/bin/qemu-aarch64-static" || die 'cp failed'
++cp "$qemu_user_static" "$mpt/usr/bin/qemu-arm-static" || die 'cp failed'
+ 
+ ##################################################
+ # INSTALL DEBIAN, SECOND STAGE (UNDER EMULATION) #
+@@ -852,7 +852,7 @@ swap                /tmp            tmpfs  defaults,relatime,nosuid,nodev  0  0
+ 		# kernel, initrd and base firmware
+ 		apt-get --purge -y install --no-install-recommends \
+ 		    busybox firmware-brcm80211 firmware-linux-free \
+-		    linux-image-arm64
++		    linux-image-armmp
+ 		rm -f /var/cache/apt/archives/*.deb  # save temp space
+ 		# some tools and bootloader firmware
+ 		apt-get --purge -y install --no-install-recommends \
+@@ -993,7 +993,7 @@ Press Enter to continue; exit the emulation with the “exit” command." 14 72
+ 		>>/var/log/syslog print -r -- "$(date +"%b %d %T")" \
+ 		    "${HOSTNAME%%.*} mkrpi3b+img.sh[$$]:" \
+ 		    finishing up installation\; once booted natively on the \
+-		    device, you can nuke /usr/bin/qemu-aarch64-static manually
++		    device, you can nuke /usr/bin/qemu-arm-static manually
+ 	EOF
+ ) >"$mpt/root/munge-it.sh" || die 'post-installation script creation failure'
+ 
