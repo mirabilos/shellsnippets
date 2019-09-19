@@ -1066,6 +1066,7 @@ dd if=/dev/urandom bs=64 count=1 conv=notrunc of="$mpt$rnd" || \
 # that’s it
 p "I: done installing on $dvname ($tgtimg), cleaning up…"
 diecleanup
+set +x
 trap - EXIT
 # Debian #801614
 p 'W: when installing X11, you’ll need these extra steps:' \
