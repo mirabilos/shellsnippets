@@ -566,8 +566,10 @@ Most users will say “No” here." 10 72; then
 		(*) die "huh? tgarch<$tgarch>" ;;
 		esac
 		if dw --title 'Choose target architecture' \
-		    --radiolist 'Please select which Debian architecture to install on the target. The default is usually fine, as you can run 32-bit binaries (both armel and armhf) under a 64-bit kernel normally, with Multi-Arch.' \
-		   12 72 3 \
+		    --radiolist 'Please select which Debian architecture to install on the target. The default is usually fine, as you can run 32-bit binaries (both armel and armhf) under a 64-bit kernel normally, with Multi-Arch.
+
+Use the cursor keys ↑ and ↓ followed by Space to select an item; press Enter to accept and continue, or Esc to go back.' \
+		   15 72 3 \
 		   arm64 "$d_arm64 " "$1" \
 		   armhf "$d_armhf " "$2" \
 		   armel "$d_armel " "$3"; then
