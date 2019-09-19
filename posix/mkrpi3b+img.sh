@@ -40,6 +40,9 @@ unset LANGUAGE
 safe_PATH=/bin:/sbin:/usr/bin:/usr/sbin
 PATH=$PATH:$safe_PATH  # just to make sure
 export safe_PATH PATH
+d_arm64='64-bit ARMv8 (aarch64)'
+d_armhf='32-bit ARMv7 with hardware Floating Point (fast)'
+d_armel='32-bit ARMv5 with software FPU (slow), untested'
 
 needprintf=
 if test -n "$KSH_VERSION"; then
@@ -176,7 +179,8 @@ chkhosttool fdisk /sbin/fdisk
 chkhosttool kpartx /sbin/kpartx
 chkhosttool mount /bin/mount /bin/umount /sbin/losetup
 chkhosttool ncurses-bin /usr/bin/tput
-chkhosttool qemu-user-static /usr/bin/qemu-aarch64-static
+chkhosttool qemu-user-static /usr/bin/qemu-aarch64-static \
+    /usr/bin/qemu-arm-static
 chkhosttool util-linux /bin/lsblk /sbin/fstrim /usr/bin/unshare
 chkhosttool whiptail /usr/bin/whiptail
 unset chkhosttool_prog
@@ -191,14 +195,6 @@ if test -n "$needprintf"; then
 	unset p_arg
 fi
 unset needprintf
-# retrieve path to the command (its existence was tested above)
-qemu_user_static=$(command -v qemu-aarch64-static) || die 'huh?'
-case $qemu_user_static in
-(/*) ;;
-(*) die 'qemu-aarch64-static cannot be found' ;;
-esac
-test -x "$qemu_user_static" || \
-    die "qemu-aarch64-static $qemu_user_static is not executable"
 
 # needs direct device I/O and chroot
 case $(id -u) in
@@ -339,9 +335,10 @@ userid=pi
 setcma=			# empty means yes (set CMA to higher value by default)
 dropsd=--defaultno	# nonempty means no (do not drop systemd by default)
 pkgadd=-		# - means out default values
+tgarch=arm64
 # state machine (menu question number)
 s=0
-while test x"$s" != x"9"; do
+while test x"$s" != x"10"; do
 	case $s in
 	(0)
 		#### WHICH TARGET DEVICE? (CHOICE)
@@ -561,6 +558,23 @@ Most users will say “No” here." 10 72; then
 		fi
 		;;
 	(7)
+		#### ARCHITECTURE
+		case $tgarch in
+		(arm64) set -- on off off ;;
+		(armhf) set -- off on off ;;
+		(armel) set -- off off on ;;
+		(*) die "huh? tgarch<$tgarch>" ;;
+		esac
+		if dw --title 'Choose target architecture' \
+		    --radiolist 'Please select which Debian architecture to install on the target. The default is usually fine, as you can run 32-bit binaries (both armel and armhf) under a 64-bit kernel normally, with Multi-Arch.' \
+		   12 72 3 \
+		   arm64 "$d_arm64 " "$1" \
+		   armhf "$d_armhf " "$2" \
+		   armel "$d_armel " "$3"; then
+			tgarch=$res
+		fi
+		;;
+	(8)
 		#### EXTRA PACKAGES TO INSTALL
 		if test x"$pkgadd" = x"-"; then
 			# openssh-server will generate the server keys using
@@ -579,10 +593,10 @@ Press ^U (Ctrl-U) to delete the entire line.
 Enter just - to restore the default and start editing anew." \
 		    20 72 "$pkgadd"; then
 			pkgadd=$res
-			test x"$pkgadd" = x"-" && s=7
+			test x"$pkgadd" = x"-" && s=8
 		fi
 		;;
-	(8)
+	(9)
 		#### SUMMARY BEFORE DOING ANYTHING (except sparse file creation)
 		if test -n "$setcma"; then cma=64; else cma=128; fi
 		if test -n "$dropsd"; then
@@ -590,6 +604,10 @@ Enter just - to restore the default and start editing anew." \
 		else
 			init='sysvinit with standard filesystem'
 		fi
+		case $tgarch in
+		(arm64|armhf|armel) eval "arch=\"\$tgarch: \$d_$tgarch\"" ;;
+		(*) die "huh? tgarch<$tgarch>" ;;
+		esac
 		dw --title 'Proceed with installation?' --defaultno \
 		    --yesno "Do you wish to proceed and DELETE ALL DATA from the target device? (Choosing “No” or pressing Escape allows you to go back to each individual step for changing the information.) Summary of settings:
 
@@ -598,6 +616,7 @@ Hostname: $myfqdn
 Username: $userid
 CMA size: $cma MiB
 init/FHS: $init
+Machine : $arch
 
 Packages: $pkgadd" 20 72
 		;;
@@ -676,10 +695,25 @@ if test -n "$dropsd"; then
 else
 	init=--no-merged-usr
 fi
+case $tgarch in
+(arm64) kernel=linux-image-arm64 qemu=qemu-aarch64-static ;;
+(armhf) kernel=linux-image-armmp qemu=qemu-arm-static ;;
+(armel) kernel=linux-image-rpi qemu=qemu-arm-static ;;
+(*) die "huh? tgarch<$tgarch>" ;;
+esac
+# retrieve path to the command (its existence was tested earlier)
+qemu_user_static=$(command -v $qemu) || die 'huh?'
+case $qemu_user_static in
+(/*) ;;
+(*) die "$qemu cannot be found" ;;
+esac
+test -x "$qemu_user_static" || \
+    die "$qemu $qemu_user_static is not executable"
+
 # added programs: eatmydata to speed up APT/dpkg; makedev needs to be
 # run very early as we can’t use udev or the host’s /dev filesystem,
 # mksh because the post-install script is written in it for simplicity
-eatmydata debootstrap --arch=arm64 --include=eatmydata,makedev,mksh $init \
+eatmydata debootstrap --arch=$tgarch --include=eatmydata,makedev,mksh $init \
     --force-check-gpg --verbose --foreign buster "$mpt" \
     http://deb.debian.org/debian sid || die 'debootstrap (first stage) failed'
     # script specified here as it’s normally what buster symlinks to,
@@ -695,7 +729,7 @@ eatmydata debootstrap --arch=arm64 --include=eatmydata,makedev,mksh $init \
 	rm -f a
 ) || die 'failure extracting eatmydata early'
 # the user can delete this later, from the booted system
-cp "$qemu_user_static" "$mpt/usr/bin/qemu-aarch64-static" || die 'cp failed'
+cp "$qemu_user_static" "$mpt/usr/bin/$qemu" || die 'cp failed'
 
 ##################################################
 # INSTALL DEBIAN, SECOND STAGE (UNDER EMULATION) #
@@ -847,12 +881,13 @@ swap                /tmp            tmpfs  defaults,relatime,nosuid,nodev  0  0
 		    echo FANCYTTY=0 >>/etc/lsb-base-logging.sh
 	EOF
 	# install base packages
+	echo "kernel=$kernel qemu=$qemu"
 	cat <<-'EOF'
 		rm -f /var/cache/apt/archives/*.deb  # save temp space
 		# kernel, initrd and base firmware
 		apt-get --purge -y install --no-install-recommends \
 		    busybox firmware-brcm80211 firmware-linux-free \
-		    linux-image-arm64
+		    $kernel
 		rm -f /var/cache/apt/archives/*.deb  # save temp space
 		# some tools and bootloader firmware
 		apt-get --purge -y install --no-install-recommends \
@@ -993,7 +1028,7 @@ Press Enter to continue; exit the emulation with the “exit” command." 14 72
 		>>/var/log/syslog print -r -- "$(date +"%b %d %T")" \
 		    "${HOSTNAME%%.*} mkrpi3b+img.sh[$$]:" \
 		    finishing up installation\; once booted natively on the \
-		    device, you can nuke /usr/bin/qemu-aarch64-static manually
+		    device, you can nuke /usr/bin/$qemu manually later
 	EOF
 ) >"$mpt/root/munge-it.sh" || die 'post-installation script creation failure'
 
