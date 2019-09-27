@@ -494,6 +494,11 @@ and OVERWRITE ALL DATA with no chance of recovery?" 14 72
 					s=3; break ;;
 				esac
 			done
+			case $myfqdn in
+			(*.local)
+				w --msgbox 'The given hostname uses the TLD reserved for mDNS!' 8 72
+				s=3 ;;
+			esac
 			# s is now 3=redo (msgbox shown) or 4=go on
 		fi
 		;;
