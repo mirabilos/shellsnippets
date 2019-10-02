@@ -22,6 +22,14 @@
 # bullseye/sid host system, others should work as well given suitab‐
 # ly up-to-date tools), using qemu-user/binfmt_misc emulation to run
 # the foreign architecture steps in a chroot.
+#
+# This currently does not set up swap. You can do that yourself with
+# a swap file:
+#  sudo fallocate -l 2GiB /PAGEFILE.SYS
+#  sudo chown 0:0 /PAGEFILE.SYS
+#  sudo chmod 600 /PAGEFILE.SYS
+#  sudo mkswap /PAGEFILE.SYS
+# and add a line “/PAGEFILE.SYS swap swap sw 0 0” to fstab(5).
 
 #########
 # SETUP #
@@ -682,7 +690,7 @@ kpartx -a -f -v -p p -t dos -s "$dvname" || die 'kpartx failed'
 eatmydata mkfs.msdos -f 1 -F 32 -m txt -n RPi3BpFirmw -v "${kpx}p1" || \
     die 'mkfs.msdos failed'
 eatmydata mkfs.ext4 -e remount-ro -E discard -L RasPi3B+root \
-    -O sparse_super2 -U random "${kpx}p2" || die 'mkfs.ext4 failed'
+    -U random "${kpx}p2" || die 'mkfs.ext4 failed'
 # mount filesystems
 mpt=$T/mnt
 mkdir "$mpt" || die 'mkdir mpt failed'
