@@ -1,4 +1,4 @@
-# Copyright (c) 2011, 2012, 2013, 2017
+# Copyright (c) 2011, 2012, 2013, 2017, 2019
 #	Thorsten Glaser <tg@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -71,13 +71,21 @@ wp() {
 
 # DuckDuckGo search
 ddg() {
-	local _q _IFS
+	local _q _IFS _p=/ _a=
 
 	_IFS=$IFS
 	IFS=+
 	_q="$*"
 	IFS=$_IFS
-	${BROWSER:-lynx} "https://duckduckgo.com/?kp=-1&kl=wt-wt&kb=t&kh=1&kj=g2&km=l&ka=monospace&ku=1&ko=s&k1=-1&kv=1&t=debian&q=$_q"
+	case /${BROWSER:-lynx} in
+	(*/dillo*)
+		# make result page and target links work
+		_p=/lite/ _a='&kd=-1' ;;
+	(*/links*|*/lynx*)
+		# avoid automatic redirect
+		_p=/lite/ ;;
+	esac
+	${BROWSER:-lynx} "https://duckduckgo.com$_p?kp=-1&kl=wt-wt&kb=t&kh=1&kj=g2&km=l&ka=monospace&ku=1&ko=s&k1=-1&kv=1&t=debian&q=$_q$_a"
 }
 
 # GooGle Search
