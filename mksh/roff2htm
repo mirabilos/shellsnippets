@@ -1,8 +1,8 @@
-roff2htm_rcsid='$MirOS: src/scripts/roff2htm,v 1.90 2018/01/07 23:27:30 tg Exp $'
+roff2htm_rcsid='$MirOS: src/scripts/roff2htm,v 1.93 2019/11/22 21:43:24 tg Exp $'
 # $ekkoBSD: catman2html.sh,v 1.2 2004/03/07 03:02:53 stephen Exp $
 #-
 # Copyright (c) 2004, 2005, 2006, 2007, 2011, 2012, 2014, 2015,
-#		2016, 2017
+#		2016, 2017, 2018
 #	mirabilos <m@mirbsd.org>
 # Original version for ekkoBSD by:
 # Copyright (c) 2004
@@ -234,7 +234,7 @@ function output_header {
 	}
 	pre {
 		line-height:1.12;
-		color:#FFBF00;
+		color:#FFB000;
 	}
 	b {
 		color:#FFEF00;
@@ -242,16 +242,16 @@ function output_header {
 	}
 	i {
 		font-style:normal;
-		border-bottom:1px solid #FFBF00;
+		border-bottom:1px solid #FFB000;
 	}
 	b i,i b {
 		color:#FFEF00;
 		font-weight:normal;
 		font-style:normal;
-		border-bottom:1px solid #FFEF00;
+		border-bottom:1px solid #FFCC00;
 	}
 	h1 {
-		color:#FFEF00;
+		color:#FFCC00;
 		font-size:xx-large;
 		font-family:serif;
 	}
@@ -267,7 +267,7 @@ function output_header {
 	}
  /*]]>*/--></style>
 </head><body>
-<h1>MirOS Manual: <a href="'$roff2htm_rel'man'$2/$1'.htm">'$1\($2')</a></h1>'
+<h1>MirBSD manpage: <a href="'$roff2htm_rel'man'$2/$1'.htm">'$1\($2')</a></h1>'
 }
 
 function output_footer {
@@ -277,7 +277,7 @@ function output_footer {
 <p>These manual pages and other documentation are <a
  href="'$roff2htm_rel'man7/BSD-Licence.htm">copyrighted</a> by their respective writers;
  their source is available at our <a href="http://cvs.mirbsd.de/">CVSweb</a>,
- AnonCVS, and other mirrors. The rest is Copyright © 2002–2018 <a
+ AnonCVS, and other mirrors. The rest is Copyright © 2002–2019 <a
  href="http://www.mirbsd.org/">MirBSD</a>.<br /><span
  style="font-size:3pt; font-style:italic;">This product includes material
  provided by <b>mirabilos</b>.</span></p>

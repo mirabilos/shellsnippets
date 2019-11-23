@@ -1,8 +1,8 @@
 #!/bin/mksh
-# $MirOS: X11/extras/bdfctool/bdfctool.sh,v 1.17 2015/02/26 03:05:33 tg Exp $
+# $MirOS: X11/extras/bdfctool/bdfctool.sh,v 1.21 2019/06/10 00:44:25 tg Exp $
 #-
-# Copyright © 2007, 2008, 2009, 2010, 2012, 2013, 2015
-#	Thorsten “mirabilos” Glaser <tg@mirbsd.org>
+# Copyright © 2007, 2008, 2009, 2010, 2012, 2013, 2015, 2019
+#	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission
@@ -51,6 +51,53 @@ fi
 # disable -F if -g
 (( ufast = (oform == 3 || oform == 4) ? 0 : ufast ))
 
+rln=0
+function rdln {
+	local e
+	nameref rdln_ln=$1
+
+	IFS= read -r rdln_ln
+	e=$?
+	(( e )) && return $e
+	let ++rln
+	rdln_ln=${rdln_ln%%*( )?()}
+	[[ $rdln_ln = *([ -~]) ]] && return 0
+	print -ru2 "E: non-ASCII line $rln: ${rdln_ln@Q}"
+	exit 5
+}
+
+function chknameline {
+	local uc=$1 nf=${#f[*]}
+
+	if (( nf < 4 || nf > 5 )); then
+		local cp=U+$uc ln=$2 es
+		[[ -n $uc ]] || cp="U<${f[1]@Q}>"
+		[[ -n $ln ]] || ln="${f[*]}"
+
+		if (( nf < 4 )); then
+			es='not enough'
+		else
+			es='too many'
+		fi
+		print -ru2 "E: $es fields $nf in name line $lno at $cp: ${ln@Q}"
+		exit 2
+	fi
+
+	if [[ -z ${f[4]} || ( -n $uc && ${f[4]} = "uni$uc" ) ]]; then
+		unset f[4]
+	else
+		[[ ${f[4]} = "${f[4]::14}" ]] || print -ru2 \
+		    "W: overlong glyph name ${f[4]@Q} at line $lno"
+		#f[4]=${f[4]::14}
+	fi
+
+	if [[ ${f[2]} != [1-9]*([0-9]) ]] || \
+	    (( (w = f[2]) > 32 || w < 1 )); then
+		print -ru2 "E: width ${f[2]@Q} not in 1‥32 at line $lno"
+		exit 2
+	fi
+}
+
 lno=0
 if [[ $mode = e ]]; then
 	if (( uascii == 1 )); then
@@ -58,14 +105,15 @@ if [[ $mode = e ]]; then
 	else
 		set -A BITv -- '　' '䷀' '▌'
 	fi
-	while IFS= read -r line; do
+	while rdln line; do
 		(( ++lno ))
 		if [[ $line = 'e '* ]]; then
 			set -A f -- $line
+			chknameline
+			print -r -- "${f[*]}"
 			i=${f[3]}
-			print -r -- "$line"
 			while (( i-- )); do
-				if IFS= read -r line; then
+				if rdln line; then
 					print -r -- "$line"
 					continue
 				fi
@@ -81,10 +129,7 @@ if [[ $mode = e ]]; then
 			continue
 		fi
 		set -A f -- $line
-		if (( (w = f[2]) > 32 || w < 1 )); then
-			print -ru2 "E: width ${f[2]} not in 1‥32 at line $lno"
-			exit 2
-		fi
+		chknameline
 		if (( w <= 8 )); then
 			adds=000000
 		elif (( w <= 16 )); then
@@ -139,7 +184,7 @@ function parse_bdfc_file {
 	local last
 
 	set -A last
-	while IFS= read -r line; do
+	while rdln line; do
 		(( ++lno ))
 		if [[ $line = C ]]; then
 			Fprop+=("${last[@]}")
@@ -180,9 +225,9 @@ function parse_bdfc_file {
 }
 
 function parse_bdfc_edit {
-	local w shiftbits uw line r i
+	local shiftbits uw line r i
 
-	if (( (w = f[2]) <= 8 )); then
+	if (( w <= 8 )); then
 		(( shiftbits = 8 - w ))
 		(( uw = 5 ))
 	elif (( w <= 16 )); then
@@ -196,14 +241,15 @@ function parse_bdfc_edit {
 		(( uw = 11 ))
 	fi
 
-	if (( (i = f[3]) < 1 || i > 999 )); then
-		print -ru2 "E: nonsensical number of lines '${f[3]}' in" \
+	if [[ ${f[3]} != [1-9]*([0-9]) ]] || \
+	    (( (i = f[3]) < 1 || i > 999 )); then
+		print -ru2 "E: nonsensical number of lines ${f[3]@Q} in" \
 		    "line $lno, U+${ch#16#}"
 		exit 2
 	fi
 
 	while (( i-- )); do
-		if ! IFS= read -r line; then
+		if ! rdln line; then
 			print -ru2 "E: Unexpected end of 'e' command" \
 			    "at line $lno, U+${ch#16#}"
 			exit 2
@@ -232,7 +278,7 @@ function parse_bdfc_glyph {
 	local last
 
 	set -A last
-	while IFS= read -r line; do
+	while rdln line; do
 		(( ++lno ))
 		if [[ $line = . ]]; then
 			Fcomm+=("${last[@]}")
@@ -265,28 +311,19 @@ function parse_bdfc_glyph {
 			exit 2
 		fi
 		typeset -Uui16 -Z7 ch=16#${f[1]}
-		if (( ${#f[*]} < 4 || ${#f[*]} > 5 )); then
-			print -ru2 "E: invalid number of fields on line $lno" \
-			    "at U+${ch#16#}: ${#f[*]}: '$line'"
+		chknameline "${ch#16#}" "$line"
+		(( chkpad )) && if [[ $w != "${hFBB[1]}" ]]; then
+			print -ru2 "E: c line $lno width $w does not match FONTBOUNDINGBOX ${hFBB[1]}"
 			exit 2
 		fi
-		if (( f[2] < 1 || f[2] > 32 )); then
-			print -ru2 "E: width ${f[2]} not in 1‥32 at line $lno"
-			exit 2
-		fi
-		(( chkpad )) && if [[ ${f[2]} != ${hFBB[1]} ]]; then
-			print -ru2 "E: c line $lno width ${f[2]} does not match FONTBOUNDINGBOX ${hFBB[1]}"
-			exit 2
-		fi
-		[[ ${f[4]} = "uni${ch#16#}" ]] && unset f[4]
 		if [[ ${f[0]} = e ]]; then
 			parse_bdfc_edit
 		else
-			if (( f[2] <= 8 )); then
+			if (( w <= 8 )); then
 				x='+([0-9A-F][0-9A-F]:)'
-			elif (( f[2] <= 16 )); then
+			elif (( w <= 16 )); then
 				x='+([0-9A-F][0-9A-F][0-9A-F][0-9A-F]:)'
-			elif (( f[2] <= 24 )); then
+			elif (( w <= 24 )); then
 				x='+([0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F]:)'
 			else
 				x='+([0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F]:)'
@@ -329,7 +366,7 @@ function parse_bdfc {
 
 function parse_bdf {
 	set -A hFBB
-	while IFS= read -r line; do
+	while rdln line; do
 		(( ++lno ))
 		case $line {
 		(COMMENT)
@@ -356,7 +393,7 @@ function parse_bdf {
 	fi
 	set -A f -- $line
 	numprop=${f[1]}
-	while IFS= read -r line; do
+	while rdln line; do
 		(( ++lno ))
 		case $line {
 		(COMMENT)
@@ -379,7 +416,7 @@ function parse_bdf {
 		    "$((f[1] - numprop)) in line $lno"
 		exit 2
 	fi
-	while IFS= read -r line; do
+	while rdln line; do
 		(( ++lno ))
 		case $line {
 		(COMMENT)
@@ -405,7 +442,7 @@ function parse_bdf {
 	set -A cs
 	set -A cd
 	set -A cb
-	while IFS= read -r line; do
+	while rdln line; do
 		(( ++lno ))
 		case $line {
 		(COMMENT)
@@ -462,12 +499,12 @@ function parse_bdf {
 			fi
 			Gprop[ch]="d ${cs[1]} ${cs[2]} ${cd[1]} ${cd[2]} ${cb[3]} ${cb[4]}"
 			set -A f c ${ch#16#} ${cb[1]} - ${cn[1]}
-			[[ ${f[4]} = "uni${ch#16#}" ]] && unset f[4]
-			if (( f[2] <= 8 )); then
+			chknameline "${ch#16#}"
+			if (( w <= 8 )); then
 				ck='[0-9A-F][0-9A-F]'
-			elif (( f[2] <= 16 )); then
+			elif (( w <= 16 )); then
 				ck='[0-9A-F][0-9A-F][0-9A-F][0-9A-F]'
-			elif (( f[2] <= 24 )); then
+			elif (( w <= 24 )); then
 				ck='[0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F]'
 			else
 				ck='[0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F]'
@@ -475,7 +512,7 @@ function parse_bdf {
 			if (( (numlines = cb[2]) )); then
 				bmps=
 				typeset -u linu
-				while IFS= read -r linx; do
+				while rdln linx; do
 					(( ++lno ))
 					linu=$linx
 					while eval [[ '$linu' != "$ck" ]]; do
@@ -496,7 +533,7 @@ function parse_bdf {
 				f[2]=1
 				f[3]=00
 			fi
-			if ! IFS= read -r line || [[ $line != ENDCHAR ]]; then
+			if ! rdln line || [[ $line != ENDCHAR ]]; then
 				print -ru2 "E: expected ENDCHAR after line $lno"
 				exit 2
 			fi
@@ -531,7 +568,7 @@ function parse_bdf {
 		print -ru2 "E: expected $numchar glyphs, got ${#Gdata[*]}"
 		exit 2
 	fi
-	while IFS= read -r line; do
+	while rdln line; do
 		(( ++lno ))
 		case $line {
 		(COMMENT)
@@ -550,7 +587,7 @@ function parse_bdf {
 }
 
 if [[ $mode = c ]]; then
-	if ! IFS= read -r line; then
+	if ! rdln line; then
 		print -ru2 "E: read error at BOF"
 		exit 2
 	fi
@@ -586,7 +623,7 @@ if [[ $mode = c ]]; then
 fi
 
 if [[ $mode = +e ]]; then
-	while IFS= read -r line; do
+	while rdln line; do
 		(( ++lno ))
 		if [[ $line = \' || $line = "' "* ]]; then
 			print -r -- "$line"
@@ -602,24 +639,15 @@ if [[ $mode = +e ]]; then
 			exit 2
 		fi
 		typeset -Uui16 -Z7 ch=16#${f[1]}
-		if (( ${#f[*]} < 4 || ${#f[*]} > 5 )); then
-			print -ru2 "E: invalid number of fields on line $lno" \
-			    "at U+${ch#16#}: ${#f[*]}: '$line'"
-			exit 2
-		fi
-		if (( f[2] < 1 || f[2] > 32 )); then
-			print -ru2 "E: width ${f[2]} not in 1‥32 at line $lno"
-			exit 2
-		fi
-		[[ ${f[4]} = "uni${ch#16#}" ]] && unset f[4]
+		chknameline "${ch#16#}" "$line"
 		if [[ ${f[0]} = e ]]; then
 			parse_bdfc_edit
 		else
-			if (( f[2] <= 8 )); then
+			if (( w <= 8 )); then
 				x='+([0-9A-F][0-9A-F]:)'
-			elif (( f[2] <= 16 )); then
+			elif (( w <= 16 )); then
 				x='+([0-9A-F][0-9A-F][0-9A-F][0-9A-F]:)'
-			elif (( f[2] <= 24 )); then
+			elif (( w <= 24 )); then
 				x='+([0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F]:)'
 			else
 				x='+([0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F]:)'
@@ -640,7 +668,7 @@ if [[ $mode != d ]]; then
 	exit 255
 fi
 
-if ! IFS= read -r line; then
+if ! rdln line; then
 	print -ru2 "E: read error at BOF"
 	exit 2
 fi
@@ -657,7 +685,7 @@ if (( ufast )); then
 	fi
 	# quickly parse bdfc header
 	set -A last
-	while IFS= read -r line; do
+	while rdln line; do
 		[[ $line = C ]] && break
 		last+=("$line")
 		[[ $line = \' || $line = "' "* ]] && continue
@@ -799,7 +827,7 @@ if (( ufast )); then
 	numchar=0
 	# directly transform font data
 	set -A last
-	while IFS= read -r line; do
+	while rdln line; do
 		[[ $line = . ]] && break
 		if [[ $line = \' || $line = "' "* ]]; then
 			last+=("$line")

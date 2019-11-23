@@ -1,9 +1,9 @@
 #!/bin/mksh
-myver='$MirOS: src/usr.bin/wtf/wtf,v 1.36 2017/06/15 21:00:45 tg Exp $'
+myver='$MirOS: src/usr.bin/wtf/wtf,v 1.38 2019/04/22 02:46:33 tg Exp $'
 # $NetBSD: wtf,v 1.7 2000/11/21 00:18:52 soren Exp $
 #-
 # Copyright © 2002, 2003, 2004, 2006, 2007, 2008, 2010, 2011,
-#	      2012, 2014, 2015, 2017
+#	      2012, 2014, 2015, 2017, 2019
 #	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -20,6 +20,9 @@ myver='$MirOS: src/usr.bin/wtf/wtf,v 1.36 2017/06/15 21:00:45 tg Exp $'
 # of dealing in the work, even if advised of the possibility of such
 # damage or existence of a defect, except proven that it results out
 # of said person’s immediate fault when using the work as intended.
+
+export LC_ALL=C.UTF-8 POSIXLY_CORRECT=1
+unset LANGUAGE GREP_OPTIONS GREP_COLOR GREP_COLORS
 
 acronyms=${ACRONYMDB:-/usr/share/misc/acronyms}
 
@@ -167,11 +170,8 @@ if (( use_ports )); then
 fi
 
 if (( use_acronyms )); then
-	# read input file only once
-	exec <"$acronyms"
-
 	# read case-folding code
-	if ! IFS= read -r line || [[ $line != '  '* ]]; then
+	if ! IFS= read -r line <"$acronyms" || [[ $line != '  '* ]]; then
 		print -ru2 "E: acronyms database ${acronyms@Q} too old"
 		exit 1
 	fi
@@ -211,6 +211,16 @@ if (( use_acronyms )); then
 	set -A stsrch -- "${stsrch[@]}"
 	# now: stsrch=(BAR BAZ FOO) omsrch[1]=2 omsrch[2]=0 omsrch[3]=1
 
+	# shorten search time
+	set -A grepcmd
+	i=-1
+	for s in "${stsrch[@]}"; do
+		grepcmd[++i]=-e
+		grepcmd[++i]=${s@/[\\.\[\^\$\*]/\\$KSH_MATCH}$'\t'
+	done
+	grep "${grepcmd[@]}" <"$acronyms" |&
+	unset grepcmd
+
 	# look up acronyms
 	set -A acrout
 	i=-1
@@ -222,11 +232,16 @@ if (( use_acronyms )); then
 			elif [[ $line > "$s	" ]]; then
 				continue 2
 			fi
-			IFS= read -r line || break 2
+			if ! IFS= read -pr line; then
+				i=-1
+				break 2
+			fi
 		done
 	done
+	# avoid SIGPIPE
+	(( i == -1 )) || read -prN-1 line
+	line=
 
-	exec <&-
 	i=0
 fi
 

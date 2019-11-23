@@ -1,5 +1,5 @@
 #!/bin/sh
-# $MirOS: contrib/hosted/tg/deb/hookdir/D10wtfrepo,v 1.7 2019/03/23 19:48:13 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/D10wtfrepo,v 1.8 2019/11/23 21:38:01 tg Exp $
 #-
 # Not complicated enough for copyright.
 
@@ -33,17 +33,17 @@ btCstesRFYS9nOoKwyxg80iZYpV4+q6POeS43Xfi2APXB+3tXAQJ5+dCYam/jlzu
 oyPAEZxai5R8m1q9SD+c16nx8F5GSuEoAcvfyAc7EqhCfnjh3o2/QokOPPboMRWW
 s46FaIWZiuNf8p1hfgj6cjH1ny124AbvvClddCDPuFwwXVxRji3ApeOwPUkqoFDn
 zebsA4OA2+ggEGEAEQEAAbQxU2lnbmluZyBrZXkgMjAxOCBmb3Ig4oCcV1RG4oCd
-IHBhY2thZ2UgcmVwb3NpdG9yeYkBuwQTAQkAJQUCWU/jUwIbAwUJBqIMAAULCAQJ
-BwUVCQoDCAMWAgACHgECF4AACgkQAgir6mZzodkl2AwAlAi4FT+HBrER5ZxtFNdX
-nuSLUxMnzqp9k+lO1Kd3i5qGclosdLcrVMCDadzf3ZI1NOQvnzQ9TPlyWD0jBk1E
-E0Vg68B7lySoBvJFOoSwZaZs7HCc7EcEFKPK58ITBx4UVXYoW1CLZ4Q51oXT7iSx
-RRPby+vMFaeYA1foRffAUFe1pmY3RBuMBxT8NKZIxlC72k10b4y68jMuBBR2UjVV
-6YebyHtxMKiGNuJIrhl5hS3p0G1l+KQ6CnBVvqHiECRSE2hsUetg3SO+HbxH2E88
-iuPzblqdfsypmIoyia46dAqq97JY6tW9U+CSql4w9Gx4xVj+ai4PNdRv3HImtbEV
-L95v4UeZparZmFgJtnUcGe71i8OdqseoRB9+lDLMPShbs06c6eg9RVjMqpbPRXdf
-U52L8r+zYDN9mAXKsA1n5mBIZSIG5MVynGkmk0IZFWMZZ5UiTswGJGAAjNyC1eWy
-dLtQUGt1ST6gH+fenw0EZ3erzXih9roLsJWip8UweJer
-=t3xZ
+IHBhY2thZ2UgcmVwb3NpdG9yeYkBuwQTAQkAJQIbAwULCAQJBwUVCQoDCAMWAgAC
+HgECF4AFAl3YB/oFCQwM8qIACgkQAgir6mZzodk/Xwv9Hw3T+DVlTYDgUtrkj3hy
+U/r75ng4RX0w8de/q3KuCWW9J8gx+CrZ3sy4xjJYZPpy4y7SilDNudzJcS3Qe88T
+LdeO4x68MruAERZQNHfw1uKdg05LGV1a8ISrc5mB0lsL82eRewde/47DeZhln7R6
+x2/fOZQNVtdRM0g+Auwlsd+LvTvLe1mGIjXOIA6vJYvbKYNalO0PQtz3WWbKkUYG
+JqIu1RwEtnGraKQOqulCO775fQdG1SCK3BmqAmTcb3UmkJBwsQGCIU6EYspexnq7
+BHbWrVpA2Q+1k6xR5cYctJCw0PDNYQrSNR7T4ZkW+pu65IOHq33+h+GTIMIwiZ51
+u96fgu6za40eVr7cVyaj6BrNEBiJ2q7qL2DNi8rM4kuZzIrvUWEnjnZJC4w22ABW
+ePRDsE2zp3D/toKEL8DruIg7D1iwde8m7Ut4vDhl0RDLd6xRAy0Vaw9h4rWtW8OZ
+4vcfr/+2s0fcsj6hcQqjPyvlbEoBmgK1TJHm/+aytozg
+=pYYz
 -----END PGP PUBLIC KEY BLOCK-----
 EOF
 
@@ -53,6 +53,7 @@ EOF
 
 # note: sarge/wtf almost certainly needs sarge-backports
 
+# note: squeeze needs lenny (incomplete suite)
 test x"$d" = x"squeeze" && cat >>/etc/apt/sources.list <<EOF
 deb http://www.mirbsd.org/~tg/Debs/ lenny wtf
 EOF
