@@ -1,7 +1,7 @@
 #!/usr/bin/env mksh
-# $MirOS: contrib/code/Snippets/uri-grabber.sh,v 1.3 2011/06/09 22:04:37 tg Exp $
+# $MirOS: contrib/code/Snippets/uri-grabber.sh,v 1.4 2019/05/14 18:07:39 tg Exp $
 #-
-# Copyright (c) 2007, 2011
+# Copyright (c) 2007, 2011, 2019
 #	Thorsten Glaser <tg@mirbsd.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -33,7 +33,7 @@ while read line; do
 		(*)	 continue ;;
 		}
 		line=${line#*://}
-		p2=${line%%@([!#0-9a-zA-Z;/?:@&=+$,_.!~*\'()%-])*}
+		p2=${line%%@([!#0-9a-zA-Z;/?:@&=+$,_.!~*\'\(\)%-])*}
 		line=${line#${p2}?}
 		print "$beg://$p2"
 	done

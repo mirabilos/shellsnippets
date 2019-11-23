@@ -1,6 +1,6 @@
-.\" $MirOS: X11/extras/bdfctool/bdfctool.1,v 1.15 2018/12/25 19:38:05 tg Exp $
+.\" $MirOS: X11/extras/bdfctool/bdfctool.1,v 1.17 2019/06/09 23:19:58 tg Exp $
 .\"-
-.\" Copyright (c) 2008, 2009, 2010, 2012, 2013, 2015, 2016, 2018
+.\" Copyright (c) 2008, 2009, 2010, 2012, 2013, 2015, 2016, 2018, 2019
 .\"	mirabilos <m@mirbsd.org>
 .\"-
 .\" Try to make GNU groff and AT&T nroff more compatible
@@ -59,7 +59,7 @@
 .\" with -mandoc, it might implement .Mx itself, but we want to
 .\" use our own definition. And .Dd must come *first*, always.
 .\"
-.Dd $Mdocdate: December 25 2018 $
+.Dd $Mdocdate: June 9 2019 $
 .\"
 .\" Check which macro package we use, and do other -mdoc setup.
 .\"
@@ -380,6 +380,9 @@ error occurred, e.g. invalid input.
 An error in an external program, such as
 .Xr mktemp 1 ,
 occurred.
+.It Li 5
+The input lines are not comprised solely of printable
+.Tn ASCII .
 .El
 .Sh EXAMPLES
 The following example should be a minimal valid font demonstrating
@@ -430,6 +433,7 @@ has its own ideas of how a
 font file should look like, and if you deviate from that,
 you might get an error; although, support for more features
 can surely be added.
+More input validation would be nice.
 .Pp
 .Dq Li ENCODING \-1
 support is missing.
