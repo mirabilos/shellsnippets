@@ -1,0 +1,111 @@
+#!/bin/mksh
+# -*- mode: sh -*-
+#-
+# Copyright © 2019
+#	mirabilos <t.glaser@tarent.de>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# sources.list.d/ generator for all *buntu releases (known to MirBSD
+# pbuilderrc) in the same manner MirDebian’s mirabilos-support does.
+
+function die {
+	print -ru2 -- "E: $*"
+	exit 1
+}
+set -o noglob || die cannot set -o noglob
+set -o pipefail || die cannot set -o pipefail
+
+cd "$(dirname "$0")" || die cannot cd
+beige=$(whence -p bash) || die where is GNU bash?
+function retrieve {
+	# same method as used by cowbuilder, except more safe
+	local want envs x line rv=0
+	set -A want
+	set -A envs
+	nameref to=want
+
+	for x in "$@"; do
+		if [[ $x = -- ]]; then
+			nameref to=envs
+		else
+			to+=("$x")
+		fi
+	done
+	for x in "${!want[@]}"; do
+		if nameref to="${want[x]}"; then
+			unset to
+		else
+			print -ru2 -- "W: unsafe variable name: ${want[x]@Q}"
+			unset want[x]
+			let 'rv |= 16'
+		fi
+	done
+
+	env -i "${envs[@]}" "$beige" -c '. /etc/pbuilderrc; set' 2>/dev/null |&
+	while IFS= read -pr line; do
+		for x in "${!want[@]}"; do
+			# or = but that’s ok here
+			if [[ $line = "${want[x]}="+([!-\ \"\#\$\&\'\(\)\*\;\<\>\?\[\\\]\`\|]) ]]; then
+				: eval this
+			elif [[ $line = "${want[x]}='"+([!\']|"'\\''")"'"*("\\'") ]]; then
+				: ok
+			elif [[ $line = "${want[x]}=\$'"* ]]; then
+				# find me a regex for that…
+				print -ru2 "W: retrieval not supported: ${line@Q}"
+				let 'rv |= 32'
+				continue
+			elif [[ $line = "${want[x]}="* ]]; then
+				print -ru2 "W: retrieval mismatch: ${line@Q}"
+				let 'rv |= 8'
+				continue
+			else
+				continue
+			fi
+			if (eval "$line") >/dev/null 2>&1; then
+				eval "$line"
+				unset want[x]
+			else
+				print -ru2 -- "W: unsafe retrieval: ${line@Q}"
+				let 'rv |= 8'
+			fi
+			continue 2
+		done
+	done
+	for x in "${want[@]}"; do
+		print -ru2 -- "W: not retrieved: $x"
+		let 'rv |= 4'
+	done
+	return $rv
+}
+
+retrieve DISTS_ubuntu -- DIST=sid
+[[ -n $DISTS_ubuntu ]] || die cannot gather dists
+rm -rf usl.d
+mkdir usl.d || die cannot create target directory
+cd usl.d || die cannot change into target directory
+for dist in $DISTS_ubuntu; do
+	retrieve MIRRORSITE DISTRIBUTION COMPONENTS OTHERMIRROR -- \
+	    DIST="$dist-backports" || die "cannot get for $dist: $?"
+	[[ -n $MIRRORSITE ]] || die "empty mirror for $dist"
+	[[ -n $DISTRIBUTION ]] || die "empty dist for $dist"
+	[[ -n $COMPONENTS ]] || die "empty components for $dist"
+	print -nr "deb $MIRRORSITE $DISTRIBUTION $COMPONENTS|$OTHERMIRROR|" | \
+	    while IFS= read -rd '|' line; do
+		print -r -- $line
+	done | sed '/^$/d' >"$dist".list || die "cannot write for $dist"
+done
+ls -ltr "$PWD/"
