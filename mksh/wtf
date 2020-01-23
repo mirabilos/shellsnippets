@@ -1,9 +1,9 @@
 #!/bin/mksh
-myver='$MirOS: src/usr.bin/wtf/wtf,v 1.38 2019/04/22 02:46:33 tg Exp $'
+myver='$MirOS: src/usr.bin/wtf/wtf,v 1.40 2020/01/22 19:06:43 tg Exp $'
 # $NetBSD: wtf,v 1.7 2000/11/21 00:18:52 soren Exp $
 #-
 # Copyright © 2002, 2003, 2004, 2006, 2007, 2008, 2010, 2011,
-#	      2012, 2014, 2015, 2017, 2019
+#	      2012, 2014, 2015, 2017, 2019, 2020
 #	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -27,17 +27,23 @@ unset LANGUAGE GREP_OPTIONS GREP_COLOR GREP_COLORS
 acronyms=${ACRONYMDB:-/usr/share/misc/acronyms}
 
 usage() {
-	print -u2 "usage: ${0##*/} [±adPpw] [-f dbfile] [is[t]] <acronym> [...]"
+	print -u2 "usage: ${0##*/} [±adPpwy] [-f dbfile] [is[t]] <acronym> [...]"
 	exit 1
+}
+
+# easier with nameref, but we support older mksh
+function apush {
+	eval "$1[n$1++]=\$2"
 }
 
 use_acronyms=-1
 use_dict=-1
 use_ports=-1
 use_whatis=-1
+use_why=-1
 hasopt=0
 show_ver=0
-while getopts "adf:hPpt:Vw" ch; do
+while getopts "adf:hPpt:Vwy" ch; do
 	case $ch {
 	(+a)	hasopt=1 use_acronyms=0 ;;
 	(a)	hasopt=1 use_acronyms=1 ;;
@@ -52,6 +58,8 @@ while getopts "adf:hPpt:Vw" ch; do
 	(V)	show_ver=1 ;;
 	(+w)	hasopt=1 use_whatis=0 ;;
 	(w)	hasopt=1 use_whatis=1 ;;
+	(+y)	hasopt=1 use_why=0 ;;
+	(y)	hasopt=1 use_why=1 ;;
 	(*)	usage ;;
 	}
 done
@@ -62,11 +70,13 @@ if (( hasopt )); then
 	(( use_dict = (use_dict == -1) ? 0 : use_dict ))
 	(( use_ports = (use_ports == -1) ? 0 : use_ports ))
 	(( use_whatis = (use_whatis == -1) ? 0 : use_whatis ))
+	(( use_why = (use_why == -1) ? 0 : use_why ))
 else
 	use_acronyms=1
 	use_dict=0
 	use_ports=0
 	use_whatis=0
+	use_why=0
 fi
 
 if (( show_ver )); then
@@ -96,7 +106,7 @@ if (( show_ver )); then
 	exit 0
 fi
 
-(( $# > 1 )) && [[ $1 = is || $1 = ist ]] && shift
+(( $# > 1 )) && [[ $1 = is?(t) ]] && shift
 (( $# < 1 )) && usage
 
 if (( use_ports )); then
@@ -123,7 +133,7 @@ if (( use_ports )); then
 				    print -r -- "$a|${d%% \(uses*}"
 			done </usr/ports/INDEX
 		}
-	elif [[ -x $(whence -p yum) ]]; then
+	elif command -v yum >/dev/null; then
 		# Red Hat Yellowdog Updater Modified
 		binpkgs=RPMs
 		function ports_acquire_filtered {
@@ -143,7 +153,7 @@ if (( use_ports )); then
 				print -r -- "$a|$c"
 			done
 		}
-	elif [[ -x $(whence -p apt-cache) ]]; then
+	elif command -v apt-cache >/dev/null; then
 		# Debian Advanced Packaging Tool
 		binpkgs=packages
 		function ports_acquire_filtered {
@@ -163,10 +173,116 @@ if (( use_ports )); then
 		use_ports=0
 	fi
 	case $use_ports {
-	(1)	alias ports_acquire=ports_acquire_filtered ;;
-	(2)	alias ports_acquire=ports_acquire_unfiltered ;;
+	(1)	alias ports_acquire=ports_acquire_filtered
+		pkgmatch='basename' ;;
+	(2)	alias ports_acquire=ports_acquire_unfiltered
+		pkgmatch='name or description' ;;
 	(*)	use_ports=0 ;;
 	}
+fi
+
+if (( use_why )); then
+	if command -v dpkg-query >/dev/null; then
+		# Debian packages
+		function do_why {
+			set -o noglob
+			local pkgname n pre dep rec sug enh
+			local DEP REC SUG ENH
+			local -i nDEP nREC nSUG nENH
+
+			for pkgname in $(dpkg-query -W \
+			    --showformat='${Package}\n' "$@" | \
+			    sed 's/:.*$//' | sort -u); do
+				set -A DEP; nDEP=0
+				set -A REC; nREC=0
+				set -A SUG; nSUG=0
+				set -A ENH; nENH=0
+				dpkg-query -W --showformat='${Package}${Pre-Depends}${Depends}${Recommends}${Suggests}\n' | \
+				    grep -Fw -- "$pkgname" | \
+				    sed -e 's/ //g' -e 's/([^)]*)//g' | \
+				    sort -u |&
+				while IFS='' read -pr n pre dep rec sug; do
+					do_why1r "$pkgname" "$n" DEP "$pre"
+					do_why1r "$pkgname" "$n" DEP "$dep"
+					do_why1r "$pkgname" "$n" REC "$rec"
+					do_why1r "$pkgname" "$n" SUG "$sug"
+				done
+				for enh in $(dpkg-query -W \
+				    --showformat='${Enhances}\n' "$pkgname" | \
+				    sed -e 's/ //g' -e 's/([^)]*)//g' | \
+				    tr ',|' '\n\n' | sort -u); do
+					apush ENH "${enh%%':'*} ="
+				done
+				n=
+				(( nDEP )) && do_why1p "$pkgname" Dependencies on "${DEP[@]}"
+				(( nREC )) && do_why1p "$pkgname" Recommends on "${REC[@]}"
+				(( nSUG )) && do_why1p "$pkgname" Suggests on "${SUG[@]}"
+				(( nENH )) && do_why1p "$pkgname" Enhanced by "${ENH[@]}"
+			done
+			set +o noglob  # for old mksh versions
+		}
+		function do_why1r {
+			local f x y z
+
+			IFS=,
+			set -A y -- $4
+			IFS=$' \t\n'
+			for x in "${y[@]}"; do
+				if [[ $x = *'|'* ]]; then
+					IFS='|'
+					set -A z -- $x
+					IFS=$' \t\n'
+					f=0
+					for x in "${z[@]}"; do
+						if [[ ${x%%':'*} = "$1" ]]; then
+							(( f |= 1 ))
+						else
+							(( f |= 2 ))
+						fi
+					done
+					if (( f == 3 )); then
+						apush "$3" "${2%%':'*} |"
+						return
+					elif (( f == 1 )); then
+						apush "$3" "${2%%':'*} ="
+						return
+					fi
+				elif [[ ${x%%':'*} = "$1" ]]; then
+					apush "$3" "${2%%':'*} ="
+					return
+				fi
+			done
+		}
+		function do_why_pkgfmt {
+			print -r -- "$2$(dpkg-query -W "$1" | tr '\n'  | sed \
+			    -e 's/\t\([^]*\)/ (= \1), /g' \
+			    -e 's/ (= )/ [no version]/g' \
+			    -e 's/, $//')$3"
+		}
+		function do_why1p {
+			local h=$(do_why_pkgfmt "$1" "  - $2 $3 “" "”:")$'\n'
+			shift 3
+			local x y z
+
+			for x in "$@"; do
+				print -r -- "$x"
+			done | sort -u |&
+			while IFS= read -pr y; do
+				z=${y:(-1)}
+				y=${y% ?}
+				# checks for doublettes; order important:
+				# - dep before rec before sug before enh
+				# - ‘=’ before ‘|’
+				[[ $n = *"${y}"* ]] && continue
+				n+="${y}"
+				[[ $z = '|' ]] || z=' '
+				do_why_pkgfmt "$y" "$h$z"
+				h=
+			done
+		}
+	else
+		use_why=0
+	fi
 fi
 
 if (( use_acronyms )); then
@@ -250,10 +366,12 @@ for target in "$@"; do
 	if (( use_ports )); then
 		p=$(ports_acquire "$target")
 		if [[ -n $p ]]; then
-			print -r "  - $binpkgs matching “$target”:"
+			print -r "  - $binpkgs matching “$target” in $pkgmatch:"
 			print -r -- "$p" | sort -u | column -ts'|'
 		fi
 	fi
+
+	(( use_why )) && do_why "$target"
 
 	if (( use_acronyms )); then
 		n=${omsrch[++i]}
@@ -269,7 +387,7 @@ for target in "$@"; do
 
 	(( use_dict || use_whatis )) && print "  - other information sources"
 
-	(( use_dict )) && if whence -p dict >/dev/null; then
+	(( use_dict )) && if command -v dict >/dev/null; then
 		dict "$target" || (( rv |= 2 ))
 	else
 		(( rv |= 4 ))

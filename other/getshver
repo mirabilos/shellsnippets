@@ -1,6 +1,6 @@
-# $MirOS: contrib/code/Snippets/getshver,v 1.22 2018/10/20 15:27:20 tg Exp $
+# $MirOS: contrib/code/Snippets/getshver,v 1.23 2019/12/30 21:56:03 tg Exp $
 #-
-# Copyright (c) 2009, 2010, 2011, 2012, 2013, 2014, 2016, 2018
+# Copyright (c) 2009, 2010, 2011, 2012, 2013, 2014, 2016, 2018, 2019
 #	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -143,10 +143,17 @@ x=.sh.version
 (eval x=\$\{$x\}) 2>/dev/null || x=fail
 if test fail != "$x"; then
 	if builtin XBell >/dev/null 2>&1; then
-		eval echo 'dtksh ${.sh.version#Version }'
+		dgk=dtksh situ=ksh2020+dt
 	else
-		eval echo 'ksh93 ${.sh.version#Version }'
+		dgk=ksh93 situ=ksh2020
 	fi
+	y=$(eval 'echo $((KSH_VERSION))' 2>/dev/null) || y=88
+	case $y in
+	[1-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]) z=" (($y))" ;;
+	*) y=0 z= ;;
+	esac
+	if test $y -gt 20140929; then z=$situ$z; else z=$dgk$z; fi
+	eval echo '$z ${.sh.version#Version }'
 	exit 0
 fi
 # lksh, mksh, mirbsdksh (pre-mksh), oksh (3.7+), pdksh
@@ -192,7 +199,7 @@ fi
 test x"$(LC_ALL=C; type print 2>&1)" = x"print is a shell builtin" && \
     case $(print -- 2>&1) in
 *'bad option'*)
-	echo 'ksh86 Version 06/03/86(/a)'
+	echo 'ksh86 06/03/86(/a)'
 	exit 0
 	;;
 esac
