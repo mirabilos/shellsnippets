@@ -1,0 +1,128 @@
+#!/bin/mksh
+:<<\EOF
+
+This is a self-updating money counter. Example could be:
+
+
+Private budget:
+
+2019-xx-xx foo bar			1,23 €
+2019-yy-yy blah baz			10,-- €
+-
+Σ
+
+Company budget:
+
+2019-zz-zz coffee			20,-- €
+2020-aa-aa milk				 5,-- €
+-
+Σ
+
+
+Or something like this:
+
+
+Alice owes Bob:
+
+2019-ab-cd Supermarket			1,99 €
+2019-ef-gh Borrowed money		10,-- €
+-
+Σ
+
+Bob owes Alice:
+
+2019-ij-kl Coffee			4,-- €
+2019-mn-op Porridge			? (tbd)
+2019-qr-st Restaurant			20,15 €
+-
+Σ
+
+The idea here is that the diff between the two sums
+is then occasionally given from from the one owing
+more, to equalise the budget. Can also be made n-way.
+Forgotten items (those with ‘?’) are not counted.
+
+
+Just execute this file to update it. Try it, then
+check out the git diff! Also, play with the numbers.
+Keep the format, though… it assumes up to five-digit
+figures (four normally) however using a different
+currency is trivial.
+
+EOF
+set -U
+function numfmt {
+	typeset -i10 number=$1
+	(( number < 100 )) && typeset -Z3 number
+	local e=${number%??} c=${number:(-2)}
+	[[ $c = 00 ]] && c=--
+	if (( ${#a} > 5 )); then
+		print -ru2 "E: number too large, increase limit, in line $ln"
+		exit 1
+	fi
+	typeset -R5 e
+	r=$e,$c\ €
+
+	print -r -- "$h$r"
+}
+cd "$(dirname "$0")"
+bn=${0##*/}
+exec <"$bn"
+exec >"${bn}~"
+st=0
+ll=
+ln=0
+while IFS= read -r line; do
+	let ++ln
+	if (( st == 0 )); then
+		if [[ -z $ll && $line = 20* ]]; then
+			sum=0
+			st=1
+		else
+			print -r -- "$line"
+			ll=$line
+			continue
+		fi
+	fi
+	if [[ $line = *([	 ])-* ]]; then
+		print -r -- '---------- ---------------------------- ---------'
+		continue
+	fi
+	if [[ $line = Σ* ]]; then
+		h='Σ					'
+		numfmt $sum
+		st=0
+		continue
+	fi
+	h=${line%%	*}
+	h=${h%%*([	 ])}
+	r=${line#*	}
+	r=${r##*([	 ])}
+	typeset -L39 H=$h
+	h=${H%%*( )}
+	(( w = ${%h} == -1 ? ${#h} : ${%h} ))
+	while (( w < 40 )); do
+		h+='	'
+		(( w = (w + 8) & ~7 ))
+	done
+	if [[ $r = '?'* ]]; then
+		r=' ?		tbd'
+		print -r -- "$h$r"
+		continue
+	fi
+	if [[ $r != +([0-9])[,.]@([0-9][0-9]|--)' €' ]]; then
+		print -ru2 -- "E: bad input on line #$ln"
+		print -ru2 -- "N: ${r@Q}"
+		exit 1
+	fi
+	r=${r%% *}
+	r=${r//[.,]}
+	r=${r//-/0}
+	n=$((10#$r))
+	let sum+=n
+	numfmt $n
+done
+exec >/dev/null
+set -ex
+chmod +x "${bn}~"
+mv "${bn}~" "$bn"
