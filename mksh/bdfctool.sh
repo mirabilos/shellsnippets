@@ -1,7 +1,7 @@
 #!/bin/mksh
-# $MirOS: X11/extras/bdfctool/bdfctool.sh,v 1.21 2019/06/10 00:44:25 tg Exp $
+# $MirOS: X11/extras/bdfctool/bdfctool.sh,v 1.22 2020/02/01 23:28:38 tg Exp $
 #-
-# Copyright © 2007, 2008, 2009, 2010, 2012, 2013, 2015, 2019
+# Copyright © 2007, 2008, 2009, 2010, 2012, 2013, 2015, 2019, 2020
 #	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -62,6 +62,24 @@ function rdln {
 	let ++rln
 	rdln_ln=${rdln_ln%%*( )?()}
 	[[ $rdln_ln = *([ -~]) ]] && return 0
+	print -ru2 "E: non-ASCII line $rln: ${rdln_ln@Q}"
+	exit 5
+}
+function rdln_parsE {
+	local e
+	nameref rdln_ln=$1
+
+	IFS= read -r rdln_ln
+	e=$?
+	(( e )) && return $e
+	let ++rln
+	rdln_ln=${rdln_ln%%*( )?()}
+	linx=${rdln_ln//　/.}
+	linx=${linx//䷀/#}
+	linx=${linx//▌/|}
+	linx=${linx//[ .]/0}
+	linx=${linx//[#*]/1}
+	[[ $linx = *([ -~]) ]] && return 0
 	print -ru2 "E: non-ASCII line $rln: ${rdln_ln@Q}"
 	exit 5
 }
@@ -249,17 +267,12 @@ function parse_bdfc_edit {
 	fi
 
 	while (( i-- )); do
-		if ! rdln line; then
+		if ! rdln_parsE line; then
 			print -ru2 "E: Unexpected end of 'e' command" \
 			    "at line $lno, U+${ch#16#}"
 			exit 2
 		fi
 		(( ++lno ))
-		linx=${line//　/.}
-		linx=${linx//䷀/#}
-		linx=${linx//▌/|}
-		linx=${linx//[ .]/0}
-		linx=${linx//[#*]/1}
 		if [[ $linx != +([01])'|' || ${#linx} != $((w + 1)) ]]; then
 			print -ru2 "E: U+${ch#16#} (line $lno) bitmap line" \
 			    $((f[3] - i)) "invalid: '$line'"
