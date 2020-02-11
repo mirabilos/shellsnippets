@@ -1,5 +1,5 @@
 #!/bin/mksh
-myver='$MirOS: src/usr.bin/wtf/wtf,v 1.40 2020/01/22 19:06:43 tg Exp $'
+myver='$MirOS: src/usr.bin/wtf/wtf,v 1.43 2020/01/31 21:27:08 tg Exp $'
 # $NetBSD: wtf,v 1.7 2000/11/21 00:18:52 soren Exp $
 #-
 # Copyright © 2002, 2003, 2004, 2006, 2007, 2008, 2010, 2011,
@@ -27,7 +27,7 @@ unset LANGUAGE GREP_OPTIONS GREP_COLOR GREP_COLORS
 acronyms=${ACRONYMDB:-/usr/share/misc/acronyms}
 
 usage() {
-	print -u2 "usage: ${0##*/} [±adPpwy] [-f dbfile] [is[t]] <acronym> [...]"
+	print -u2 "usage: ${0##*/} [±AadKkPpwy] [-f dbfile] [is[t]] <acronym> [...]"
 	exit 1
 }
 
@@ -38,18 +38,27 @@ function apush {
 
 use_acronyms=-1
 use_dict=-1
+use_mank=-1
 use_ports=-1
 use_whatis=-1
 use_why=-1
 hasopt=0
 show_ver=0
-while getopts "adf:hPpt:Vwy" ch; do
+while getopts "Aadf:hKkPpt:Vwy" ch; do
 	case $ch {
+	(+A)	hasopt=1 use_acronyms=0 use_dict=0 use_mank=0
+		use_ports=0 use_whatis=0 use_why=0 ;;
+	(A)	hasopt=1 use_acronyms=1 use_dict=2 use_mank=2
+		use_ports=2 use_whatis=1 use_why=1 ;;
 	(+a)	hasopt=1 use_acronyms=0 ;;
 	(a)	hasopt=1 use_acronyms=1 ;;
 	(+d)	hasopt=1 use_dict=0 ;;
 	(d)	hasopt=1 use_dict=1 ;;
 	(f)	acronyms=$OPTARG ;;
+	(+K)	hasopt=1 use_mank=0 ;;
+	(K)	hasopt=1 use_mank=2 ;;
+	(+k)	hasopt=1 use_mank=0 ;;
+	(k)	hasopt=1 use_mank=1 ;;
 	(+P)	hasopt=1 use_ports=0 ;;
 	(P)	hasopt=1 use_ports=2 ;;
 	(+p)	hasopt=1 use_ports=0 ;;
@@ -68,6 +77,7 @@ shift $((OPTIND - 1))
 if (( hasopt )); then
 	(( use_acronyms = (use_acronyms == -1) ? 0 : use_acronyms ))
 	(( use_dict = (use_dict == -1) ? 0 : use_dict ))
+	(( use_mank = (use_mank == -1) ? 0 : use_mank ))
 	(( use_ports = (use_ports == -1) ? 0 : use_ports ))
 	(( use_whatis = (use_whatis == -1) ? 0 : use_whatis ))
 	(( use_why = (use_why == -1) ? 0 : use_why ))
@@ -75,6 +85,7 @@ else
 	use_acronyms=1
 	use_dict=0
 	use_ports=0
+	use_mank=0
 	use_whatis=0
 	use_why=0
 fi
@@ -180,6 +191,50 @@ if (( use_ports )); then
 	(*)	use_ports=0 ;;
 	}
 fi
+
+function mank_acquire_filtered {
+	local -l x y=$1
+
+	man -k -- "$1" | while IFS= read -r line; do
+		x=${line%%')'*}
+		[[ $x = *"$y"* ]] && print -r -- "$line"
+	done
+}
+function mank_acquire_unfiltered {
+	man -k -- "$1"
+}
+function mansort {
+	local l a b c
+	local -L24 x
+
+	while IFS= read -r l; do
+		if [[ $l != +([!\(\)])'('+([!\)])')'*([	 ])'-'* ]]; then
+			print -r -- "~$l"
+			continue
+		fi
+		a=${l%%')'*}
+		c=${l#*')'}
+		c=${c##*([	 ])-*([	 ])}
+		b=${a##*'('}
+		a=${a%'('*}
+		a=${a%%*([	 ])}
+		a="$a ($b)"
+		x=$a
+		if [[ $x = "$a"+( ) ]]; then
+			a=$x
+		else
+			a+=' '
+		fi
+		print -r -- " ${b}${a}- $c"
+	done | sort -u | sed 's/^[^]*//'
+}
+case $use_mank {
+(1)	alias mank_acquire=mank_acquire_filtered
+	manmatch='manpage name or alias' ;;
+(2)	alias mank_acquire=mank_acquire_unfiltered
+	manmatch='names or description' ;;
+(*)	use_mank=0 ;;
+}
 
 if (( use_why )); then
 	if command -v dpkg-query >/dev/null; then
@@ -373,6 +428,14 @@ for target in "$@"; do
 
 	(( use_why )) && do_why "$target"
 
+	if (( use_mank )); then
+		p=$(mank_acquire "$target")
+		if [[ -n $p ]]; then
+			print -r "  - manual pages matching “$target” in $manmatch:"
+			print -r -- "$p" | mansort
+		fi
+	fi
+
 	if (( use_acronyms )); then
 		n=${omsrch[++i]}
 		s=${acrout[n]}
@@ -388,14 +451,15 @@ for target in "$@"; do
 	(( use_dict || use_whatis )) && print "  - other information sources"
 
 	(( use_dict )) && if command -v dict >/dev/null; then
-		dict "$target" || (( rv |= 2 ))
+		dict -- "$target" || (( rv |= 2 ))
 	else
-		(( rv |= 4 ))
+		(( use_dict == 2 )) || (( rv |= 4 ))
+		(( use_whatis )) || print -r "Oops, no dict client found."
 	fi
 
 	if (( use_whatis )); then
-		w=$(whatis "$target") || \
-		    w="Sorry, no entry for a “$target” manual page"
+		w=$(man -f -- "$target" | mansort) || \
+		    w="Oops, no manual page found for “$target”."
 		print -r -- "$w"
 	fi
 done

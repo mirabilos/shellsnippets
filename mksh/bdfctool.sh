@@ -1,5 +1,5 @@
 #!/bin/mksh
-# $MirOS: X11/extras/bdfctool/bdfctool.sh,v 1.22 2020/02/01 23:28:38 tg Exp $
+# $MirOS: X11/extras/bdfctool/bdfctool.sh,v 1.23 2020/02/11 19:01:20 tg Exp $
 #-
 # Copyright © 2007, 2008, 2009, 2010, 2012, 2013, 2015, 2019, 2020
 #	mirabilos <m@mirbsd.org>
@@ -24,7 +24,8 @@ set -o noglob
 uascii=-1
 ufast=0
 oform=0
-while getopts "acdeFGgh" ch; do
+unimap=
+while getopts "acdeFGghp:" ch; do
 	case $ch {
 	(a) uascii=1 ;;
 	(+a) uascii=0 ;;
@@ -33,6 +34,8 @@ while getopts "acdeFGgh" ch; do
 	(G) oform=4 ;;
 	(g) oform=3 ;;
 	(h) mode=$ch ;;
+	(p) oform=5 unimap=$OPTARG ;;
+	(P) oform=6 unimap=$OPTARG ;;
 	(*) mode= ;;
 	}
 done
@@ -41,15 +44,18 @@ shift $((OPTIND - 1))
 
 if [[ $mode = ?(h) ]] || [[ $mode != e && $uascii != -1 ]] || \
     [[ $mode != d && $ufast$oform != 00 ]]; then
-	print -ru2 "Usage: ${0##*/} -c | -d [-FGg] | -e [-a] | +e"
+	print -ru2 "Usage: ${0##*/} -c | -d [-FGg] [-p unimap] | -e [-a] | +e"
 	[[ $mode = h ]]; exit $?
 fi
 
 # check padding on input, currently
-(( chkpad = (oform == 3 || oform == 4) ))
+(( chkpad = (oform == 3 || oform == 4 || oform == 5 || oform == 6) ))
 
-# disable -F if -g
-(( ufast = (oform == 3 || oform == 4) ? 0 : ufast ))
+# disable -F if -g or -p
+(( ufast = (oform == 3 || oform == 4 || oform == 5 || oform == 6) ? 0 : ufast ))
+
+set -A psfumap
+psfflag=0
 
 rln=0
 function rdln {
@@ -599,6 +605,33 @@ function parse_bdf {
 	done
 }
 
+function read_psfumap {
+	[[ $unimap = . ]] && return
+	local has_seq=0 cp map x
+	local -u linu
+	while IFS= read -r line; do
+		[[ $line = *([	 ])?('#'*) ]] && continue
+		linu=$line
+		if [[ $linu != @(0X+([0-9A-F])|+([0-9]))'	'* ]]; then
+			print -ru2 "E: invalid unimap line:	$line"
+			exit 2
+		fi
+		cp=${linu%%	*}
+		if [[ -n ${psfumap[cp]} ]]; then
+			print -ru2 "E: duplicate unimap in line:	$line"
+			exit 2
+		fi
+		linu=\ ${linu#*	}
+		if [[ $linu != +(+([	 ])U+[0-9A-F][0-9A-F][0-9A-F][0-9A-F]*(,U+[0-9A-F][0-9A-F][0-9A-F][0-9A-F])) ]]; then
+			print -ru2 "E: invalid unimap line:	$line"
+			exit 2
+		fi
+		[[ $linu = *,* ]] && has_seq=1
+		psfumap[cp]=${linu//U+}
+	done <"$unimap"
+	(( psfflag |= has_seq ? 4 : 2 ))
+}
+
 if [[ $mode = c ]]; then
 	if ! rdln line; then
 		print -ru2 "E: read error at BOF"
@@ -756,14 +789,17 @@ case $oform {
 		print -n "\\0${ba#8#}\\0${bb#8#}\\0${bc#8#}\\0${bd#8#}"
 	}
 	;|
-(3|4)
-	# do some input analysis for .gdf output
+(3|4|5|6)
+	# do some input analysis for .gdf and .pcf output
 	if [[ -z $hFBB ]]; then
 		print -ru2 "E: missing FONTBOUNDINGBOX header"
 		exit 2
 	fi
 	set -A f -- ${!Gdata[*]}
 	typeset -i firstch=${f[0]} lastch=${f[${#f[*]} - 1]}
+	;|
+(3|4)
+	# .gdf output
 	nullch=
 	x=$((hFBB[1] * hFBB[2]))
 	while (( x-- )); do
@@ -806,6 +842,66 @@ case $oform {
 		print -n "$s"
 	done
 	exit 0
+	;;
+(5)
+	# .psf{,u} v1 output
+	read_psfumap
+	if (( numchar == 512 )); then
+		(( psfflag |= 1 ))
+	elif (( numchar != 256 )); then
+		print -ru2 "E: number of chars $numchar invalid"
+		exit 2
+	fi
+	if (( firstch != 0 )) || (( lastch != (numchar - 1) )); then
+		print -ru2 "E: not $numchar chars: $firstch .. $lastch"
+		exit 2
+	fi
+	if (( hFBB[1] != 8 )); then
+		print -ru2 "E: invalid width ${hFBB[1]}"
+		exit 2
+	fi
+	print -nA 0x36 0x04 psfflag hFBB[2]
+	typeset -Uui16 -Z$((numchar == 512 ? 6 : 5)) curch=-1
+	while (( ++curch < numchar )); do
+		set -A f -- ${Gdata[curch]}
+		if [[ -z $f ]]; then
+			print -ru2 "E: missing char 0x${curch#16#}"
+			exit 2
+		fi
+		bmp=:${f[3]}
+		print -nA ${bmp//:/ 0x}
+	done
+	curch=-1
+	(( psfflag & (2|4) )) && while (( ++curch < numchar )); do
+		set -A pmap
+		set -A smap
+		for x in ${psfumap[curch]}; do
+			if [[ $x = *,* ]]; then
+				smap+=($x)
+			else
+				pmap+=($x)
+			fi
+		done
+		o=
+		for x in "${pmap[@]}"; do
+			o+="0x${x:2} 0x${x::2} "
+		done
+		for s in "${smap[@]}"; do
+			o+="0xFE 0xFF "
+			for x in ${s//,/ }; do
+				o+="0x${x:2} 0x${x::2} "
+			done
+		done
+		if [[ -z $o ]]; then
+			print -ru2 "E: missing unicode map for 0x${curch#16#}"
+			exit 2
+		fi
+		print -nA $o 0xFF 0xFF
+	done
+	exit 0
+	;;
+(6)
+	# .psf{,u} v2 output
 	;;
 }
 
