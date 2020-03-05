@@ -1,5 +1,5 @@
 #!/bin/sh
-# $MirOS: contrib/hosted/tg/deb/hookdir/D25backports,v 1.5 2019/03/23 19:53:45 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/D25backports,v 1.7 2019/12/04 07:32:25 tg Exp $
 #-
 # Not complicated enough for copyright.
 #
@@ -16,13 +16,29 @@ LC_ALL=C; export LC_ALL
 d=${DIST%/*}
 d=${d%-backports*}
 case $d in
-(sarge|etch|lenny|squeeze|wheezy|jessie)
+(sarge|etch|lenny|squeeze)
 	echo deb http://archive.debian.org/debian-backports/ \
 	    $d-backports main >>/etc/apt/sources.list
 	;;
-(stretch|buster)
-	echo deb http://httpredir.debian.org/debian/ \
+(wheezy|jessie)
+	echo deb http://archive.debian.org/debian/ \
 	    $d-backports main >>/etc/apt/sources.list
+	;;
+(stretch|buster|bullseye)
+	echo deb http://deb.debian.org/debian/ \
+	    $d-backports main >>/etc/apt/sources.list
+	;;
+(dapper|hardy|jaunty|karmic|lucid|maverick|natty|oneiric|quantal|raring|saucy|utopic|vivid|wily|yakkety|zesty|artful)
+	echo deb http://old-releases.ubuntu.com/ubuntu/ \
+	    $d-updates main universe >>/etc/apt/sources.list
+	echo deb http://old-releases.ubuntu.com/ubuntu/ \
+	    $d-backports main universe >>/etc/apt/sources.list
+	;;
+(precise|trusty|xenial|bionic|cosmic|disco|eoan|focal)
+	echo deb http://archive.ubuntu.com/ubuntu/ \
+	    $d-updates main universe >>/etc/apt/sources.list
+	echo deb http://archive.ubuntu.com/ubuntu/ \
+	    $d-backports main universe >>/etc/apt/sources.list
 	;;
 (*)
 	echo >&2 W: D25backports: ignoring unknown DIST "'$DIST'"
