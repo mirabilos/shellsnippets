@@ -10,11 +10,11 @@ mydir=$(realpath "$0/..")
 cd "$mydir" || exit 255
 PATH="$mydir/mksh:$PATH" . assockit.ksh
 
-git grep -F '$MirOS: ' |&
+git grep -F '$Mir''OS: ' |&
 while IFS= read -pr line; do
 	fn=${line%%:*}
 	line=${line#*:}
-	line=${line#*'$MirOS: '}
+	line=${line#*'$Mir''OS: '}
 	if [[ $line != +([! ]),v\ +([0-9.])?('+'+([! ]))\ +([0-9/])\ +([0-9:])\ +([! ])\ +([! ])\ \$* ]]; then
 		print -ru2 -- "D: mismatch($fn) ${line@Q}"
 		continue
@@ -67,6 +67,8 @@ for df in "${asso_y[@]}"; do
 		asso_loadk df "$df" "$sf"
 		for dv in "${asso_y[@]}"; do
 			case ${df}${sf}${dv}${sv} {
+			(ksh/prompt-tgsrc/bin/mksh/dot.mkshrc*)
+				continue ;;
 			(mksh/@(base64|hash-*|hd|more|pushd-popd-dirs|strip-comments)src/bin/mksh/dot.mkshrc*)
 				continue ;;
 			(mksh/hex*src/bin/mksh/check.t*)

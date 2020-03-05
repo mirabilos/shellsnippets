@@ -19,10 +19,9 @@
 # of said person's immediate fault when using the work as intended.
 
 : ${USER_ID:=$(ulimit -c 0; id -u)}
-: ${HOSTNAME:=$(ulimit -c 0; hostname -s 2>/dev/null)}
-[[ $HOSTNAME = @(localhost|*([	 ])) ]] && \
-    HOSTNAME=$(ulimit -c 0; hostname 2>/dev/null)
-: ${HOSTNAME:=nil}; if (( USER_ID )); then PS1='$'; else PS1='#'; fi
+: ${HOSTNAME:=$(ulimit -c 0; hostname 2>/dev/null)}
+[[ $HOSTNAME = ?(?(ip6-)localhost?(6)) ]] && HOSTNAME=nil
+if (( USER_ID )); then PS1='$'; else PS1='#'; fi
 
 function precmd {
 	typeset e=$?
