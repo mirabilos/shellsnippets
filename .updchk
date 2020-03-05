@@ -1,0 +1,101 @@
+#!/bin/mksh
+# -*- mode: sh -*-
+#-
+# © 2020 mirabilos Ⓕ MirBSD
+
+export LC_ALL=C POSIXLY_CORRECT=1
+unset LANGUAGE
+
+mydir=$(realpath "$0/..")
+cd "$mydir" || exit 255
+PATH="$mydir/mksh:$PATH" . assockit.ksh
+
+git grep -F '$MirOS: ' |&
+while IFS= read -pr line; do
+	fn=${line%%:*}
+	line=${line#*:}
+	line=${line#*'$MirOS: '}
+	if [[ $line != +([! ]),v\ +([0-9.])?('+'+([! ]))\ +([0-9/])\ +([0-9:])\ +([! ])\ +([! ])\ \$* ]]; then
+		print -ru2 -- "D: mismatch($fn) ${line@Q}"
+		continue
+	fi
+	sn=${line%%,v *}
+	sn=${sn//'/Attic/'/'/'}
+	line=${line#* }
+	sv=${line%% *}
+	asso_setnull df "$fn" "$sn" "$sv"
+	asso_setnull sf "$sn" "$fn" "$sv"
+done
+
+asso_loadk sf
+cvs -Rqd "${CVSROOT:-/cvs}" rlog -h "${asso_y[@]}" | \
+    grep -e '^RCS file: ' -e '^head: ' |&
+while IFS= read -pr line; do
+	if [[ $line != 'RCS file: '*,v ]]; then
+		print -ru2 -- "W: bad server line ${line@Q}"
+		continue
+	fi
+	sf=${line##RCS file: /*([!/])cvs/}
+	sf=${sf%,v}
+	sf=${sf//'/Attic/'/'/'}
+	if ! IFS= read -pr line; then
+		print -ru2 -- "D: no head for source ${sf@Q}"
+		break
+	fi
+	if [[ $line != 'head: '* ]]; then
+		print -ru2 -- "W: no head for source ${sf@Q}: ${line@Q}"
+		continue
+	fi
+	line=${line#head: }
+	if ! asso_isset sf "$sf"; then
+		print -ru2 -- "D: no entry for source ${sf@Q}"
+		continue
+	fi
+	asso_sets "$line" sr "$sf"
+done
+
+rf=
+rs=
+asso_loadk df
+for df in "${asso_y[@]}"; do
+	asso_loadk df "$df"
+	for sf in "${asso_y[@]}"; do
+		if ! sv=$(asso_getv sr "$sf"); then
+			print -ru2 "W: no source for df=${df@Q} sf=${sf@Q}"
+			sv=-
+		fi
+		asso_loadk df "$df" "$sf"
+		for dv in "${asso_y[@]}"; do
+			case ${df}${sf}${dv}${sv} {
+			(mksh/@(base64|hash-*|hd|more|pushd-popd-dirs|strip-comments)src/bin/mksh/dot.mkshrc*)
+				continue ;;
+			(mksh/hex*src/bin/mksh/check.t*)
+				continue ;;
+			(mksh/website.shar*)
+				continue ;;
+			(mksh/uhr-preR41contrib/hosted/tg/uhr1.5*)
+				continue ;;
+			(*src/usr.bin/wtf/chkdb1.61.7)
+				# r1.7 is Dead
+				continue ;;
+			}
+			if [[ ${dv%%'+'*} = "$sv" ]]; then
+				rf+="${df}${sf}${dv}${sv}ok"$'\n'
+			else
+				rf+="${df}${sf}${dv}${sv}NU"$'\n'
+				rs+="${sf}${df}${sv}${dv}"$'\n'
+			fi
+		done
+	done
+done
+
+print
+print -nr -- "$rf" | sort -u | {
+	print dstfilesrcfiledstvsrcvst
+	cat
+} | column -ts
+print
+print -nr -- "$rs" | sort -u | {
+	print srcfiledstfilesrcvdstv
+	cat
+} | column -ts
