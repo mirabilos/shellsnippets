@@ -1,7 +1,7 @@
-# $MirOS: contrib/hosted/tg/assockit.ksh,v 1.7 2015/11/29 20:24:19 tg Exp $
+# $MirOS: contrib/hosted/tg/assockit.ksh,v 1.8 2020/02/16 21:25:57 tg Exp $
 # -*- mode: sh -*-
 #-
-# Copyright © 2011, 2013, 2015
+# Copyright © 2011, 2013, 2015, 2020
 #	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -333,7 +333,7 @@ function asso__intck {
 	local _v=$1
 
 	[[ $_v = ?(+([0-9])'#')+([0-9a-zA-Z]) ]] || return 2
-	{ : $((_v)) ; } 2>&-
+	{ : $((_v)) ; } 2>/dev/null
 }
 
 # map a boolean value (0=false 1=true 2=error)

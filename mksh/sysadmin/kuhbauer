@@ -130,10 +130,7 @@ cat >"$T/hooks/B00lintian" <<-EOF
 	unset LANGUAGE
 	LC_ALL=C; export LC_ALL
 
-	ir=--install-recommends
-	# arrrrrgh!
-	apt-get install \$ir -s apt >/dev/null 2>&1 || ir=
-	apt-get --purge -y install \$ir lintian
+	apt-get --purge -y -o APT::Install-Recommends=true install lintian
 
 	argE=
 	argP=

@@ -1,5 +1,5 @@
 #!/bin/mksh
-# $MirOS: X11/extras/bdfctool/bdfctool.sh,v 1.23 2020/02/11 19:01:20 tg Exp $
+# $MirOS: X11/extras/bdfctool/bdfctool.sh,v 1.25 2020/02/14 04:42:39 tg Exp $
 #-
 # Copyright © 2007, 2008, 2009, 2010, 2012, 2013, 2015, 2019, 2020
 #	mirabilos <m@mirbsd.org>
@@ -25,7 +25,7 @@ uascii=-1
 ufast=0
 oform=0
 unimap=
-while getopts "acdeFGghp:" ch; do
+while getopts "acdeFGghP:p:" ch; do
 	case $ch {
 	(a) uascii=1 ;;
 	(+a) uascii=0 ;;
@@ -44,7 +44,7 @@ shift $((OPTIND - 1))
 
 if [[ $mode = ?(h) ]] || [[ $mode != e && $uascii != -1 ]] || \
     [[ $mode != d && $ufast$oform != 00 ]]; then
-	print -ru2 "Usage: ${0##*/} -c | -d [-FGg] [-p unimap] | -e [-a] | +e"
+	print -ru2 "Usage: ${0##*/} -c | -d [-FGg | -Pp unimap] | -e [-a] | +e"
 	[[ $mode = h ]]; exit $?
 fi
 
@@ -632,6 +632,33 @@ function read_psfumap {
 	(( psfflag |= has_seq ? 4 : 2 ))
 }
 
+function twiddle_psfumapent {
+	set -A pmap
+	set -A smap
+	for x in ${psfumap[curch]}; do
+		if [[ $x = *,* ]]; then
+			smap+=($x)
+		else
+			pmap+=($x)
+		fi
+	done
+	if [[ -z $pmap$smap ]]; then
+		print -ru2 "E: missing unicode map for 0x${curch#16#}"
+		exit 2
+	fi
+	o=
+}
+
+function twiddle_wchar {
+	local x
+	typeset -Uui16 -Z7 i
+
+	for x in "$@"; do
+		i=0x$x
+		o+=\\u${i#16#}
+	done
+}
+
 if [[ $mode = c ]]; then
 	if ! rdln line; then
 		print -ru2 "E: read error at BOF"
@@ -763,7 +790,7 @@ done
 
 # handle diverging and non-ufast output formats
 case $oform {
-(3)
+(3|6)
 	# little-endian .gdf
 	function out_int32 {
 		typeset -Uui16 value=$1
@@ -795,8 +822,6 @@ case $oform {
 		print -ru2 "E: missing FONTBOUNDINGBOX header"
 		exit 2
 	fi
-	set -A f -- ${!Gdata[*]}
-	typeset -i firstch=${f[0]} lastch=${f[${#f[*]} - 1]}
 	;|
 (3|4)
 	# .gdf output
@@ -852,6 +877,8 @@ case $oform {
 		print -ru2 "E: number of chars $numchar invalid"
 		exit 2
 	fi
+	set -A f -- ${!Gdata[*]}
+	typeset -i firstch=${f[0]} lastch=${f[${#f[*]} - 1]}
 	if (( firstch != 0 )) || (( lastch != (numchar - 1) )); then
 		print -ru2 "E: not $numchar chars: $firstch .. $lastch"
 		exit 2
@@ -873,16 +900,7 @@ case $oform {
 	done
 	curch=-1
 	(( psfflag & (2|4) )) && while (( ++curch < numchar )); do
-		set -A pmap
-		set -A smap
-		for x in ${psfumap[curch]}; do
-			if [[ $x = *,* ]]; then
-				smap+=($x)
-			else
-				pmap+=($x)
-			fi
-		done
-		o=
+		twiddle_psfumapent
 		for x in "${pmap[@]}"; do
 			o+="0x${x:2} 0x${x::2} "
 		done
@@ -892,16 +910,42 @@ case $oform {
 				o+="0x${x:2} 0x${x::2} "
 			done
 		done
-		if [[ -z $o ]]; then
-			print -ru2 "E: missing unicode map for 0x${curch#16#}"
-			exit 2
-		fi
 		print -nA $o 0xFF 0xFF
 	done
 	exit 0
 	;;
 (6)
 	# .psf{,u} v2 output
+	read_psfumap
+	print -nA 0x72 0xB5 0x4A 0x86 0 0 0 0 0x20 0 0 0 \
+	    $(((psfflag & (2|4)) ? 1 : 0)) 0 0 0
+	out_int32 $((# numchar))
+	out_int32 $((# ((hFBB[1] + 7) / 8) * hFBB[2]))
+	out_int32 $((# hFBB[2]))
+	out_int32 $((# hFBB[1]))
+	for curch in ${!Gdata[*]}; do
+		set -A f -- ${Gdata[curch]}
+		bmp=${f[3]//:}
+		print -nA ${bmp@/??/ 0x$KSH_MATCH}
+	done
+	(( psfflag & (2|4) )) && for curch in ${!Gdata[*]}; do
+		twiddle_psfumapent
+		twiddle_wchar "${pmap[@]}"
+		for s in "${smap[@]}"; do
+			o+='\xFE'
+			twiddle_wchar ${s//,/ }
+		done
+		print -n "${o[@]}\\xFF"
+		unset psfumap[curch]
+	done
+	if [[ -n "${psfumap[*]}" ]]; then
+		print -ru2 "E: extra Unicode map entries"
+		for x in "${!psfumap[@]}"; do
+			print -ru2 "N: $x(${psfumap[x]})"
+		done
+		exit 2
+	fi
+	exit 0
 	;;
 }
 
