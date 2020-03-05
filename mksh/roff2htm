@@ -1,4 +1,4 @@
-roff2htm_rcsid='$MirOS: src/scripts/roff2htm,v 1.93 2019/11/22 21:43:24 tg Exp $'
+roff2htm_rcsid='$MirOS: src/scripts/roff2htm,v 1.94 2020/02/16 20:56:25 tg Exp $'
 # $ekkoBSD: catman2html.sh,v 1.2 2004/03/07 03:02:53 stephen Exp $
 #-
 # Copyright (c) 2004, 2005, 2006, 2007, 2011, 2012, 2014, 2015,
@@ -277,7 +277,7 @@ function output_footer {
 <p>These manual pages and other documentation are <a
  href="'$roff2htm_rel'man7/BSD-Licence.htm">copyrighted</a> by their respective writers;
  their source is available at our <a href="http://cvs.mirbsd.de/">CVSweb</a>,
- AnonCVS, and other mirrors. The rest is Copyright © 2002–2019 <a
+ AnonCVS, and other mirrors. The rest is Copyright © 2002–2020 <a
  href="http://www.mirbsd.org/">MirBSD</a>.<br /><span
  style="font-size:3pt; font-style:italic;">This product includes material
  provided by <b>mirabilos</b>.</span></p>
