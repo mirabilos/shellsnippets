@@ -73,7 +73,7 @@ for df in "${asso_y[@]}"; do
 				continue ;;
 			(mksh/hex*src/bin/mksh/check.t*)
 				continue ;;
-			(mksh/website.shar*)
+			(mksh/@(sysadmin/@(mvndebri.sh|vcs2deb)|teckids/mk/common|website.shar)*)
 				continue ;;
 			(mksh/uhr-preR41contrib/hosted/tg/uhr1.5*)
 				continue ;;
@@ -92,12 +92,20 @@ for df in "${asso_y[@]}"; do
 done
 
 print
-print -nr -- "$rf" | sort -u | {
-	print dstfilesrcfiledstvsrcvst
-	cat
-} | column -ts
+if [[ -n $rf ]]; then
+	print -nr -- "$rf" | sort -u | {
+		print dstfilesrcfiledstvsrcvst
+		cat
+	} | column -ts
+else
+	print W: no RCS IDs found
+fi
 print
-print -nr -- "$rs" | sort -u | {
-	print srcfiledstfilesrcvdstv
-	cat
-} | column -ts
+if [[ -n $rs ]]; then
+	print -nr -- "$rs" | sort -u | {
+		print srcfiledstfilesrcvdstv
+		cat
+	} | column -ts
+else
+	print I: nothing to update
+fi
