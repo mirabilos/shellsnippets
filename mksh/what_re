@@ -10,7 +10,7 @@
 totest=$(sed -n '/^foo/p' <"$0") # read text to test from below
 bsd='false' #'ssh mirbsd'
 while IFS= read -r re?'RE: '; do
-	# convert into PHP/Python syntax
+	# convert into PHP/Python/Tcl syntax
 	pat=${re#s/}
 	lim=1 cnt=1 flag=
 	[[ $pat = *g ]] && lim=-1 cnt=0 flag=-all
@@ -72,9 +72,9 @@ foo bar Baaa+l \ ca
 	foo bar fool \ ca	BRE: GNU
 	foo bar foo \ ca	all others
 
-‣ If you got BRE, optionally check POSIX-compatible BSD extensions:
+‣ If you got POSIX BRE, optionally see whether BSD extensions are present:
 
  s/ca[[:>:]]/x/
-	foo bar Baaa+l \ x	BSD BRE, Tcl ARE, PHP PCRE
-	foo bar Baaa+l \ ca	Perl PCRE, (with a warning) Python3 PCRE
+	foo bar Baaa+l \ x	BRE: BSD, ARE: Tcl, PCRE: PHP
+	foo bar Baaa+l \ ca	PCRE: Perl, (with a warning) Python3
 	<Invalid character class name> in GNU sed (POSIX and GNU modes)
