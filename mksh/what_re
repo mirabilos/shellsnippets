@@ -18,17 +18,17 @@ while IFS= read -r re?'RE: '; do
 	pat=${pat%/"$rpl"}
 	phppat=\'/${pat@/[\\\']/\\$KSH_MATCH}/\'
 	pypat=\'${pat@/[\\\']/\\$KSH_MATCH}\'
-	rpl=\'${rpl@/[\\\']/\\$KSH_MATCH}\'
+	prpl=\'${rpl@/[\\\']/\\$KSH_MATCH}\'
 	# test the pattern
 	print -r -- "$totest" | perl -pe "$re" | sed 's/^/Perl\t/'
 	print -r -- "$totest" | php -r "
-		echo preg_replace($phppat, $rpl,
+		echo preg_replace($phppat, $prpl,
 		    file_get_contents('php://stdin'), $lim);
 	    " | sed 's/^/PHP\t/'
 	print -nr -- "$totest" | python3 -c "if True: # Python sux
 		import re
 		import sys
-		print(re.sub($pypat, $rpl, sys.stdin.read(), $cnt))
+		print(re.sub($pypat, $prpl, sys.stdin.read(), $cnt))
 	    " | sed 's/^/Py3k\t/'
 	print -r -- "$totest" | sed -E "$re" | sed 's/^/GNU ERE\t/'
 	print -r -- "$totest" | sed -E --posix "$re" | sed 's/^/POSIX "\t/'
