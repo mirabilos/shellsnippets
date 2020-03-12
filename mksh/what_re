@@ -43,26 +43,27 @@ exit 0
 
 ‣ The following line is the text we test:
 
-foo bar Baaa+l ca
+foo bar Baaa+l \ ca
 
 ‣ The resulting lines for each regex tell us which RE engine is used:
 
-s/(foo|bar)/baz/g	foo bar Baaa+l ca	baz baz Baaa+l ca
+s/(foo|bar)/baz/g	foo bar Baaa+l \ ca	baz baz Baaa+l \ ca
 			GNU/POSIX/BSD BRE	PCRE, ARE, GNU/POSIX ERE
 
-s/B.*a\+./foo/		foo bar foo ca		foo bar fool ca
-			<all others>		GNU BRE
+s/B.*a\+./foo/		foo bar fool \ ca	foo bar foo \ ca
+			GNU BRE			<all others>
 
-s/ca[[:>:]]/x/		foo bar Baaa+l ca	foo bar Baaa+l x	⚠
+s/ca[[:>:]]/x/		foo bar Baaa+l \ ca	foo bar Baaa+l \ x	⚠
 			Perl, (+W)Python3	BSD BRE, PHP, ARE	GNU sed
 
-s/\s?(\ubaaa|\u006C|\x63|$)/x$1/
-	foo barxBaaa+l ca	Perl
-	foo bar Baaa+x$1 ca	Python3, Tcl
-	foo bar Baaa+lxca	PHP
-	foo bar Baaa+lx$1a	GNU ERE
-	foo bar Baaa+l x$1a	POSIX ERE
-	foo bar Baaa+l ca	GNU/POSIX/BSD BRE
+s/\s?(\ubaaa|\u006C|\x63|$)(.*\B)?/x$1/
+	foo bar Baaa+x$1 ca	ARE: Tcl
+	foo bar Baaa+x$1a	PCRE: Python3
+	foo barxBaaaa		PCRE: Perl
+	foo bar Baaa+l \xca	PCRE: PHP
+	foo bar Baaa+l \x$1a	ERE: GNU
+	foo bar Baaa+l \ x$1a	ERE: POSIX
+	foo bar Baaa+l \ ca	BRE: GNU, POSIX, BSD
 
 Decision tree:
 
