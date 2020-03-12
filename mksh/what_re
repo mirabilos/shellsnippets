@@ -78,3 +78,23 @@ foo bar Baaa+l \ ca
 	foo bar Baaa+l \ x	BRE: BSD, ARE: Tcl, PCRE: PHP
 	foo bar Baaa+l \ ca	PCRE: Perl, (with a warning) Python3
 	<Invalid character class name> in GNU sed (POSIX and GNU modes)
+
+Documentation:
+
+‣ http://www.mirbsd.org/man7/re_format
+ • POSIX/BSD BRE and ERE
+
+‣ https://www.gnu.org/software/sed/manual/html_node/sed-regular-expressions.html
+ • GNU BRE and ERE
+
+‣ https://www.tcl.tk/man/tcl8.6/TclCmd/re_syntax.htm
+ • Tcl ARE and RRE (Tcl’s variant of POSIX BRE and ERE)
+
+‣ http://www.mirbsd.org/man1/perlre
+ • Perl regular expressions (PCRE means Perl-compatible REs)
+
+‣ https://docs.python.org/3.7/library/re.html#regular-expression-syntax
+ • Python 3’s PCRE-ish re library
+
+‣ https://www.php.net/manual/en/reference.pcre.pattern.syntax.php
+ • PHP’s PCRE bindings
