@@ -98,3 +98,9 @@ Documentation:
 
 ‣ https://www.php.net/manual/en/reference.pcre.pattern.syntax.php
  • PHP’s PCRE bindings
+
+Note, for simplicity you can run s/(\A.*\B|$)/x/ on: a \b
+	x\b	PCRE	up to space becomes x
+	xb	ARE	up to \ becomes x
+	a \bx	ERE	add x
+	a \b	BRE	unchanged
