@@ -7,7 +7,7 @@
 # © 2020 mirabilos Ⓕ The MirOS Licence
 
 totest=$(sed -n '/^foo/p' <"$0") # read text to test from below
-bsd='false' #'ssh mirbsd'
+bsd='ssh mirbsd'
 while IFS= read -r re?'RE: '; do
 	# convert into PHP/Python syntax
 	pat=${re#s/}
