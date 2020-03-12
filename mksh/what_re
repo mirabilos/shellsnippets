@@ -1,0 +1,89 @@
+#!/bin/mksh
+# distinguish between various regular expression types
+# • PCRE means Perl-compatible regex (man perlre), also PHP and Python
+# • ERE are POSIX Extended Regular Expressions, optionally broken by GNU
+# • BRE are POSIX Basic Regular Expressions, GNU or BSD flavours
+#-
+# © 2020 mirabilos Ⓕ The MirOS Licence
+
+totest=$(sed -n '/^foo/p' <"$0") # read text to test from below
+bsd='false' #'ssh mirbsd'
+while IFS= read -r re?'RE: '; do
+	# convert into PHP/Python syntax
+	pat=${re#s/}
+	lim=1 cnt=1
+	[[ $pat = *g ]] && lim=-1 cnt=0
+	pat=${pat%/?(g)}
+	rpl=${pat##*/}
+	pat=${pat%/"$rpl"}
+	phppat=\'/${pat@/[\\\']/\\$KSH_MATCH}/\'
+	pypat=\'${pat@/[\\\']/\\$KSH_MATCH}\'
+	rpl=\'${rpl@/[\\\']/\\$KSH_MATCH}\'
+	# test the pattern
+	print -r -- "$totest" | perl -pe "$re" | sed 's/^/Perl\t/'
+	print -r -- "$totest" | php -r "
+		echo preg_replace($phppat, $rpl,
+		    file_get_contents('php://stdin'), $lim);
+	    " | sed 's/^/PHP\t/'
+	print -nr -- "$totest" | python3 -c "if True: # Python sux
+		import re
+		import sys
+		print(re.sub($pypat, $rpl, sys.stdin.read(), $cnt))
+	    " | sed 's/^/Py3k\t/'
+	print -r -- "$totest" | sed -E "$re" | sed 's/^/GNU ERE\t/'
+	print -r -- "$totest" | sed -E --posix "$re" | sed 's/^/POSIX "\t/'
+	print -r -- "$totest" | sed "$re" | sed 's/^/GNU BRE\t/'
+	print -r -- "$totest" | sed --posix "$re" | sed 's/^/POSIX "\t/'
+	print -r -- "$totest" | $bsd sed "${re@Q}" | sed 's/^/BSD BRE\t/'
+done
+exit 0
+
+‣ The following line is the text we test:
+
+foo bar Baaa+l ca
+
+‣ The resulting lines for each regex tell us which RE engine is used:
+
+s/(foo|bar)/baz/g	baz baz Baaa+l ca	foo bar Baaa+l ca
+			PCRE, GNU/POSIX ERE	GNU/POSIX/BSD BRE
+
+s/B.*a\+./foo/		foo bar foo ca		foo bar fool ca
+			<all others>		GNU BRE
+
+s/ca[[:>:]]/x/		foo bar Baaa+l ca	foo bar Baaa+l x	⚠
+			Perl, (+W)Python3	BSD BRE, PHP		GNU sed
+
+s/\s?(\ubaaa|\u006C|\x63|$)/x$1/
+	foo barxBaaa+l ca	Perl
+	foo bar Baaa+x$1 ca	Python3
+	foo bar Baaa+lxca	PHP
+	foo bar Baaa+lx$1a	GNU ERE
+	foo bar Baaa+l x$1a	POSIX ERE
+
+Decision tree:
+
+ ╔═══════════════════╗
+ ║ s/(foo|bar)/baz/g ╟────┬───────────────────────────┐
+ ╚═══════════════════╝ ┌──┴────────────────┐       ┌──┴────────────────┐
+                       │ baz baz Baaa+l ca │       │ foo bar Baaa+l ca │
+                       │‣ PCRE or ERE      │       │‣ BRE              │
+                       └┬──────────────────┘       └┬──────────────────┘
+                        │                          ╔╧═══════════════╗
+ ╔══════════════════════╧═══════════╗              ║ s/B.*a\+./foo/ ║
+ ║ s/\s?(\ubaaa|\u006C|\x63|$)/x$1/ ║              ╚═╤══════════════╝
+ ╚═╤════════════════════════════════╝              ┌─┴───────────────────┐
+   │                                  ┌────────────┴────┐   ┌────────────┴───┐
+   │                                  │ foo bar fool ca │   │ foo bar foo ca │
+   │                                  │‣ GNU BRE        │   ╽‣ POSIX BRE     ╽
+   │                                  └─────────────────┘   ┃ s/ca[[:>:]]/x/ ┃
+ ┌─┴────────────────┬─────────────────────────┐             ┗━┯━━━━━━━━━━━━━━┛
+ │  ┌───────────────┴─────┐   ┌───────────────┴────┐   ┌──────┴─────────────┐
+ │  │ foo bar Baaa+l x$1a │   │ foo bar Baaa+lx$1a │   ╵   ┌────────────────┴─┐
+ │  │‣ POSIX ERE          │   │‣ GNU ERE           │   ⚠   │ foo bar Baaa+l x │
+ │  └─────────────────────┘   └────────────────────┘       │‣ POSIX + BSD BRE │
+ │                                                         └──────────────────┘
+ └────────┬──────────────────────────────┬────────────────────────────┐
+ ┌────────┴──────────┐    ┌──────────────┴──────┐    ┌────────────────┴──┐
+ │ foo barxBaaa+l ca │    │ foo bar Baaa+x$1 ca │    │ foo bar Baaa+lxca │
+ │‣ Perl (perlre)    │    │‣ Python3 (pcre)     │    │‣ PHP (pcre)       │
+ └───────────────────┘    └─────────────────────┘    └───────────────────┘
