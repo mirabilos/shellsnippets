@@ -3,6 +3,7 @@
 # • PCRE means Perl-compatible regex (man perlre), also PHP and Python
 # • ERE are POSIX Extended Regular Expressions, optionally broken by GNU
 # • BRE are POSIX Basic Regular Expressions, GNU or BSD flavours
+# • ARE are Tcl/PostgreSQL Advanced Regular Expressions
 #-
 # © 2020 mirabilos Ⓕ The MirOS Licence
 
@@ -31,7 +32,7 @@ while IFS= read -r re?'RE: '; do
 		print(re.sub($pypat, $prpl, sys.stdin.read(), $cnt))
 	    " | sed 's/^/Py3k\t/'
 	print -r -- "puts [regsub $flag {$pat} [lindex \$::argv 1] {$rpl}]" | \
-	    tclsh - "$totest" | sed 's/^/TCL\t/'
+	    tclsh - "$totest" | sed 's/^/Tcl\t/'
 	print -r -- "$totest" | sed -E "$re" | sed 's/^/GNU ERE\t/'
 	print -r -- "$totest" | sed -E --posix "$re" | sed 's/^/POSIX "\t/'
 	print -r -- "$totest" | sed "$re" | sed 's/^/GNU BRE\t/'
@@ -46,21 +47,22 @@ foo bar Baaa+l ca
 
 ‣ The resulting lines for each regex tell us which RE engine is used:
 
-s/(foo|bar)/baz/g	baz baz Baaa+l ca	foo bar Baaa+l ca
-			PCRE, GNU/POSIX ERE	GNU/POSIX/BSD BRE
+s/(foo|bar)/baz/g	foo bar Baaa+l ca	baz baz Baaa+l ca
+			GNU/POSIX/BSD BRE	PCRE, ARE, GNU/POSIX ERE
 
 s/B.*a\+./foo/		foo bar foo ca		foo bar fool ca
 			<all others>		GNU BRE
 
 s/ca[[:>:]]/x/		foo bar Baaa+l ca	foo bar Baaa+l x	⚠
-			Perl, (+W)Python3	BSD BRE, PHP		GNU sed
+			Perl, (+W)Python3	BSD BRE, PHP, ARE	GNU sed
 
 s/\s?(\ubaaa|\u006C|\x63|$)/x$1/
 	foo barxBaaa+l ca	Perl
-	foo bar Baaa+x$1 ca	Python3
+	foo bar Baaa+x$1 ca	Python3, Tcl
 	foo bar Baaa+lxca	PHP
 	foo bar Baaa+lx$1a	GNU ERE
 	foo bar Baaa+l x$1a	POSIX ERE
+	foo bar Baaa+l ca	GNU/POSIX/BSD BRE
 
 Decision tree:
 
