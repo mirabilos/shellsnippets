@@ -45,24 +45,19 @@ exit 0
 
 foo bar Baaa+l \ ca
 
-‣ The resulting lines for each regex tell us which RE engine is used:
+‣ You first decide how discriminative an answer you require:
 
-s/(foo|bar)/baz/g	foo bar Baaa+l \ ca	baz baz Baaa+l \ ca
-			GNU/POSIX/BSD BRE	PCRE, ARE, GNU/POSIX ERE
+ ① Just which class (PCRE, ARE, ERE, BRE)?
 
-s/B.*a\+./foo/		foo bar fool \ ca	foo bar foo \ ca
-			GNU BRE			<all others>
-
-s/ca[[:>:]]/x/		foo bar Baaa+l \ ca	foo bar Baaa+l \ x	⚠
-			Perl, (+W)Python3	BSD BRE, PHP, ARE	GNU sed
-
-s/(\A.*\B|$)/x/
+  s/(\A.*\B|$)/x/
 	xa			PCRE: Perl, PHP, Python 3
 	x ca			ARE: Tcl
 	foo bar Baaa+l \ cax	ERE: GNU, POSIX
 	foo bar Baaa+l \ ca	BRE: GNU, POSIX, BSD
 
-s/\s?(\ubaaa|\u006C|\x63|$)(.*\B)?/x$1/
+ ② Which class and software?
+
+  s/\s?(\ubaaa|\u006C|\x63|$)(.*\B)?/x$1/
 	foo bar Baaa+x$1 ca	ARE: Tcl
 	foo bar Baaa+x$1a	PCRE: Python3
 	foo barxBaaaa		PCRE: Perl
@@ -71,30 +66,15 @@ s/\s?(\ubaaa|\u006C|\x63|$)(.*\B)?/x$1/
 	foo bar Baaa+l \ x$1a	ERE: POSIX
 	foo bar Baaa+l \ ca	BRE: GNU, POSIX, BSD
 
-Decision tree:
+‣ If you got BRE, check if GNU incompatible extensions are present:
 
- ╔═══════════════════╗
- ║ s/(foo|bar)/baz/g ╟────┬───────────────────────────┐
- ╚═══════════════════╝ ┌──┴────────────────┐       ┌──┴────────────────┐
-                       │ baz baz Baaa+l ca │       │ foo bar Baaa+l ca │
-                       │‣ PCRE or ERE      │       │‣ BRE              │
-                       └┬──────────────────┘       └┬──────────────────┘
-                        │                          ╔╧═══════════════╗
- ╔══════════════════════╧═══════════╗              ║ s/B.*a\+./foo/ ║
- ║ s/\s?(\ubaaa|\u006C|\x63|$)/x$1/ ║              ╚═╤══════════════╝
- ╚═╤════════════════════════════════╝              ┌─┴───────────────────┐
-   │                                  ┌────────────┴────┐   ┌────────────┴───┐
-   │                                  │ foo bar fool ca │   │ foo bar foo ca │
-   │                                  │‣ GNU BRE        │   ╽‣ POSIX BRE     ╽
-   │                                  └─────────────────┘   ┃ s/ca[[:>:]]/x/ ┃
- ┌─┴────────────────┬─────────────────────────┐             ┗━┯━━━━━━━━━━━━━━┛
- │  ┌───────────────┴─────┐   ┌───────────────┴────┐   ┌──────┴─────────────┐
- │  │ foo bar Baaa+l x$1a │   │ foo bar Baaa+lx$1a │   ╵   ┌────────────────┴─┐
- │  │‣ POSIX ERE          │   │‣ GNU ERE           │   ⚠   │ foo bar Baaa+l x │
- │  └─────────────────────┘   └────────────────────┘       │‣ POSIX + BSD BRE │
- │                                                         └──────────────────┘
- └────────┬──────────────────────────────┬────────────────────────────┐
- ┌────────┴──────────┐    ┌──────────────┴──────┐    ┌────────────────┴──┐
- │ foo barxBaaa+l ca │    │ foo bar Baaa+x$1 ca │    │ foo bar Baaa+lxca │
- │‣ Perl (perlre)    │    │‣ Python3 (pcre)     │    │‣ PHP (pcre)       │
- └───────────────────┘    └─────────────────────┘    └───────────────────┘
+ s/B.*a\+./foo/
+	foo bar fool \ ca	BRE: GNU
+	foo bar foo \ ca	all others
+
+‣ If you got BRE, optionally check POSIX-compatible BSD extensions:
+
+ s/ca[[:>:]]/x/
+	foo bar Baaa+l \ x	BSD BRE, Tcl ARE, PHP PCRE
+	foo bar Baaa+l \ ca	Perl PCRE, (with a warning) Python3 PCRE
+	<Invalid character class name> in GNU sed (POSIX and GNU modes)
