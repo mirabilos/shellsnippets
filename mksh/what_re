@@ -11,8 +11,8 @@ bsd='ssh mirbsd'
 while IFS= read -r re?'RE: '; do
 	# convert into PHP/Python syntax
 	pat=${re#s/}
-	lim=1 cnt=1
-	[[ $pat = *g ]] && lim=-1 cnt=0
+	lim=1 cnt=1 flag=
+	[[ $pat = *g ]] && lim=-1 cnt=0 flag=-all
 	pat=${pat%/?(g)}
 	rpl=${pat##*/}
 	pat=${pat%/"$rpl"}
@@ -30,6 +30,8 @@ while IFS= read -r re?'RE: '; do
 		import sys
 		print(re.sub($pypat, $prpl, sys.stdin.read(), $cnt))
 	    " | sed 's/^/Py3k\t/'
+	print -r -- "puts [regsub $flag {$pat} [lindex \$::argv 1] {$rpl}]" | \
+	    tclsh - "$totest" | sed 's/^/TCL\t/'
 	print -r -- "$totest" | sed -E "$re" | sed 's/^/GNU ERE\t/'
 	print -r -- "$totest" | sed -E --posix "$re" | sed 's/^/POSIX "\t/'
 	print -r -- "$totest" | sed "$re" | sed 's/^/GNU BRE\t/'
