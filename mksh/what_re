@@ -56,6 +56,12 @@ s/B.*a\+./foo/		foo bar fool \ ca	foo bar foo \ ca
 s/ca[[:>:]]/x/		foo bar Baaa+l \ ca	foo bar Baaa+l \ x	⚠
 			Perl, (+W)Python3	BSD BRE, PHP, ARE	GNU sed
 
+s/(\A.*\B|$)/x/
+	xa			PCRE: Perl, PHP, Python 3
+	x ca			ARE: Tcl
+	foo bar Baaa+l \ cax	ERE: GNU, POSIX
+	foo bar Baaa+l \ ca	BRE: GNU, POSIX, BSD
+
 s/\s?(\ubaaa|\u006C|\x63|$)(.*\B)?/x$1/
 	foo bar Baaa+x$1 ca	ARE: Tcl
 	foo bar Baaa+x$1a	PCRE: Python3
