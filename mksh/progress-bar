@@ -1,7 +1,7 @@
 # -*- mode: sh -*-
-# $MirOS: contrib/hosted/tg/progress-bar,v 1.4 2018/12/02 08:12:31 tg Exp $
+# $MirOS: contrib/hosted/tg/progress-bar,v 1.5 2020/04/13 16:05:20 tg Exp $
 #-
-# Copyright © 2018
+# Copyright © 2018, 2020
 #	mirabilos <m@mirbsd.org>
 # Copyright © 2017
 #	mirabilos <t.glaser@tarent.de>
@@ -42,11 +42,8 @@ isin_progress_bar=0
 nlin_progress_bar=0
 _cch_progress_bar=
 
-if [[ $KSH_VERSION = @(\@\(#\)MIRBSD KSH R)@(5[5-9]|[6-9][0-9]|[1-9][0-9][0-9])\ * ]]; then
-	alias global='typeset -g'
-else
-	alias global=global
-fi
+[[ $KSH_VERSION = '@(''#)MIRBSD KSH R'@(4[0-9]|5[0-4])\ * ]] || \
+    alias global='typeset -g'
 
 # args: $1 = number of draw_progress_bar calls to make up 100%
 function init_progress_bar {

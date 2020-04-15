@@ -125,7 +125,7 @@ else
 fi
 cat >"$T/hooks/B00lintian" <<-EOF
 	#!/bin/sh
-	# \$MirOS: contrib/hosted/tg/deb/hookdir/B20lintian,v 1.3 2011/12/31 17:14:51 tg Exp $
+	# \$MirOS: contrib/hosted/tg/deb/hookdir/B20lintian,v 1.4 2020/03/27 23:17:14 tg Exp $
 	# $kuhbauerId
 
 	unset LANGUAGE
@@ -156,7 +156,11 @@ cat >"$T/hooks/B00lintian" <<-EOF
 	echo ==================================================================
 	echo Running lintian...
 	echo
-	lintian -vIi \$argE \$argP \$argSup $extraargs --allow-root /tmp/buildd/*.changes 2>&1
+	e2=
+	# omit --verbose on sarge where it displays overridden tags
+	dpkg --compare-versions "\$(dpkg-query -W --showformat='\${Version}' \
+	    lintian)" lt 1.23.28 || e2=-v
+	lintian -Ii \$argE \$argP \$e2 \$argSup $extraargs --allow-root /tmp/buildd/*.changes 2>&1
 	echo
 	echo ==================================================================
 	echo
