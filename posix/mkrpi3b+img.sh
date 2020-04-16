@@ -652,7 +652,7 @@ dd if=/dev/urandom bs=256 count=1 of=rnd 2>/dev/null || die 'dd rnd1 failed'
 s='This SD card boots on a Raspberry Pi 3B+ only!'
 # x86 machine code outputting message then stopping
 printf '\xE8\x'$(echo "obase=16; ${#s}+5" | bc)'\0\r\n' >data
-printf '%s' $s | tee txt >>data
+printf '%s' "$s" | tee txt >>data
 printf '\r\n\0\x5E\16\x1F\xAC\10\xC0\x74\xFE\xB4\16\xBB\7\0\xCD\20\xEB\xF2' \
     >>data
 dd if=/dev/zero bs=16 count=4 of=pt 2>/dev/null || die 'dd mbr1 failed'
