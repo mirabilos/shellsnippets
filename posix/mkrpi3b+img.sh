@@ -681,6 +681,8 @@ rm mbr
 	t
 	1
 	c
+	a
+	1
 	w
 	EOF
 ) || die 'fdisk failed'
