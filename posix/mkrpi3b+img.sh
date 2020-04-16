@@ -1,6 +1,6 @@
 #!/bin/sh
 #-
-# Copyright © 2019
+# Copyright © 2019, 2020
 #	mirabilos <t.glaser@tarent.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -652,7 +652,7 @@ dd if=/dev/urandom bs=256 count=1 of=rnd 2>/dev/null || die 'dd rnd1 failed'
 s='This SD card boots on a Raspberry Pi 3B+ only!'
 # x86 machine code outputting message then stopping
 printf '\xE8\x'$(echo "obase=16; ${#s}+5" | bc)'\0\r\n' >data
-printf '%s' 'This SD card boots on a Raspberry Pi 3B+ only!' | tee txt >>data
+printf '%s' $s | tee txt >>data
 printf '\r\n\0\x5E\16\x1F\xAC\10\xC0\x74\xFE\xB4\16\xBB\7\0\xCD\20\xEB\xF2' \
     >>data
 dd if=/dev/zero bs=16 count=4 of=pt 2>/dev/null || die 'dd mbr1 failed'
@@ -665,7 +665,7 @@ dd if=data of=mbr conv=notrunc 2>/dev/null || die 'dd mbr3 failed'
 dd if=pt of=mbr bs=1 seek=446 conv=notrunc 2>/dev/null || die 'dd mbr4 failed'
 # write to disc, wiping pre-partition space as well
 dd if=mbr bs=1048576 of="$dvname" 2>/dev/null || die 'dd mbr5 failed'
-rm mbr
+rm data mbr
 # layout partition table (per board-specific requirements)
 (fdisk -c=nondos -t MBR -w always -W always "$tgtimg" <<-'EOF'
 	n
