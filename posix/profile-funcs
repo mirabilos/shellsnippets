@@ -214,5 +214,9 @@ pystones() {
 	${2:-python} -c "from test import pystone; pystone.main($1)"
 }
 
-# Using Git to create coloured diffs of arbitrary files
+# using Git to create coloured diffs of arbitrary files
 alias cdiff='git diff --color=always --no-index --no-prefix'
+
+# map TO_CLIPBOARD and PASTE_URL lynx keymap entries to commands
+export RL_CLCOPY_CMD='xsel -ib'
+export RL_PASTE_CMD='xsel -ob'
