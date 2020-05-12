@@ -1,5 +1,5 @@
 #!/bin/mksh
-# $MirOS: X11/extras/bdfctool/bdfctool.sh,v 1.25 2020/02/14 04:42:39 tg Exp $
+# $MirOS: X11/extras/bdfctool/bdfctool.sh,v 1.26 2020/05/02 17:24:58 tg Exp $
 #-
 # Copyright © 2007, 2008, 2009, 2010, 2012, 2013, 2015, 2019, 2020
 #	mirabilos <m@mirbsd.org>
@@ -825,6 +825,8 @@ case $oform {
 	;|
 (3|4)
 	# .gdf output
+	set -A f -- ${!Gdata[*]}
+	typeset -i firstch=${f[0]} lastch=${f[${#f[*]} - 1]}
 	nullch=
 	x=$((hFBB[1] * hFBB[2]))
 	while (( x-- )); do

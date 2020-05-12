@@ -1,8 +1,8 @@
-roff2htm_rcsid='$MirOS: src/scripts/roff2htm,v 1.94 2020/02/16 20:56:25 tg Exp $'
+roff2htm_rcsid='$MirOS: src/scripts/roff2htm,v 1.101 2020/05/03 18:46:23 tg Exp $'
 # $ekkoBSD: catman2html.sh,v 1.2 2004/03/07 03:02:53 stephen Exp $
 #-
 # Copyright (c) 2004, 2005, 2006, 2007, 2011, 2012, 2014, 2015,
-#		2016, 2017, 2018
+#		2016, 2017, 2018, 2020
 #	mirabilos <m@mirbsd.org>
 # Original version for ekkoBSD by:
 # Copyright (c) 2004
@@ -13,13 +13,9 @@ roff2htm_rcsid='$MirOS: src/scripts/roff2htm,v 1.94 2020/02/16 20:56:25 tg Exp $
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission
-# is granted to deal in this work without restriction, including un-
+# is granted to deal in this work without restriction, including un‚Äê
 # limited rights to use, publicly perform, distribute, sell, modify,
 # merge, give away, or sublicence.
-#
-# Advertising materials mentioning features or use of this work must
-# display the following acknowledgement:
-#	This product includes material provided by mirabilos.
 #
 # This work is provided ‚ÄúAS IS‚Äù and WITHOUT WARRANTY of any kind, to
 # the utmost extent permitted by applicable law, neither express nor
@@ -28,35 +24,17 @@ roff2htm_rcsid='$MirOS: src/scripts/roff2htm,v 1.94 2020/02/16 20:56:25 tg Exp $
 # direct, other damage, loss, or other issues arising in any way out
 # of dealing in the work, even if advised of the possibility of such
 # damage or existence of a defect, except proven that it results out
-# of said person's immediate fault when using the work as intended.
+# of said person‚Äôs immediate fault when using the work as intended.
 #-
 # Routines for converting catman pages and nrcon(1)d papers to HTML.
-# ATTENTION: this file contains embedded white-, backspace and high-
+# ATTENTION: this file contains embedded white‚Äë, backspace and high-
 #	     bit-on control characters! Use ‚Äújupp --asis $0‚Äù to edit
-# Note: this file contains magic and can‚Äôt be edited as UTF-8 either.
-# Note: this script assumes MirBSD filesystem interna: ino_t=uint32_t
+# Note this file contains magic and can‚Äôt be edited as UTF-8 either.
+# Note this script assumes MirBSD filesystem interna: ino_t=uint32_t
 
-# check if mksh R31:2007/10/18 or up
-if [[ $KSH_VERSION = @(\@\(#\)MIRBSD KSH R)@(3[2-9]|[4-9][0-9]|[1-9][0-9]+([0-9]))\ +([0-9])/+([0-9])/+([0-9])?(\ *) ]]; then
-	i=0
-elif [[ $KSH_VERSION = @(\@\(#\)MIRBSD KSH R31)* ]]; then
-	eval $(print "$KSH_VERSION" | sed 's#^.*R31 \([0-9]*\)/\([0-9]*\)/\([0-9]*\)\( .*\)*$#y=\1 m=\2 d=\3#')
-	(( i = y < 2007 ? 1 :
-	    y > 2007 ? 0 :
-	    m < 10 ? 1 :
-	    m > 10 ? 0 :
-	    d < 18 ? 1 : 0 ))
-	unset y m d
-else
-	i=1
-fi
-# we need an mksh version with uint32_t array indicƒìs
-if (( i )); then
-	print -u2 Error: your mksh is not recent enough.
-	print -u2 Please upgrade to at least mksh R32.
-	exit 1
-fi
-unset i
+set -e
+set -o pipefail
+set +e
 
 # initialise globals
 roff2htm_gendate=$(date +"%F %T")		# current time
@@ -65,12 +43,12 @@ roff2htm_machine=$(uname -m)			# i386, sparc
 
 function set_conversion_man {
 	function do_convert {
-		do_convert_man "$@"
+		do_convert_internal man "$@"
 	}
 }
 function set_conversion_paper {
 	function do_convert {
-		do_convert_paper "$@"
+		do_convert_internal paper "$@"
 	}
 }
 set_conversion_man
@@ -83,9 +61,8 @@ function set_target_relative {
 }
 set_target_relative
 
-function do_convert_man {
-	local -i _nl=0
-	col -x | sed \
+function do_convert_internal_man {
+	sed \
 	    -e '/-$/N
 {
 s/\([0-9A-z][-.,0-9A-z:]*\)-\n\(  *\)\([0-9A-z][-.,0-9A-z:]*([1-9][A-z]*)\)\([^ ]*\) /\1\3\4\
@@ -99,12 +76,12 @@ s/\([0-9A-z][-.,0-9A-z:]*\)-\n\(  *\)\([0-9A-z][-.,0-9A-z:]*([1-9][A-z]*)\)\([^ 
 	    -e 's#+_#¬±#g'						\
 									\
 	    -e 's#^[A-z][ 0-9A-z]*$#</pre><h2>&</h2><pre>#'		\
-	    -e 's#^  \([A-z][ -%'\''-;=?-~]*\)$#</pre><h3>\1</h3><pre>#'	\
+	    -e 's#^  \([A-z][ -%'\''-;=?-~]*\)$#</pre><h3>\1</h3><pre>#' \
 									\
 	    -e 's#\([^~<>Ä-ø][Ä-ø]*\)~#\1ÃÖ#g'				\
 	    -e 's#\([^]\)~_#\1_ÃÖ #g'					\
 	    -e 's#\([^]\)\([^<>_Ä-ø][Ä-ø]*\)\([ÃÖ]*\)_#\1_\2\3#g'	\
-	    -e 's#\([^<>Ä-ø]\)[Ä-ø]*\([ÃÖ]*\)\([^<>Ä-ø][Ä-ø]*\)#<\1<\3\2>#g'	\
+	    -e 's#\([^<>Ä-ø]\)[Ä-ø]*\([ÃÖ]*\)\([^<>Ä-ø][Ä-ø]*\)#<\1<\3\2>#g' \
 	    -e 's#\(<_<\([^>_]*\)>\)\1#<G>\2</G>#g'			\
 	    -e 's#<_<\([^>_]*\)>#<i>\1</i>#g'				\
 	    -e 's#<.<\([^>]*\)>#<b>\1</b>#g'				\
@@ -135,20 +112,11 @@ s/\([0-9A-z][-.,0-9A-z:]*\)-\n\(  *\)\([0-9A-z][-.,0-9A-z:]*([1-9][A-z]*)\)\([^ 
 	    -e '$s#$#</pre>#'						\
 	    -e 's#<pre></pre>##g'					\
 	    -e 's#</pre><pre>##g'					\
-	| while IFS= read -r line; do
-		if [[ -n $line ]]; then
-			(( _nl )) && [[ $line != '</pre>'* ]] && print
-			print -r -- "$line"
-			_nl=0
-		else
-			_nl=1
-		fi
-	done
+
 }
 
-function do_convert_paper {
-	local -i _nl=0
-	col -x | sed \
+function do_convert_internal_paper {
+	sed \
 	    -e '/-$/N
 {
 s/\([0-9A-z][-.,0-9A-z:]*\)-\n\(  *\)\([0-9A-z][-.,0-9A-z:]*([1-9][A-z]*)\)\([^ ]*\) /\1\3\4\
@@ -164,7 +132,7 @@ s/\([0-9A-z][-.,0-9A-z:]*\)-\n\(  *\)\([0-9A-z][-.,0-9A-z:]*([1-9][A-z]*)\)\([^ 
 	    -e 's#\([^~<>Ä-ø][Ä-ø]*\)~#\1ÃÖ#g'				\
 	    -e 's#\([^]\)~_#\1_ÃÖ #g'					\
 	    -e 's#\([^]\)\([^<>_Ä-ø][Ä-ø]*\)\([ÃÖ]*\)_#\1_\2\3#g'	\
-	    -e 's#\([^<>Ä-ø]\)[Ä-ø]*\([ÃÖ]*\)\([^<>Ä-ø][Ä-ø]*\)#<\1<\3\2>#g'	\
+	    -e 's#\([^<>Ä-ø]\)[Ä-ø]*\([ÃÖ]*\)\([^<>Ä-ø][Ä-ø]*\)#<\1<\3\2>#g' \
 	    -e 's#\(<_<\([^>_]*\)>\)\1#<G>\2</G>#g'			\
 	    -e 's#<_<\([^>_]*\)>#<i>\1</i>#g'				\
 	    -e 's#<.<\([^>]*\)>#<b>\1</b>#g'				\
@@ -176,7 +144,8 @@ s/\([0-9A-z][-.,0-9A-z:]*\)-\n\(  *\)\([0-9A-z][-.,0-9A-z:]*([1-9][A-z]*)\)\([^ 
 	    -e 's#\(</[biG]>\)\([$/_-]*\)\([- 0-9A-z]\)#\2\1\3#g'	\
 	    -e 's#\(</[biG]>\))\([- ,.0-9A-z]\)#)\1\2#g'		\
 									\
-	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(\([1-9]\)[/0-9A-Za-z]*)#<a href="'$roff2htm_rel'man\2/\1.htm">&</a>#g' \
+	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(\(3p\))#<a href="'$roff2htm_rel'man\2/\1.htm">&</a>#g' \
+	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(\([1-9]\)\(/[/0-9A-Za-z]*\)*)#<a href="'$roff2htm_rel'man\2/\1.htm">&</a>#g' \
 	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(\([PSU][MS][DM]\))#<a href="'$roff2htm_rel'man\2/\1.htm">&</a>#g' \
 	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(\(PAPERS\))#<a href="'$roff2htm_rel'man\2/\1.htm">&</a>#g' \
 	    -e '/^ /s#\([0-9A-z][-.,0-9A-z:]*\)(GNU)#<a href="'$roff2htm_rel'manINFO/\1.html">&</a>#g' \
@@ -193,7 +162,15 @@ s/\([0-9A-z][-.,0-9A-z:]*\)-\n\(  *\)\([0-9A-z][-.,0-9A-z:]*([1-9][A-z]*)\)\([^ 
 	    -e '$s#$#</pre>#'						\
 	    -e 's#<pre></pre>##g'					\
 	    -e 's#</pre><pre>##g'					\
-	| while IFS= read -r line; do
+
+}
+
+function do_convert_internal {
+	local line
+	local fn=do_convert_internal_$1; shift
+	local -i _nl=0
+
+	col -x | "$fn" "$@" | while IFS= read -r line; do
 		if [[ -n $line ]]; then
 			(( _nl )) && [[ $line != '</pre>'* ]] && print
 			print -r -- "$line"
@@ -205,19 +182,27 @@ s/\([0-9A-z][-.,0-9A-z:]*\)-\n\(  *\)\([0-9A-z][-.,0-9A-z:]*([1-9][A-z]*)\)\([^ 
 }
 
 function output_header {
-	print '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+	print -r -- '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en"><head>
- <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+ <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+ <meta http-equiv="Content-Style-Type" content="text/css" />
  <meta name="MSSmartTagsPreventParsing" content="TRUE" />
+ <link rel="canonical" href="http://www.mirbsd.org/man'$roff2htm_machine/$1.$2'" />
  <title>RTFM '$1\($2')</title>
  <meta name="robots" content="index, follow" />
- <link rel="canonical" href="http://www.mirbsd.org/man'$roff2htm_machine/$1.$2'" />
  <style type="text/css"><!--/*--><![CDATA[/*><!--*/
+	code, kbd, pre, samp, tt {
+		font-family:FixedMisc, Inconsolatazi4varl_qu,
+		    Fixed, "Inconsolata LGC", Inconsolata, monospace;
+		font-size:1em;
+	}
 	body {
 		background-color:#000000;
 		color:#666666;
-		font-family:serif;
+		font-family:Gentium,
+		    "Bitstream Vera Serif", "DejaVu Serif", FreeSerif,
+		    Palatino, "Palatino Linotype", "Book Antiqua", serif;
 	}
 	a {
 		color:inherit;
@@ -235,6 +220,7 @@ function output_header {
 	pre {
 		line-height:1.12;
 		color:#FFB000;
+		margin:0.5em 0;
 	}
 	b {
 		color:#FFEF00;
@@ -244,7 +230,7 @@ function output_header {
 		font-style:normal;
 		border-bottom:1px solid #FFB000;
 	}
-	b i,i b {
+	b i, i b {
 		color:#FFEF00;
 		font-weight:normal;
 		font-style:normal;
@@ -252,18 +238,36 @@ function output_header {
 	}
 	h1 {
 		color:#FFCC00;
-		font-size:xx-large;
-		font-family:serif;
+		font-size:x-large;
+		font-family:Gentium,
+		    "Bitstream Vera Serif", "DejaVu Serif", FreeSerif,
+		    Palatino, "Palatino Linotype", "Book Antiqua", serif;
+		margin:0.5em 0 0.75em 1em;
 	}
 	h2 {
 		color:#FFFFFF;
-		font-size:x-large;
-		font-family:sans-serif;
+		font-size:large;
+		font-family:"Bitstream Vera Sans", "DejaVu Sans", sans-serif;
+		margin:1em 0 0.5em 0.5em;
 	}
 	h3 {
 		color:#CCCCCC;
-		font-size:large;
-		font-family:sans-serif;
+		font-size:medium;
+		font-family:"Bitstream Vera Sans", "DejaVu Sans", sans-serif;
+		margin:0.875em 0 0.5em 1.5em;
+	}
+	.footer1, .footer2, .footer3 {
+		line-height:1.42;
+		margin:0.25em 0;
+	}
+	.footer1 {
+		font-size:xx-small;
+	}
+	.footer2 {
+		max-width:47em;
+	}
+	.footer3 {
+		font-size:x-small;
 	}
  /*]]>*/--></style>
 </head><body>
@@ -271,33 +275,37 @@ function output_header {
 }
 
 function output_footer {
-	print '
-<hr /><p style="font-size:xx-small;">Generated on' $roff2htm_gendate by \
- '<tt>'$roff2htm_rcsid'</tt></p>
-<p>These manual pages and other documentation are <a
- href="'$roff2htm_rel'man7/BSD-Licence.htm">copyrighted</a> by their respective writers;
- their source is available at our <a href="http://cvs.mirbsd.de/">CVSweb</a>,
- AnonCVS, and other mirrors. The rest is Copyright ¬© 2002‚Äì2020 <a
- href="http://www.mirbsd.org/">MirBSD</a>.<br /><span
+	print -r -- '
+<hr /><p class="footer1">Generated on <tt>'$roff2htm_gendate'</tt> by
+ <tt>'$roff2htm_rcsid'</tt>‚Ää‚Äî‚Ää<span
  style="font-size:3pt; font-style:italic;">This product includes material
  provided by <b>mirabilos</b>.</span></p>
-<p style="font-size:x-small;">This manual page‚Äôs HTML representation
- is supposed to be <a href="http://validator.w3.org/check/referer">valid
- XHTML/1.1</a>; if not, please send a bug report‚Ää‚Äî‚Äädiffs preferred.</p>
+<p class="footer2">These manual pages and other documentation are <a
+ href="'$roff2htm_rel'man7/BSD-Licence.htm">copyrighted</a> by their
+ respective writers; their sources are available at the project‚Äôs <a
+ href="http://cvs.mirbsd.de/">CVSweb</a>, AnonCVS and other mirrors. The rest
+ is Copyright ¬© 2002‚Äì2020 <a href="http://www.mirbsd.org/">MirBSD</a>.</p>
+<p class="footer3">This manual page‚Äôs HTML representation is supposed to be <a
+ href="http://validator.w3.org/check/referer">valid XHTML/1.1</a>; if not,
+ please send a bug report‚Ää‚Äî‚Äädiffs preferred.</p>
 </body></html>'
 }
 
 function do_conversion {
 	output_header ${1:-missing-pagename} ${2:-0}
-	do_convert ${2:-0}
+	do_convert ${2:-0} || return 1
 	output_footer
 }
 
 # do_conversion_verbose title section infile outfile
 function do_conversion_verbose {
+	local e
+
 	print -nru2 -- $3 ‚Üí $4
 	do_conversion $1 $2 <$3 >$4
+	e=$?
 	print -u2
+	return $e
 }
 
 # convert_page /path/to/man.cat1 /targetpath
@@ -321,11 +329,11 @@ function convert_page {
 			/<h1>/s#</h1>#, <a href="$roff2htm_rel$tn">$page($sect)</a>&#
 			wq
 		EOF
-	else
-		# store target filename in the inode cache
-		roff2htm_inodecache[ino]=$tn
-		do_conversion_verbose $page $sect $fn $2/$tn
+		return $?
 	fi
+	# store target filename in the inode cache
+	roff2htm_inodecache[ino]=$tn
+	do_conversion_verbose $page $sect $fn $2/$tn
 }
 
 # output_htaccess >‚Ä¶/.htaccess
@@ -337,15 +345,16 @@ function output_htaccess {
 # convert_all /path/to/share/man /targetpath
 function convert_all {
 	local tp=${2:-$(pwd)/mbsdman}		# target basepath
-	local x f
+	local x f e
 
 	(find ${1:-/usr/share/man}/cat{[1-9],3p} -name \*.0 2>/dev/null | \
 	    sort -f) |&
 	for x in 1 2 3 3p 4 5 6 7 8 9; do
-		mkdir -p $tp/man$x	# one per section
-		output_htaccess >$tp/man$x/.htaccess
+		mkdir -p $tp/man$x		# one per section
+		output_htaccess >$tp/man$x/.htaccess || e=1
 	done
 	while read -p f; do
-		convert_page $f $tp	# any subpages
+		convert_page $f $tp || e=1	# any subpages
 	done
+	return $e
 }

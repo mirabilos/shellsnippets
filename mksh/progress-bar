@@ -1,5 +1,5 @@
 # -*- mode: sh -*-
-# $MirOS: contrib/hosted/tg/progress-bar,v 1.5 2020/04/13 16:05:20 tg Exp $
+# $MirOS: contrib/hosted/tg/progress-bar,v 1.6 2020/05/11 14:28:31 tg Exp $
 #-
 # Copyright © 2018, 2020
 #	mirabilos <m@mirbsd.org>
@@ -101,11 +101,11 @@ function draw_progress_bar {
 
 function redo_progress_bar {
 	if [[ $1 = +* ]]; then
-		(( _cnt_progress_bar += ${1#+} ))
+		(( (_cnt_progress_bar += ${1#+}), 1 ))
 	elif [[ $1 = -* ]]; then
-		(( _cnt_progress_bar -= ${1#-} ))
+		(( (_cnt_progress_bar -= ${1#-}), 1 ))
 	else
-		_cnt_progress_bar=$1
+		(( (_cnt_progress_bar = $1), 1 ))
 	fi
 	if (( _cur_progress_bar > _cnt_progress_bar )); then
 		print -ru2 W: new estimate $_cnt_progress_bar too low \
@@ -119,12 +119,12 @@ function redo_progress_bar {
 function draw_progress_bar_internal {
 	local bar num w=$COLUMNS pct
 
-	((# num = (_cur_progress_bar * w * 8) / _cnt_progress_bar ))
-	((# pct = _cur_progress_bar * 100 / _cnt_progress_bar ))
+	((# (num = (_cur_progress_bar * w * 8) / _cnt_progress_bar), 1 ))
+	((# (pct = _cur_progress_bar * 100 / _cnt_progress_bar), 1 ))
 	[[ $_cch_progress_bar != $num.$pct ]] || return 0
 	while ((# num >= 8 )); do
 		bar+=█
-		((# num -= 8 ))
+		((# (num -= 8), 1 ))
 	done
 	case $num {
 	(7) bar+=▉ ;;
@@ -138,7 +138,7 @@ function draw_progress_bar_internal {
 	# fill complete line, right-align completion percentage display
 	local -R$w spc="$pct%"
 	# elide percentage when it stops fitting
-	((# (_cur_progress_bar * w / _cnt_progress_bar) > (w - 4) )) && spc=
+	((# (_cur_progress_bar * w / _cnt_progress_bar) <= (w - 4) )) || spc=
 	# save position; go to last line; set colours;
 	# output a line full of spaces (and completion percentage);
 	# jump to first column; output bar (line præfix); restore position
