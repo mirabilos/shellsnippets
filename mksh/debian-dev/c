@@ -1,5 +1,7 @@
 #!/bin/mksh
 #-
+# Copyright © 2020
+#	mirabilos <m@mirbsd.org>
 # Copyright © 2013, 2014, 2018
 #	mirabilos <t.glaser@tarent.de>
 #
@@ -25,15 +27,23 @@
 # Example:
 # c lenny/i386 DEB_BUILD_OPTIONS=parallel=4 linux32 --build foo*.dsc
 # c bp:stretch/i386 --debbuildopts -v1.0-1 foo*.dsc
+# c bionic/amd64~neon --update
 
 unset LANGUAGE
 export LC_ALL=C
+
+set -A cmd -- env
 
 if [[ -z $1 ]]; then
 	print -u2 E: No operation specified
 	exit 1
 fi
 REALDIST=$1
+if [[ $1 = *'~'* ]]; then
+	CUSTOM=${REALDIST#*'~'}
+	cmd+=(CUSTOM="$CUSTOM")
+	REALDIST=${REALDIST%%'~'*}
+fi
 DIST=${REALDIST#*:}
 shift
 
@@ -51,7 +61,7 @@ if [[ $1 = --keepmydata ]]; then
 fi
 
 # construct command line
-set -A cmd env "DIST=$REALDIST" LANG=C LC_CTYPE=C LC_NUMERIC=C \
+set -A cmd+ -- "DIST=$REALDIST" LANG=C LC_CTYPE=C LC_NUMERIC=C \
     LC_TIME=C LC_COLLATE=C LC_MONETARY=C LC_MESSAGES=C LC_PAPER=C \
     LC_NAME=C LC_ADDRESS=C LC_TELEPHONE=C LC_MEASUREMENT=C \
     LC_IDENTIFICATION=C LC_ALL=C $eatmydata
