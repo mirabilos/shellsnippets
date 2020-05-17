@@ -32,7 +32,7 @@
 unset LANGUAGE
 export LC_ALL=C
 
-set -A cmd -- env
+set -A cmd -- env --unset=XDG_RUNTIME_DIR
 
 if [[ -z $1 ]]; then
 	print -u2 E: No operation specified
