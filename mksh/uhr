@@ -1,6 +1,6 @@
 #!/bin/mksh
 # -*- mode: sh -*-
-# $MirOS: contrib/hosted/tg/uhr,v 1.22 2020/04/13 16:05:19 tg Exp $
+# $MirOS: contrib/hosted/tg/uhr,v 1.23 2020/05/19 22:21:45 tg Exp $
 #-
 # Copyright © 2012, 2013, 2015, 2017, 2018, 2020
 #	mirabilos <m@mirbsd.org>
@@ -113,12 +113,12 @@ function draw_progress_bar {
 function draw_progress_bar_internal {
 	local bar num w=$COLUMNS pct
 
-	((# num = (_cur_progress_bar * w * 8) / _cnt_progress_bar ))
-	((# pct = _cur_progress_bar * 100 / _cnt_progress_bar ))
+	((# (num = (_cur_progress_bar * w * 8) / _cnt_progress_bar), 1 ))
+	((# (pct = _cur_progress_bar * 100 / _cnt_progress_bar), 1 ))
 	[[ $_cch_progress_bar != $num.$pct ]] || return 0
 	while ((# num >= 8 )); do
 		bar+=█
-		((# num -= 8 ))
+		((# (num -= 8), 1 ))
 	done
 	case $num {
 	(7) bar+=▉ ;;
@@ -132,7 +132,7 @@ function draw_progress_bar_internal {
 	# fill complete line, right-align completion percentage display
 	local -R$w spc="$pct%"
 	# elide percentage when it stops fitting
-	((# (_cur_progress_bar * w / _cnt_progress_bar) > (w - 4) )) && spc=
+	((# (_cur_progress_bar * w / _cnt_progress_bar) <= (w - 4) )) || spc=
 	# save position; go to last line; set colours;
 	# output a line full of spaces (and completion percentage);
 	# jump to first column; output bar (line præfix); restore position
