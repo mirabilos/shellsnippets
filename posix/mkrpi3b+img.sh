@@ -941,7 +941,14 @@ Press Enter to continue.' 12 72 || :)
 			w
 			q
 		EODB
-		# enact the changes
+#		# enact the changes
+#		/etc/initramfs/post-update.d/z50-raspi3-firmware
+	EOF
+	# work around #961377
+	cat <<-'EOF'
+		perl -pi -e 's/for dtn in/for dtb in/' \
+		    /etc/kernel/postinst.d/z50-raspi3-firmware
+		# re-run, independent of whether we changed the CMA or not
 		/etc/initramfs/post-update.d/z50-raspi3-firmware
 	EOF
 	# remaining packages and configuration
