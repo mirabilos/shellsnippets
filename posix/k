@@ -1,0 +1,12 @@
+#!/bin/sh
+#-
+# keyboard layout quick switcher; usage:
+#  k                # loads ~/.Xmodmap
+#  k us             # uses stock US layout
+#  k de nodeadkeys  # switches to stock German layout
+
+set -ex
+test -z "$1" || setxkbmap "$@"
+setxkbmap -option grp_led:caps
+setxkbmap -option caps:none
+test -n "$1" || xmodmap ~/.Xmodmap
