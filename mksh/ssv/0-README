@@ -26,3 +26,6 @@ Apologies for the C file, but it’s much more efficient to
 do the conversion f̲r̲o̲m̲ CSV with mmap. It could be done in
 mksh of course… and I’d probably have cursed about C less
 had I used it… but now it’s there and works.
+
+Erratum: \x1C is the ASCII file separator, *not* field…
+         \x1F (unit separator) would have been correct.
