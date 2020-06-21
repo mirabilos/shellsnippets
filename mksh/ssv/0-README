@@ -2,16 +2,16 @@ SSV: shell-parseable separated values, or separator-separated values
 
 Basic idea is to make CSV into something usable:
 • newline (\x0A) is row separator
-• field separator (\x1C) is column separator
+• unit separator (\x1F) is column separator
 • n̲o̲ quotes or escape characters
 • carriage return (\x0D) represents embedded newlines in cells
 
-Cell content is arbitrary binary except \x0A and \x1C (and NUL).
+Cell content is arbitrary binary except \x0A and \x1F (and NUL).
 
 
 SSV can easily be operated on from within shell, e.g. with:
 
-	while IFS=$'\x1C' read -rA line; do
+	while IFS=$'\x1F' read -rA line; do
 		for x in ${!line[*]}; do
 			print -r -- "$x=${line[x]@Q}"
 		done
@@ -27,5 +27,5 @@ do the conversion f̲r̲o̲m̲ CSV with mmap. It could be done in
 mksh of course… and I’d probably have cursed about C less
 had I used it… but now it’s there and works.
 
-Erratum: \x1C is the ASCII file separator, *not* field…
-         \x1F (unit separator) would have been correct.
+Erratum: Initially, \x1C (ASCII file separator) was misused
+	 as field separator; \x1F (unit separator) is correct.

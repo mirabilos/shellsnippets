@@ -1,6 +1,6 @@
 #!/bin/mksh
 #-
-# Copyright © 2017
+# Copyright © 2017, 2020
 #	mirabilos <mirabilos@evolvis.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -98,19 +98,19 @@ third,abc
 fourth,"ab
 
 c
-d
-e"
-fifth,a
+d
+ef"
+fifth,a
 sixth,"a
 b"
 EOI
-KeyValue
-first1\234"5,678\
-secondab
-thirdabc
-fourthabcde
-fiftha
-sixthab
+KeyValue
+first1\234"5,678\
+secondab
+thirdabc
+fourthabcdef
+fiftha
+sixthab
 EOO
 #"
 
@@ -123,35 +123,35 @@ third,abc
 fourth,"ab
 
 c
-d
-e"
-fifth,a
+d
+ef"
+fifth,a
 EOI
-KeyValue
-first1\"23
-4""56"7"8\"
-secondab
-thirdabc
-fourth"ab
+KeyValue
+first1\"23
+4""56"7"8\"
+secondab
+thirdabc
+fourth"ab
 
 c
 d
-e"
-fiftha
+ef"
+fiftha
 EOO
 
 print 'a\0b' >x.csv
 runtest -Enormalnul
 
 runtest -normalsep <<\EOI
-ab
+ab
 EOI
 
 print '"a\0b"' >x.csv
 runtest -Eqnul -q \"
 
 runtest -qsep -q \" <<\EOI
-"ab"
+"ab"
 EOI
 
 print -nr -- "x" >x.csv

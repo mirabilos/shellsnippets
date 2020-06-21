@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015, 2017
+ * Copyright (c) 2015, 2017, 2020
  *	mirabilos <mirabilos@evolvis.org>
  *
  * Provided that these terms and disclaimer and all copyright notices
@@ -100,7 +100,7 @@ main(int argc, char *argv[])
  normal:
 		switch ((c = *cp++)) {
 		case 0x00:
-		case 0x1C:
+		case 0x1F:
 			errx(1, "\\x%02X found at offset %zu",
 			    (unsigned int)c, (size_t)(cp - mp) - 1);
 		case 0x0D:
@@ -120,7 +120,7 @@ main(int argc, char *argv[])
 
 		bp = cp;
 		if (c == cs) {
-			fputc(0x1C, stdout);
+			fputc(0x1F, stdout);
 			continue;
 		}
 
@@ -144,7 +144,7 @@ main(int argc, char *argv[])
 
 		/* c == cq */
 		while (cp <= ep) {
-			if (!(c = *cp++) || c == 0x1C) {
+			if (!(c = *cp++) || c == 0x1F) {
 				errx(1, "\\x%02X found at offset %zu",
 				    (unsigned int)c, (size_t)(cp - mp) - 1);
 			} else if (c == cq) {
