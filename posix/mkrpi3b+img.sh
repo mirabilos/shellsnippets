@@ -400,7 +400,7 @@ If you wish to create it, enter a size in the format accepted by GNU coreutils�
 The image will be created *immediately* and never deleted!
 
 If you do not with to create it, press Escape to go back instead.' \
-		    20 72 1536M; then
+		    20 72 1792M; then
 			truncate -s "$res" "$tgtimg" || \
 			    die 'failed to create sparse file'
 			test -e "$tgtimg" || die 'sparse file not created'
@@ -437,10 +437,10 @@ If you do not with to create it, press Escape to go back instead.' \
 		(*) die 'lsblk returned empty result' ;;
 		esac
 		# use bc for arithmetic: numbers too large for shell
-		case $(echo "a=0; if($sz<(1536*1048576)) a=1; a" | bc) in
+		case $(echo "a=0; if($sz<(1792*1048576)) a=1; a" | bc) in
 		(0) ;;
 		(1)
-			w --msgbox 'The chosen device/image path is smaller than 1536 MiB!' 8 72
+			w --msgbox 'The chosen device/image path is smaller than 1792 MiB!' 8 72
 			dieteardown
 			continue ;;
 		(*) die 'bc returned weird result' ;;
@@ -660,7 +660,7 @@ printf '\x55\xAA' >>pt
 # cobble together wiping partition first MiB “en passant”
 dd if=/dev/urandom bs=256 count=4096 of=mbr 2>/dev/null || die 'dd mbr2 failed'
 dd if=mbr bs=1048576 of="$dvname" seek=1 2>/dev/null || die 'dd clr1 failed'
-dd if=mbr bs=1048576 of="$dvname" seek=128 2>/dev/null || die 'dd clr2 failed'
+dd if=mbr bs=1048576 of="$dvname" seek=256 2>/dev/null || die 'dd clr2 failed'
 dd if=data of=mbr conv=notrunc 2>/dev/null || die 'dd mbr3 failed'
 dd if=pt of=mbr bs=1 seek=446 conv=notrunc 2>/dev/null || die 'dd mbr4 failed'
 # write to disc, wiping pre-partition space as well
@@ -672,11 +672,11 @@ rm data mbr
 	p
 	1
 	2048
-	262143
+	524287
 	n
 	p
 	2
-	262144
+	524288
 
 	t
 	1
@@ -961,6 +961,7 @@ Press Enter to continue.' 12 72 || :)
 			man-db man-db/auto-update boolean false
 		EODB
 		: install basic packages  # change at your own risk but ok
+		# bullseye/sid += bsdextrautils
 		apt-get --purge -y install --no-install-recommends \
 		    bc ca-certificates ifupdown iproute2 jupp joe-jupp less \
 		    lsb-release lynx man-db mc mlocate molly-guard net-tools \
