@@ -38,13 +38,13 @@ pts() {
 	elif [[ $p = up:* ]]; then
 		${BROWSER:-lynx} "http://packages.ubuntu.com/${p#up:}"
 	elif [[ $p = ab:* ]]; then
-		${BROWSER:-lynx} "http://snapshot.debian.org/binary/${p#ab:}/"
+		${BROWSER:-lynx} "https://snapshot.debian.org/binary/${p#ab:}/"
 	elif [[ $p = as:* ]]; then
 		if [[ $1 = *_* ]]; then
 			r=${1#*_}
 			r=${r%%_*}/
 		fi
-		${BROWSER:-lynx} "http://snapshot.debian.org/package/${p#as:}/$r"
+		${BROWSER:-lynx} "https://snapshot.debian.org/package/${p#as:}/$r"
 	else
 		${BROWSER:-lynx} "https://packages.debian.org/sid/$p"
 	fi
