@@ -1,8 +1,8 @@
 #!/bin/mksh
-# $MirOS: contrib/hosted/tg/rcp,v 1.5 2013/10/30 20:18:49 tg Exp $
+# $MirOS: contrib/hosted/tg/rcp,v 1.6 2020/10/29 05:15:06 tg Exp $
 #-
-# Copyright (c) 2009, 2010, 2013
-#	Thorsten Glaser <tg@mirbsd.org>
+# Copyright (c) 2009, 2010, 2013, 2020
+#	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission
@@ -21,6 +21,7 @@
 
 sshx="--rsh=ssh -T"
 set -A args -- "$@"
+a=a
 i=0
 is_inplace=0
 numeric_ids=--numeric-ids
@@ -28,6 +29,11 @@ while (( i < ${#args[*]} )); do
 	case ${args[i]} {
 	(-4)
 		sshx="$sshx -4"
+		unset args[i]
+		;;
+	(-a)
+		# -a replacement for FAT filesystem targets
+		a=rlDc
 		unset args[i]
 		;;
 	(-h)
@@ -66,4 +72,4 @@ else
 	use_sparse=-S
 fi
 
-exec rsync -zavPH $numeric_ids $use_sparse --stats "$sshx" "${args[@]}"
+exec rsync -z${a}vPH $numeric_ids $use_sparse --stats "$sshx" "${args[@]}"
