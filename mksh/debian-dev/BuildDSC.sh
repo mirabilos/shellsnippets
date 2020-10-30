@@ -1,10 +1,10 @@
 #!/bin/mksh
-# $MirOS: contrib/hosted/tg/deb/BuildDSC.sh,v 1.22 2018/12/13 07:16:44 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/BuildDSC.sh,v 1.24 2020/10/30 03:41:55 tg Exp $
 #-
-# Copyright (c) 2010, 2011, 2018
-#	Thorsten Glaser <t.glaser@tarent.de>
-# Copyright © 2015, 2016, 2017
+# Copyright © 2015, 2016, 2017, 2020
 #	mirabilos <m@mirbsd.org>
+# Copyright © 2010, 2011, 2018
+#	mirabilos <t.glaser@tarent.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission
@@ -130,7 +130,7 @@ if (( snap )); then
 	cat debian/changelog >"$T"
 	touch -r debian/changelog "$T"
 	dist=$(dpkg-parsechangelog -n1 | sed -n '/^Distribution: /s///p')
-	if [[ $dist = UNRELEASED || $dist = x* ]]; then
+	if [[ $dist = UNRELEASED || $ssuf = '~'* ]]; then
 		# we’re at “current” already, reduce
 		version=$version'~'$ssuf
 	else
