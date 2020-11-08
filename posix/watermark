@@ -9,9 +9,10 @@ defcolour=255,0,0
 defftsize=80
 
 usage() {
+	test -z "$1" || echo >&2 "E: $*"
 	echo >&2 "Usage: $0 [-a angle] [-B alpha] [-c colour] [-F fontname]"
 	echo >&2 "	[-f fontfamily] [-S fontstretch] [-s fontstyle]"
-	echo >&2 "	[-w fontweight] [-z fontsize] infile outfile text"
+	echo >&2 "	[-w fontweight] [-z fontsize] -i infile -o outfile -t text"
 	echo >&2
 	echo >&2 "default angle $defangle alpha $defalpha colour $defcolour fontsize $defftsize"
 	echo >&2 "fontname, fontfamily, fontstretch, fontstyle, fontweight have no default"
@@ -19,6 +20,7 @@ usage() {
 	echo >&2 "or convert -list stretch to enumerate possible values for -F, -f and -S;"
 	echo >&2 "fontstyle is Any/Italic/Normal/Oblique; weight can be numeric (400, 700)"
 	echo >&2 "or named (Normal, Bold); use convert -list weight to see all options."
+	echo >&2 "infile, outfile, text may also be passed as arguments instead."
 	exit 1
 }
 
@@ -26,6 +28,8 @@ die() {
 	echo >&2 "E: $*"
 	exit 1
 }
+
+test $# -gt 0 || usage
 
 angle=$defangle
 alpha=$defalpha
@@ -36,33 +40,42 @@ ftstretch=
 ftstyle=
 ftweight=
 ftsize=$defftsize
-while getopts "a:B:c:F:f:S:s:w:z:" ch; do
+in=
+out=
+text=
+while getopts "a:B:c:F:f:i:o:S:s:t:w:z:" ch; do
 	case $ch in
 	(a)	angle=$OPTARG ;;
 	(B)	alpha=$OPTARG ;;
 	(c)	colour=$OPTARG ;;
 	(F)	ftname=$OPTARG ;;
 	(f)	ftfamily=$OPTARG ;;
+	(i)	in=$OPTARG ;;
+	(o)	out=$OPTARG ;;
 	(S)	ftstretch=$OPTARG ;;
 	(s)	ftstyle=$OPTARG ;;
+	(t)	text=$OPTARG ;;
 	(w)	ftweight=$OPTARG ;;
 	(z)	ftsize=$OPTARG ;;
 	(*)	usage ;;
 	esac
 done
 shift $(($OPTIND - 1))
-test $# -eq 3 || usage
-in=$1
-out=$2
-text=$3
+if test $# -ne 0; then
+	test $# -eq 3 || usage
+	test -z "$in$out$text" || usage "argument already passed as option"
+	in=$1
+	out=$2
+	text=$3
+fi
 
 test -n "$angle" || die empty angle
 test -n "$alpha" || die empty alpha
 test -n "$colour" || die empty colour
 test -n "$ftsize" || die empty ftsize
-test -n "$in" || die empty infile
-test -n "$out" || die empty outfile
-test -n "$text" || die empty text
+test -n "$in" || usage empty infile
+test -n "$out" || usage empty outfile
+test -n "$text" || usage empty text
 
 case $angle in
 (*[!0-9-]*) die "angle not numeric (whole number between -360 and 360)" ;;
