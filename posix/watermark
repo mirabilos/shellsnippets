@@ -1,0 +1,102 @@
+#!/bin/sh
+#-
+# Idea: Raphaël Rigo, https://twitter.com/_trou_/status/1313951783182651393
+# This script: © mirabilos; dedicated to the general public under CC0
+
+defangle=-45
+defalpha=0.25
+defcolour=255,0,0
+defftsize=80
+
+usage() {
+	echo >&2 "Usage: $0 [-a angle] [-B alpha] [-c colour] [-F fontname]"
+	echo >&2 "	[-f fontfamily] [-S fontstretch] [-s fontstyle]"
+	echo >&2 "	[-w fontweight] [-z fontsize] infile outfile text"
+	echo >&2
+	echo >&2 "default angle $defangle alpha $defalpha colour $defcolour fontsize $defftsize"
+	echo >&2 "fontname, fontfamily, fontstretch, fontstyle, fontweight have no default"
+	echo >&2 "and are only passed to ImageMagick if enabled; use convert -list font"
+	echo >&2 "or convert -list stretch to enumerate possible values for -F, -f and -S;"
+	echo >&2 "fontstyle is Any/Italic/Normal/Oblique; weight can be numeric (400, 700)"
+	echo >&2 "or named (Normal, Bold); use convert -list weight to see all options."
+	exit 1
+}
+
+die() {
+	echo >&2 "E: $*"
+	exit 1
+}
+
+angle=$defangle
+alpha=$defalpha
+colour=$defcolour
+ftname=
+ftfamily=
+ftstretch=
+ftstyle=
+ftweight=
+ftsize=$defftsize
+while getopts "a:B:c:F:f:S:s:w:z:" ch; do
+	case $ch in
+	(a)	angle=$OPTARG ;;
+	(B)	alpha=$OPTARG ;;
+	(c)	colour=$OPTARG ;;
+	(F)	ftname=$OPTARG ;;
+	(f)	ftfamily=$OPTARG ;;
+	(S)	ftstretch=$OPTARG ;;
+	(s)	ftstyle=$OPTARG ;;
+	(w)	ftweight=$OPTARG ;;
+	(z)	ftsize=$OPTARG ;;
+	(*)	usage ;;
+	esac
+done
+shift $(($OPTIND - 1))
+test $# -eq 3 || usage
+in=$1
+out=$2
+text=$3
+
+test -n "$angle" || die empty angle
+test -n "$alpha" || die empty alpha
+test -n "$colour" || die empty colour
+test -n "$ftsize" || die empty ftsize
+test -n "$in" || die empty infile
+test -n "$out" || die empty outfile
+test -n "$text" || die empty text
+
+case $angle in
+(*[!0-9-]*) die "angle not numeric (whole number between -360 and 360)" ;;
+esac
+case $alpha in
+(*[!0-9.]*) die "alpha not numeric (decimal number between 0.0 and 1.0)" ;;
+esac
+e="colour not comprised of three comma-separated numbers"
+case $colour in
+(*,*,*,*) die "$e" ;;
+(*[!0-9,]*) die "$e" ;;
+(*,*,*) ;;
+(*) die "$e" ;;
+esac
+case $ftsize in
+(*[!0-9]*) die "font size not numeric (positive integer)" ;;
+esac
+test -r "$in" || die cannot access infile
+test -s "$in" || die input file empty
+
+text=$(sed \
+    -e 's/\\/&&/g' \
+    -e 's/'\''/\\&/g' \
+    -e 's/^X//' \
+    <<EOF
+${text}X
+EOF
+)
+text=${text%X}
+
+PS4='#'
+set -x
+convert -fill "rgba($colour,$alpha)" -gravity Center \
+    ${ftname:+-font "$ftname"} ${ftfamily:+-family "$ftfamily"} \
+    ${ftstretch:+-stretch "$ftstretch"} ${ftstyle:+-style "$ftstyle"} \
+    ${ftweight:+-weight "$ftweight"} -pointsize "$ftsize" \
+    -draw "rotate $angle text 0,0 '$text'" "$in" "$out"
