@@ -20,7 +20,7 @@ usage() {
 	echo >&2 "or convert -list stretch to enumerate possible values for -F, -f and -S;"
 	echo >&2 "fontstyle is Any/Italic/Normal/Oblique; weight can be numeric (400, 700)"
 	echo >&2 "or named (Normal, Bold); use convert -list weight to see all options."
-	echo >&2 "infile, outfile, text may also be passed as arguments instead."
+	echo >&2 "infile, outfile, text (stdin: -) may also be passed as arguments instead."
 	exit 1
 }
 
@@ -76,6 +76,11 @@ test -n "$ftsize" || die empty ftsize
 test -n "$in" || usage empty infile
 test -n "$out" || usage empty outfile
 test -n "$text" || usage empty text
+
+if test x"$text" = x"-"; then
+	echo >&2 "I: reading text from standard input (^D when done)"
+	text=$(cat)
+fi
 
 case $angle in
 (*[!0-9-]*) die "angle not numeric (whole number between -360 and 360)" ;;
