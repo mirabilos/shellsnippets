@@ -904,7 +904,7 @@ swap                /tmp            tmpfs  defaults,relatime,nosuid,nodev  0  0
 		rm -f /var/cache/apt/archives/*.deb  # save temp space
 		# kernel, initrd and base firmware
 		apt-get --purge -y install --no-install-recommends \
-		    busybox firmware-brcm80211 firmware-linux-free \
+		    busybox firmware-linux-free \
 		    $kernel
 		rm -f /var/cache/apt/archives/*.deb  # save temp space
 		# some tools and bootloader firmware
@@ -976,7 +976,7 @@ Press Enter to continue.' 12 72 || :)
 	for pkg in "$@"; do
 		# macro substitution of tools often found together
 		case $pkg in
-		(_WLAN_) pkg='crda wireless-tools wpasupplicant' ;;
+		(_WLAN_) pkg='crda firmware-brcm80211 wireless-tools wpasupplicant' ;;
 		esac
 		# collect list of packages to install
 		pkgs="$pkgs$s$pkg" s=' '
