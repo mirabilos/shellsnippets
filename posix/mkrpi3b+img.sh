@@ -909,7 +909,8 @@ swap                /tmp            tmpfs  defaults,relatime,nosuid,nodev  0  0
 		rm -f /var/cache/apt/archives/*.deb  # save temp space
 		# some tools and bootloader firmware
 		apt-get --purge -y install --no-install-recommends \
-		    adduser ed linuxlogo raspi3-firmware sudo whiptail
+		    adduser ed linuxlogo raspi-firmware/buster-backports \
+		    sudo whiptail
 		rm -f /var/cache/apt/archives/*.deb  # save temp space
 		export DEBIAN_FRONTEND=dialog
 		# basic configuration
@@ -936,20 +937,15 @@ Press Enter to continue.' 12 72 || :)
 	EOF
 	# adjust CMA size?
 	test -n "$setcma" || cat <<-'EOF'
-		ed -s /etc/default/raspi3-firmware <<-'EODB'
+		ed -s /etc/default/raspi-firmware <<-'EODB'
 			,g/^#CMA=64M/s//CMA=128M/
 			w
 			q
 		EODB
 	EOF
-	# work around #961377
-	cat <<-'EOF'
-		perl -pi -e 's/for dtn in/for dtb in/' \
-		    /etc/kernel/postinst.d/z50-raspi3-firmware
-	EOF
 	# remaining packages and configuration
 	cat <<-'EOF'
-		/etc/initramfs/post-update.d/z50-raspi3-firmware
+		/etc/initramfs/post-update.d/z50-raspi-firmware
 		: remaining user configuration may error out intermittently
 		set +e
 		# make man-db faster at cost of no apropos(1) lookup database
