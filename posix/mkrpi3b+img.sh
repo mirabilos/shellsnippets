@@ -377,6 +377,8 @@ while test x"$s" != x"10"; do
 		fi
 		;;
 	(2)
+		# minimum disc size (MBR, firmware, root, possibly swap)
+		minsz=1792
 		#### VALIDATE IMAGE/DEVICE PATH/SIZE/ETC. / CREATE SPARSE FILE
 		# step to go back to if things fail
 		if test x"$tgtdev" = x"MANUAL"; then
@@ -400,7 +402,7 @@ If you wish to create it, enter a size in the format accepted by GNU coreutilsâ€
 The image will be created *immediately* and never deleted!
 
 If you do not with to create it, press Escape to go back instead.' \
-		    20 72 1792M; then
+		    20 72 ${minsz}M; then
 			truncate -s "$res" "$tgtimg" || \
 			    die 'failed to create sparse file'
 			test -e "$tgtimg" || die 'sparse file not created'
@@ -437,10 +439,10 @@ If you do not with to create it, press Escape to go back instead.' \
 		(*) die 'lsblk returned empty result' ;;
 		esac
 		# use bc for arithmetic: numbers too large for shell
-		case $(echo "a=0; if($sz<(1792*1048576)) a=1; a" | bc) in
+		case $(echo "a=0; if($sz<(${minsz}*1048576)) a=1; a" | bc) in
 		(0) ;;
 		(1)
-			w --msgbox 'The chosen device/image path is smaller than 1792 MiB!' 8 72
+			w --msgbox "The chosen device/image path is smaller than $minsz MiB!" 8 72
 			dieteardown
 			continue ;;
 		(*) die 'bc returned weird result' ;;
