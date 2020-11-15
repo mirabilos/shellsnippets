@@ -690,9 +690,9 @@ rm data mbr
 kpx=/dev/mapper/${dvname##*/}
 kpartx -a -f -v -p p -t dos -s "$dvname" || die 'kpartx failed'
 # create filesystems
-eatmydata mkfs.msdos -f 1 -F 32 -m txt -n RPi3BpFirmw -v "${kpx}p1" || \
+eatmydata mkfs.msdos -f 1 -F 32 -m txt -n RASPI_FIRMW -v "${kpx}p1" || \
     die 'mkfs.msdos failed'
-eatmydata mkfs.ext4 -e remount-ro -E discard -L RasPi3B+root \
+eatmydata mkfs.ext4 -e remount-ro -E discard -L RASPI_root \
     -U random "${kpx}p2" || die 'mkfs.ext4 failed'
 # mount filesystems
 mpt=$T/mnt
@@ -811,9 +811,9 @@ deb http://deb.debian.org/debian buster-backports main non-free contrib
 	: >"$mpt/etc/default/locale"
 	# target-appropriate
 	cat >"$mpt/etc/fstab" <<-'EOF'
-LABEL=RasPi3B+root  /               ext4   defaults,relatime,discard       0  2
-LABEL=RPi3BpFirmw   /boot/firmware  vfat   defaults,noatime,discard        0  1
-swap                /tmp            tmpfs  defaults,relatime,nosuid,nodev  0  0
+LABEL=RASPI_root   /               ext4   defaults,relatime,discard       0  2
+LABEL=RASPI_FIRMW  /boot/firmware  vfat   defaults,noatime,discard        0  1
+swap               /tmp            tmpfs  defaults,relatime,nosuid,nodev  0  0
 	EOF
 	# hostname and hosts (generic)
 	case $myfqdn in
@@ -945,6 +945,11 @@ Press Enter to continue.' 12 72 || :)
 	EOF
 	# remaining packages and configuration
 	cat <<-'EOF'
+		ed -s /etc/default/raspi-firmware <<-'EODB'
+			,g!^#ROOTPART=/dev/mmcblk0p2!s!!ROOTPART=LABEL=RASPI_root!
+			w
+			q
+		EODB
 		/etc/initramfs/post-update.d/z50-raspi-firmware
 		: remaining user configuration may error out intermittently
 		set +e
