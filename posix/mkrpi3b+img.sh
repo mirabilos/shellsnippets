@@ -307,7 +307,7 @@ Press Enter to continue." 14 72
 		;;
 	(5)
 		#### SEE THAT WE END UP AT CORRECT SIZE
-		s=9
+		s=999
 		test $1 -ge 24 || s=6
 		test $2 -ge 80 || s=6
 		;;
@@ -330,7 +330,7 @@ Change size now, press Enter only afterwards to continue." 17 72; then
 	esac
 }
 s=0
-while test x"$s" != x"9"; do
+while test x"$s" != x"999"; do
 	states_termsize
 done
 
@@ -640,10 +640,13 @@ Machine : $arch
 
 Packages: $pkgadd" 20 72
 		;;
+	(10)
+		s=999
+		;;
 	esac
 }
 s=0
-while test x"$s" != x"10"; do
+while test x"$s" != x"99"; do
 	states_menu
 done
 
