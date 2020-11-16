@@ -234,6 +234,32 @@ assign() {
 	eval "$assign_tgt=\$*"
 }
 
+# state machine wrappers
+Srun() {
+	s=0
+	while test x"$s" != x"999"; do
+		sthis=$s
+		"$@"
+	done
+}
+Sdone() {
+	s=999
+}
+Snext() {
+	s=$(($sthis+${1:-1}))
+}
+Sredo() {
+	s=$sthis
+}
+Sprev() {
+	s=$(($sthis-${1:-1}))
+}
+alias sdone='Sdone; return'
+alias sskip='Snext 2; return'
+alias snext='Snext; return'
+alias sprev='Sprev; return'
+alias sredo='Sredo; return'
+
 # wrap around whiptail
 w() {
 	whiptail --backtitle 'mkrpi3b+img.sh' --output-fd 4 4>res "$@"
@@ -243,16 +269,13 @@ w() {
 }
 # w plus advance the state machine
 dw() {
-	if w "$@"; then
-		s=$(($s+1))
-	elif test x"$s" = x"0"; then
+	w "$@" && snext $rv
+	if test x"$s" = x"0"; then
 		p '' 'I: aborted by user'
 		diecleanup
 		exit $rv
-	else
-		s=$(($s-1))
 	fi
-	return $rv
+	sprev $rv
 }
 
 ################################
@@ -268,23 +291,24 @@ states_termsize() {
 	case $s in
 	(0)
 		#### INITIAL TERMINAL SIZE CHECK
-		s=4
-		test $1 -ge 24 || s=1
-		test $2 -ge 80 || s=1
-		;;
+		if test $1 -ge 24 && test $2 -ge 80; then
+			sskip
+		else
+			snext
+		fi ;;
 	(1)
 		#### TTY TOO SMALL REQUEST CHANGE
 		p 'E: tty size too small' \
 		  "N: ${2}x$1 actual" "N: 80x24 minimum"
 		sleep 5
-		s=2
-		;;
+		snext ;;
 	(2)
 		#### SEE WHETHER THAT HELPED
-		s=4
-		test $1 -ge 24 || s=3
-		test $2 -ge 80 || s=3
-		;;
+		if test $1 -ge 24 && test $2 -ge 80; then
+			sskip
+		else
+			snext
+		fi ;;
 	(3)
 		#### STILL REQUEST CHANGE
 		w --title 'Terminal size' --msgbox \
@@ -292,9 +316,8 @@ states_termsize() {
 
 Please resize your terminal to at least 80x24 now, then press Enter to continue. Afterwards, DO *NOT* change the terminal size again! APT and debconf really do not like that, and your display will be garbled if you do…
 
-Change size now, press Enter only afterwards to continue." 14 72
-		s=5
-		;;
+Change size now, press Enter only afterwards to continue." 14 61
+		sskip ;;
 	(4)
 		#### INITIAL TTY SIZE OK
 		w --title 'Terminal size' --msgbox \
@@ -303,14 +326,14 @@ Change size now, press Enter only afterwards to continue." 14 72
 Please DO *NOT* change the terminal size for the entire runtime of this script, starting now! APT and debconf really do not like that, and your display will be garbled if you do…
 
 Press Enter to continue." 14 72
-		s=5
-		;;
+		snext ;;
 	(5)
 		#### SEE THAT WE END UP AT CORRECT SIZE
-		s=999
-		test $1 -ge 24 || s=6
-		test $2 -ge 80 || s=6
-		;;
+		if test $1 -ge 24 && test $2 -ge 80; then
+			sdone
+		else
+			snext
+		fi ;;
 	(6)
 		#### NOT GOOD ENOUGH
 		if w --title 'Terminal size' --yes-button OK --no-button Exit \
@@ -320,19 +343,14 @@ We requested you to change it to at least 80x24 (and keep the size constant afte
 
 Remember to *NOT* change the size afterwards, since APT and debconf cache it and do not like sudden changes below them; if you do, your display will be garbled…
 
-Change size now, press Enter only afterwards to continue." 17 72; then
-			s=5
-		else
-			p '' 'I: aborted by user'
-			exit 0
+Change size now, press Enter only afterwards to continue." 17 61; then
+			sprev
 		fi
-		;;
+		p '' 'I: aborted by user'
+		exit 0 ;;
 	esac
 }
-s=0
-while test x"$s" != x"999"; do
-	states_termsize
-done
+Srun states_termsize
 
 #################
 # DIALOGUE LOOP #
@@ -366,7 +384,7 @@ states_menu() {
 				tgtimg=/dev/sdX
 			else
 				tgtimg=$tgtdev
-				s=$(($s+1))
+				sskip
 			fi
 		fi
 		;;
@@ -413,8 +431,7 @@ If you do not with to create it, press Escape to go back instead.' \
 		fi
 		if test -h "$tgtimg"; then
 			tgtimg=$(readlink -f "$tgtimg") || die 'error in readlink -f'
-			s=2 # redo from start
-			return
+			sredo
 		fi
 		# whether block device, regular file or grounds for refusal
 		if test -b "$tgtimg"; then
@@ -450,7 +467,6 @@ If you do not with to create it, press Escape to go back instead.' \
 		(*) die 'bc returned weird result' ;;
 		esac
 		# and it’s big enough for the Debian installation; accept
-		s=2
 		sz=$(echo "scale=2; $sz/1048576" | bc) || die 'bc cannot divide'
 		dw --title 'Accept target device' --defaultno \
 		    --yesno "Your chosen target device: $tgtimg
@@ -470,20 +486,20 @@ and OVERWRITE ALL DATA with no chance of recovery?" 14 72
 			# check length [1; 255]
 			if test "${#myfqdn}" -lt 1; then
 				w --msgbox 'The given hostname is empty!' 8 72
-				s=3; return  # retry
+				sredo
 			fi
 			if test "${#myfqdn}" -gt 255; then
 				w --msgbox 'The given hostname is too long!' 8 72
-				s=3; return  # retry
+				sredo
 			fi
 			# check characters used
 			case $myfqdn in
 			(.*|*.)
 				w --msgbox 'The given hostname begins or ends with a full stop!' 8 72
-				s=3; return ;;
+				sredo ;;
 			(*[!.0-9A-Za-z-]*)
 				w --msgbox 'The given hostname contains invalid characters!' 8 72
-				s=3; return ;;
+				sredo ;;
 			esac
 			# similar for the component labels
 			IFS=.; set -o noglob
@@ -492,27 +508,26 @@ and OVERWRITE ALL DATA with no chance of recovery?" 14 72
 			for x in "$@"; do
 				if test "${#x}" -lt 1 || test "${#x}" -gt 63; then
 					w --msgbox 'The given hostname contains parts that are empty or too long!' 8 72
-					s=3; return
+					sredo
 				fi
 				# invalid label composition
 				case $x in
 				(-*)
 					w --msgbox 'The given hostname contains parts that begin with a hyphen-minus!' 8 72
-					s=3; return ;;
+					sredo ;;
 				(*-)
 					w --msgbox 'The given hostname contains parts that end with a hyphen-minus!' 8 72
-					s=3; return ;;
+					sredo ;;
 				(*[!0-9A-Za-z-]*)
 					w --msgbox 'The given hostname contains invalid characters!' 8 72
-					s=3; return ;;
+					sredo ;;
 				esac
 			done
 			case $myfqdn in
 			(*.local)
 				w --msgbox 'The given hostname uses the TLD reserved for mDNS!' 8 72
-				s=3 ;;
+				sredo ;;
 			esac
-			# s is now 3=redo (msgbox shown) or 4=go on
 		fi
 		;;
 	(4)
@@ -524,20 +539,20 @@ and OVERWRITE ALL DATA with no chance of recovery?" 14 72
 			# Unix limitations
 			if test -z "$userid"; then
 				w --msgbox 'The given username is empty!' 8 72
-				s=4; return  # retry
+				sredo
 			fi
 			if test "${#userid}" -gt 32; then
 				w --msgbox 'The given username is too long! (32 bytes max.)' 8 72
-				s=4; return  # retry
+				sredo
 			fi
 			# default /etc/adduser.conf NAME_REGEX
 			case $userid in
 			(*[!a-z0-9_-]*)
 				w --msgbox 'The given username contains invalid characters!' 8 72
-				s=4; return ;;
+				sredo ;;
 			([!a-z]*)
 				w --msgbox 'The given username does not start with a letter!' 8 72
-				s=4; return ;;
+				sredo ;;
 			esac
 		fi
 		;;
@@ -548,12 +563,12 @@ and OVERWRITE ALL DATA with no chance of recovery?" 14 72
 
 This is especially useful when you’ll be using graphics." 10 72; then
 			setcma=
-			s=6
+			snext
 		elif test x"$rv" = x"1"; then
 			setcma=--defaultno
-			s=6
+			snext
 		else
-			s=4
+			sprev
 		fi
 		;;
 	(6)
@@ -567,12 +582,12 @@ filesystem layout.
 
 Most users will say “No” here." 10 72; then
 			dropsd=
-			s=7
+			snext
 		elif test x"$rv" = x"1"; then
 			dropsd=--defaultno
-			s=7
+			snext
 		else
-			s=5
+			sprev
 		fi
 		;;
 	(7)
@@ -613,7 +628,7 @@ Press ^U (Ctrl-U) to delete the entire line.
 Enter just - to restore the default and start editing anew." \
 		    20 72 "$pkgadd"; then
 			pkgadd=$res
-			test x"$pkgadd" = x"-" && s=8
+			test x"$pkgadd" = x"-" && sredo
 		fi
 		;;
 	(9)
@@ -641,14 +656,11 @@ Machine : $arch
 Packages: $pkgadd" 20 72
 		;;
 	(10)
-		s=999
+		sdone
 		;;
 	esac
 }
-s=0
-while test x"$s" != x"99"; do
-	states_menu
-done
+Srun states_menu
 
 ##########################
 # PREPARE DISC STRUCTURE #
