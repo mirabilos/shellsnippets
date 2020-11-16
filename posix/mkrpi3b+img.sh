@@ -271,6 +271,26 @@ dw() {
 	fi
 	sprev $rv
 }
+# wrapper for w --yesno plus handle the state machine
+ynw() {
+	ynwv=$1; shift
+	eval "ynwc=\$$ynwv"
+	if w $ynwc "$@"; then
+		eval "$ynwv="
+		snext
+	elif test x"$rv" = x"1"; then
+		eval "$ynwv=--defaultno"
+		snext
+	else
+		sprev
+	fi
+}
+ynwtrue() {
+	eval "test -z \"\$$1\""
+}
+ynwfalse() {
+	eval "test -n \"\$$1\""
+}
 
 ################################
 # ENSURE MINIMUM TERMINAL SIZE #
@@ -349,7 +369,7 @@ assign devices '' /dev/sd[a-z]
 tgtdev=MANUAL
 tgtimg=/dev/sdX
 swsize=0
-swmode=			# nonempty=after (else before the root partition)
+swmode=			# nonempty=after (else (true) before the root partition)
 myfqdn=rpi3bplus.lan.tarent.invalid
 userid=pi
 setcma=			# empty means yes (set CMA to higher value by default)
@@ -428,22 +448,14 @@ Size in MiB:' \
 		;;
 	(3)
 		#### WHERE TO PUT THE SWAP PARTITION
-		if w --title 'Swap partition location' \
+		ynw swmode --title 'Swap partition location' \
 		    --yes-button Before --no-button After \
-		    $swmode --yesno 'Do you want to have the swap partition situated before or after the root partition? (The firmware partition is always placed first.)
+		    --yesno 'Do you want to have the swap partition situated before or after the root partition? (The firmware partition is always placed first.)
 
 Putting it before makes enlarging the root partition (such as when moving to a larger µSD card, expanding) slightly easier.
 
 Putting it after makes it possible to add the space to the root partition later, disabling swap, when free space has become tight.' \
-		    14 72; then
-			swmode=
-			snext
-		elif test x"$rv" = x"1"; then
-			swmode=--defaultno
-			snext
-		else
-			sprev
-		fi
+		    14 72
 		;;
 	(4)
 		#### VALIDATE IMAGE/DEVICE PATH/SIZE/ETC. / CREATE SPARSE FILE
@@ -611,37 +623,23 @@ and OVERWRITE ALL DATA with no chance of recovery?" 14 72
 		;;
 	(7)
 		#### ADJUST DEFAULT CMA SIZE?
-		if w --title 'Default CMA size' \
-		    $setcma --yesno "Raise default CMA from 64 to 128 MiB?
+		ynw setcma --title 'Default CMA size' \
+		    --yesno "Raise default CMA from 64 to 128 MiB?
 
-This is especially useful when you’ll be using graphics." 10 72; then
-			setcma=
-			snext
-		elif test x"$rv" = x"1"; then
-			setcma=--defaultno
-			snext
-		else
-			sprev
-		fi
+This is especially useful when you’ll be using graphics." \
+		    10 72
 		;;
 	(8)
 		#### SELECT INIT SYSTEM
-		if w --title 'Choose the init system' \
-		    $dropsd --yesno "Change init system from systemd to sysvinit?
+		ynw dropsd --title 'Choose the init system' \
+		    --yesno "Change init system from systemd to sysvinit?
 
 The default init system in Debian 10 “buster” is systemd with usrmerge.
 This option allows you to change to traditional SysV init with classic
 filesystem layout.
 
-Most users will say “No” here." 10 72; then
-			dropsd=
-			snext
-		elif test x"$rv" = x"1"; then
-			dropsd=--defaultno
-			snext
-		else
-			sprev
-		fi
+Most users will say “No” here." \
+		    10 72
 		;;
 	(9)
 		#### ARCHITECTURE
@@ -687,7 +685,7 @@ Enter just - to restore the default and start editing anew." \
 	(11)
 		#### SUMMARY BEFORE DOING ANYTHING (except sparse file creation)
 		if test "$swsize" -gt 0; then
-			if test -n "$swmode"; then
+			if ynwfalse swmode; then
 				paging=after
 			else
 				paging=before
@@ -696,8 +694,12 @@ Enter just - to restore the default and start editing anew." \
 		else
 			paging='no'
 		fi
-		if test -n "$setcma"; then cma=64; else cma=128; fi
-		if test -n "$dropsd"; then
+		if ynwtrue setcma; then
+			cma=128
+		else
+			cma=64
+		fi
+		if ynwfalse dropsd; then
 			init='systemd with usrmerge'
 		else
 			init='sysvinit with standard filesystem'
@@ -713,9 +715,8 @@ Target  : $tgtimg (≥ $sz MiB)
 Pagefile: $paging
 Hostname: $myfqdn
 Username: $userid
-CMA size: $cma MiB
+CMA size: $cma MiB                  Machine: $arch
 init/FHS: $init
-Machine : $arch
 
 Packages: $pkgadd" 20 72
 		;;
@@ -772,7 +773,7 @@ if test x"$paging" = x"no"; then cat <<-EOF
 	1
 	w
 	EOF
-elif test -n "$swmode"; then cat <<-EOF
+elif ynwfalse swmode; then cat <<-EOF
 	n
 	p
 	1
@@ -857,7 +858,7 @@ mount -t vfat -o noatime,discard "${kpx}p1" "$mpt/boot/firmware" || \
 #################################################
 
 p 'I: created filesystems, now debootstrapping…'
-if test -n "$dropsd"; then
+if ynwfalse dropsd; then
 	init=
 else
 	init=--no-merged-usr
@@ -926,7 +927,7 @@ mount -t tmpfs swap "$mpt/tmp" || die 'remount /tmp failed'
 mount --bind /dev/pts "$mpt/dev/pts" || die 'bind-mount /dev/pts failed'
 
 # standard configuration files (generic)
-if test -n "$dropsd"; then
+if ynwfalse dropsd; then
 	# path apparently varies with init system
 	rnd=/var/lib/systemd/random-seed
 else
@@ -1040,7 +1041,7 @@ LABEL=RASPI_swap   swap            swap   sw,discard=once                 0  0
 		apt-get --purge -y dist-upgrade
 	EOF
 	# switch to sysvinit?
-	test -n "$dropsd" || cat <<-'EOF'
+	ynwfalse dropsd || cat <<-'EOF'
 		apt-get --purge -y install --no-install-recommends \
 		    sysvinit-core systemd-
 		printf '%s\n' \
@@ -1089,7 +1090,7 @@ Press Enter to continue.' 12 72 || :)
 		esac
 	EOF
 	# adjust CMA size?
-	test -n "$setcma" || cat <<-'EOF'
+	ynwfalse setcma || cat <<-'EOF'
 		ed -s /etc/default/raspi-firmware <<-'EODB'
 			,g/^#CMA=64M/s//CMA=128M/
 			w
