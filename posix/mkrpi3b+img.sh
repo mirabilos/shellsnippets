@@ -365,6 +365,7 @@ tgarch=arm64
 states_menu() {
 	case $sthis in
 	(0)
+		sgoback_devchoice=$sthis
 		#### WHICH TARGET DEVICE? (CHOICE)
 		set --
 		for x in $devices; do
@@ -384,6 +385,7 @@ states_menu() {
 		fi
 		;;
 	(1)
+		sgoback_devname=$sthis
 		#### WHICH TARGET DEVICE OR IMAGE? (FREETEXT)
 		if dw --title 'Choose target device' \
 		    --inputbox 'Enter path to target raw device (e.g. /dev/sdX) or to pre-existing, already correctly-sized, image file to use:' \
@@ -397,9 +399,9 @@ states_menu() {
 		#### VALIDATE IMAGE/DEVICE PATH/SIZE/ETC. / CREATE SPARSE FILE
 		# step to go back to if things fail
 		if test x"$tgtdev" = x"MANUAL"; then
-			s=1
+			s=$sgoback_devname
 		else
-			s=0
+			s=$sgoback_devchoice
 		fi
 		# check image/device: path, existence, not a symlink (for stability)
 		case $tgtimg in
