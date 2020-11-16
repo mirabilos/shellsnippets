@@ -259,8 +259,7 @@ dw() {
 # ENSURE MINIMUM TERMINAL SIZE #
 ################################
 
-s=0
-while test x"$s" != x"9"; do
+states_termsize() {
 	set -- $(stty size) || die 'stty failed'
 	test $# -eq 2 || die 'stty weird output' "$@"
 	case "$*" in
@@ -329,6 +328,10 @@ Change size now, press Enter only afterwards to continue." 17 72; then
 		fi
 		;;
 	esac
+}
+s=0
+while test x"$s" != x"9"; do
+	states_termsize
 done
 
 #################
@@ -346,8 +349,7 @@ dropsd=--defaultno	# nonempty means no (do not drop systemd by default)
 pkgadd=-		# - means out default values
 tgarch=arm64
 # state machine (menu question number)
-s=0
-while test x"$s" != x"10"; do
+states_menu() {
 	case $s in
 	(0)
 		#### WHICH TARGET DEVICE? (CHOICE)
@@ -391,7 +393,7 @@ while test x"$s" != x"10"; do
 		(/[!/]*) ;;
 		(*)
 			w --msgbox 'The chosen device/image path is not an absolute pathname!' 8 72
-			continue ;;
+			return ;;
 		esac
 		test -e "$tgtimg" || if w --title 'Nonexistent path chosen' \
 		    --ok-button 'Create' --cancel-button 'Go back' \
@@ -407,12 +409,12 @@ If you do not with to create it, press Escape to go back instead.' \
 			    die 'failed to create sparse file'
 			test -e "$tgtimg" || die 'sparse file not created'
 		else
-			continue  # go back
+			return  # go back
 		fi
 		if test -h "$tgtimg"; then
 			tgtimg=$(readlink -f "$tgtimg") || die 'error in readlink -f'
 			s=2 # redo from start
-			continue
+			return
 		fi
 		# whether block device, regular file or grounds for refusal
 		if test -b "$tgtimg"; then
@@ -428,7 +430,7 @@ If you do not with to create it, press Escape to go back instead.' \
 			losetup "$loopdev" "$tgtimg" || die 'losetup failed in set'
 		else
 			w --msgbox 'The chosen device/image path is neither a block special device nor a regular file!' 8 72
-			continue
+			return
 		fi
 		# we now have a block (or loopback device) we can check
 		sz=$(lsblk --nodeps --noheadings --output SIZE --bytes \
@@ -444,7 +446,7 @@ If you do not with to create it, press Escape to go back instead.' \
 		(1)
 			w --msgbox "The chosen device/image path is smaller than $minsz MiB!" 8 72
 			dieteardown
-			continue ;;
+			return ;;
 		(*) die 'bc returned weird result' ;;
 		esac
 		# and it’s big enough for the Debian installation; accept
@@ -468,20 +470,20 @@ and OVERWRITE ALL DATA with no chance of recovery?" 14 72
 			# check length [1; 255]
 			if test "${#myfqdn}" -lt 1; then
 				w --msgbox 'The given hostname is empty!' 8 72
-				s=3; continue  # retry
+				s=3; return  # retry
 			fi
 			if test "${#myfqdn}" -gt 255; then
 				w --msgbox 'The given hostname is too long!' 8 72
-				s=3; continue  # retry
+				s=3; return  # retry
 			fi
 			# check characters used
 			case $myfqdn in
 			(.*|*.)
 				w --msgbox 'The given hostname begins or ends with a full stop!' 8 72
-				s=3; continue ;;
+				s=3; return ;;
 			(*[!.0-9A-Za-z-]*)
 				w --msgbox 'The given hostname contains invalid characters!' 8 72
-				s=3; continue ;;
+				s=3; return ;;
 			esac
 			# similar for the component labels
 			IFS=.; set -o noglob
@@ -490,19 +492,19 @@ and OVERWRITE ALL DATA with no chance of recovery?" 14 72
 			for x in "$@"; do
 				if test "${#x}" -lt 1 || test "${#x}" -gt 63; then
 					w --msgbox 'The given hostname contains parts that are empty or too long!' 8 72
-					s=3; break
+					s=3; return
 				fi
 				# invalid label composition
 				case $x in
 				(-*)
 					w --msgbox 'The given hostname contains parts that begin with a hyphen-minus!' 8 72
-					s=3; break ;;
+					s=3; return ;;
 				(*-)
 					w --msgbox 'The given hostname contains parts that end with a hyphen-minus!' 8 72
-					s=3; break ;;
+					s=3; return ;;
 				(*[!0-9A-Za-z-]*)
 					w --msgbox 'The given hostname contains invalid characters!' 8 72
-					s=3; break ;;
+					s=3; return ;;
 				esac
 			done
 			case $myfqdn in
@@ -522,20 +524,20 @@ and OVERWRITE ALL DATA with no chance of recovery?" 14 72
 			# Unix limitations
 			if test -z "$userid"; then
 				w --msgbox 'The given username is empty!' 8 72
-				s=4; continue  # retry
+				s=4; return  # retry
 			fi
 			if test "${#userid}" -gt 32; then
 				w --msgbox 'The given username is too long! (32 bytes max.)' 8 72
-				s=4; continue  # retry
+				s=4; return  # retry
 			fi
 			# default /etc/adduser.conf NAME_REGEX
 			case $userid in
 			(*[!a-z0-9_-]*)
 				w --msgbox 'The given username contains invalid characters!' 8 72
-				s=4; continue ;;
+				s=4; return ;;
 			([!a-z]*)
 				w --msgbox 'The given username does not start with a letter!' 8 72
-				s=4; continue ;;
+				s=4; return ;;
 			esac
 		fi
 		;;
@@ -639,6 +641,10 @@ Machine : $arch
 Packages: $pkgadd" 20 72
 		;;
 	esac
+}
+s=0
+while test x"$s" != x"10"; do
+	states_menu
 done
 
 ##########################
