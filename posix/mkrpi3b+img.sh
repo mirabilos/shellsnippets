@@ -239,6 +239,7 @@ Srun() {
 	s=0
 	while test x"$s" != x"999"; do
 		sthis=$s
+		s=$(($s+1))
 		"$@"
 	done
 }
@@ -288,26 +289,22 @@ states_termsize() {
 	case "$*" in
 	(*[!\ 0-9]*) die 'stty invalid output' "$@" ;;
 	esac
-	case $s in
+	case $sthis in
 	(0)
 		#### INITIAL TERMINAL SIZE CHECK
 		if test $1 -ge 24 && test $2 -ge 80; then
 			sskip
-		else
-			snext
 		fi ;;
 	(1)
 		#### TTY TOO SMALL REQUEST CHANGE
 		p 'E: tty size too small' \
 		  "N: ${2}x$1 actual" "N: 80x24 minimum"
 		sleep 5
-		snext ;;
+		;;
 	(2)
 		#### SEE WHETHER THAT HELPED
 		if test $1 -ge 24 && test $2 -ge 80; then
 			sskip
-		else
-			snext
 		fi ;;
 	(3)
 		#### STILL REQUEST CHANGE
@@ -326,13 +323,11 @@ Change size now, press Enter only afterwards to continue." 14 61
 Please DO *NOT* change the terminal size for the entire runtime of this script, starting now! APT and debconf really do not like that, and your display will be garbled if you do…
 
 Press Enter to continue." 14 72
-		snext ;;
+		;;
 	(5)
 		#### SEE THAT WE END UP AT CORRECT SIZE
 		if test $1 -ge 24 && test $2 -ge 80; then
 			sdone
-		else
-			snext
 		fi ;;
 	(6)
 		#### NOT GOOD ENOUGH
@@ -368,7 +363,7 @@ pkgadd=-		# - means out default values
 tgarch=arm64
 # state machine (menu question number)
 states_menu() {
-	case $s in
+	case $sthis in
 	(0)
 		#### WHICH TARGET DEVICE? (CHOICE)
 		set --
