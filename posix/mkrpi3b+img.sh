@@ -1,5 +1,7 @@
 #!/bin/sh
 #-
+# Copyright © 2020
+#	mirabilos <m@mirbsd.org>
 # Copyright © 2019, 2020
 #	mirabilos <t.glaser@tarent.de>
 #
@@ -22,15 +24,6 @@
 # bullseye/sid host system, others should work as well given suitab‐
 # ly up-to-date tools), using qemu-user/binfmt_misc emulation to run
 # the foreign architecture steps in a chroot.
-#
-# This currently does not set up swap. You can do that yourself with
-# a swap file:
-#  sudo fallocate -l 2GiB /PAGEFILE.SYS
-#  sudo chown 0:0 /PAGEFILE.SYS
-#  sudo chmod 600 /PAGEFILE.SYS
-#  sudo mkswap /PAGEFILE.SYS
-# and add a line “/PAGEFILE.SYS swap swap sw 0 0” to fstab(5). *Or*:
-# repartition and “LABEL=RasPi3B+swap swap swap sw,discard=once 0 0”
 
 #########
 # SETUP #
@@ -355,6 +348,8 @@ Srun states_termsize
 assign devices '' /dev/sd[a-z]
 tgtdev=MANUAL
 tgtimg=/dev/sdX
+swsize=0
+swmode=			# nonempty=after (else before the root partition)
 myfqdn=rpi3bplus.lan.tarent.invalid
 userid=pi
 setcma=			# empty means yes (set CMA to higher value by default)
@@ -396,6 +391,61 @@ states_menu() {
 	(2)
 		# minimum disc size (MBR, firmware, root, possibly swap)
 		minsz=1792
+		#### WHETHER TO CREATE A SWAP PARTITION
+		if dw --title 'Create a swap partition?' \
+		    --inputbox 'Enter size of desired swap space; leave empty or set to 0 to not create a swap partition.
+
+Swap space is used to page out data from system memory (RAM) to allow programs to use more (faux) memory than physically present; especially in RPi devices with only 1 GiB RAM or less, this may be highly preferrable. Using it will, however, wear out your µSD card much faster; therefore, it is disabled by default.
+
+Typical sizes are: 256, 512, 1024 (= 1 GiB), 1536, 2048 (= 2 GiB)
+Use no more than twice the amount of RAM installed.
+
+Size in MiB:' \
+		    20 72 "$swsize"; then
+			x=0
+			while test $x = 0; do
+				case $swsize in
+				(0*) swsize=${swsize#0} ;;
+				(*) x=1 ;;
+				esac
+			done
+			swsize=${swsize:-0}
+			case $swsize in
+			(*[!0-9]*)
+				w --msgbox "The given swap partition size '$swsize' was not numeric!" 8 72
+				sredo ;;
+			esac
+			if test ${#swsize} -gt 5; then
+				w --msgbox "The given swap partition size '$swsize' was improbably large!" 8 72
+				sredo
+			fi
+			if test "$swsize" -gt 0; then
+				minsz=$(($minsz+$swsize))
+			else
+				sskip
+			fi
+		fi
+		;;
+	(3)
+		#### WHERE TO PUT THE SWAP PARTITION
+		if w --title 'Swap partition location' \
+		    --yes-button Before --no-button After \
+		    $swmode --yesno 'Do you want to have the swap partition situated before or after the root partition? (The firmware partition is always placed first.)
+
+Putting it before makes enlarging the root partition (such as when moving to a larger µSD card, expanding) slightly easier.
+
+Putting it after makes it possible to add the space to the root partition later, disabling swap, when free space has become tight.' \
+		    14 72; then
+			swmode=
+			snext
+		elif test x"$rv" = x"1"; then
+			swmode=--defaultno
+			snext
+		else
+			sprev
+		fi
+		;;
+	(4)
 		#### VALIDATE IMAGE/DEVICE PATH/SIZE/ETC. / CREATE SPARSE FILE
 		# step to go back to if things fail
 		if test x"$tgtdev" = x"MANUAL"; then
@@ -408,6 +458,7 @@ states_menu() {
 		(/[!/]*) ;;
 		(*)
 			w --msgbox 'The chosen device/image path is not an absolute pathname!' 8 72
+			# sgoback_* above
 			return ;;
 		esac
 		test -e "$tgtimg" || if w --title 'Nonexistent path chosen' \
@@ -424,7 +475,8 @@ If you do not with to create it, press Escape to go back instead.' \
 			    die 'failed to create sparse file'
 			test -e "$tgtimg" || die 'sparse file not created'
 		else
-			return  # go back
+			# sgoback_* above
+			return
 		fi
 		if test -h "$tgtimg"; then
 			tgtimg=$(readlink -f "$tgtimg") || die 'error in readlink -f'
@@ -444,9 +496,11 @@ If you do not with to create it, press Escape to go back instead.' \
 			losetup "$loopdev" "$tgtimg" || die 'losetup failed in set'
 		else
 			w --msgbox 'The chosen device/image path is neither a block special device nor a regular file!' 8 72
+			# sgoback_* above
 			return
 		fi
 		# we now have a block (or loopback device) we can check
+		test -b "$dvname" || die 'block device missing'
 		sz=$(lsblk --nodeps --noheadings --output SIZE --bytes \
 		    --raw "$dvname") || die 'lsblk failed'
 		case $sz in
@@ -460,6 +514,7 @@ If you do not with to create it, press Escape to go back instead.' \
 		(1)
 			w --msgbox "The chosen device/image path is smaller than $minsz MiB!" 8 72
 			dieteardown
+			# sgoback_* above
 			return ;;
 		(*) die 'bc returned weird result' ;;
 		esac
@@ -472,8 +527,9 @@ Block device $dvname of size $sz MiB
 
 Do you REALLY want to use this as target device
 and OVERWRITE ALL DATA with no chance of recovery?" 14 72
+		sz=${sz%.*}
 		;;
-	(3)
+	(5)
 		#### HOSTNAME FOR THE SYSTEM
 		if dw --title 'Enter target hostname' \
 		    --inputbox 'Enter fully-qualified hostname the target device should have:' \
@@ -527,7 +583,7 @@ and OVERWRITE ALL DATA with no chance of recovery?" 14 72
 			esac
 		fi
 		;;
-	(4)
+	(6)
 		#### USERNAME TO CREATE FOR INITIAL SSH AND SUDO
 		if dw --title 'Enter initial username' \
 		    --inputbox 'Enter UNIX username of the initially created user (which has full sudo access):' \
@@ -553,7 +609,7 @@ and OVERWRITE ALL DATA with no chance of recovery?" 14 72
 			esac
 		fi
 		;;
-	(5)
+	(7)
 		#### ADJUST DEFAULT CMA SIZE?
 		if w --title 'Default CMA size' \
 		    $setcma --yesno "Raise default CMA from 64 to 128 MiB?
@@ -568,7 +624,7 @@ This is especially useful when you’ll be using graphics." 10 72; then
 			sprev
 		fi
 		;;
-	(6)
+	(8)
 		#### SELECT INIT SYSTEM
 		if w --title 'Choose the init system' \
 		    $dropsd --yesno "Change init system from systemd to sysvinit?
@@ -587,7 +643,7 @@ Most users will say “No” here." 10 72; then
 			sprev
 		fi
 		;;
-	(7)
+	(9)
 		#### ARCHITECTURE
 		case $tgarch in
 		(arm64) set -- on off off ;;
@@ -606,7 +662,7 @@ Use the cursor keys ↑ and ↓ followed by Space to select an item; press Enter
 			tgarch=$res
 		fi
 		;;
-	(8)
+	(10)
 		#### EXTRA PACKAGES TO INSTALL
 		if test x"$pkgadd" = x"-"; then
 			# openssh-server will generate the server keys using
@@ -628,8 +684,18 @@ Enter just - to restore the default and start editing anew." \
 			test x"$pkgadd" = x"-" && sredo
 		fi
 		;;
-	(9)
+	(11)
 		#### SUMMARY BEFORE DOING ANYTHING (except sparse file creation)
+		if test "$swsize" -gt 0; then
+			if test -n "$swmode"; then
+				paging=after
+			else
+				paging=before
+			fi
+			paging="$swsize MiB, $paging the root partition"
+		else
+			paging='no'
+		fi
 		if test -n "$setcma"; then cma=64; else cma=128; fi
 		if test -n "$dropsd"; then
 			init='systemd with usrmerge'
@@ -643,7 +709,8 @@ Enter just - to restore the default and start editing anew." \
 		dw --title 'Proceed with installation?' --defaultno \
 		    --yesno "Do you wish to proceed and DELETE ALL DATA from the target device? (Choosing “No” or pressing Escape allows you to go back to each individual step for changing the information.) Summary of settings:
 
-Target  : $tgtimg
+Target  : $tgtimg (≥ $sz MiB)
+Pagefile: $paging
 Hostname: $myfqdn
 Username: $userid
 CMA size: $cma MiB
@@ -652,7 +719,7 @@ Machine : $arch
 
 Packages: $pkgadd" 20 72
 		;;
-	(10)
+	(12)
 		sdone
 		;;
 	esac
@@ -687,7 +754,7 @@ dd if=pt of=mbr bs=1 seek=446 conv=notrunc 2>/dev/null || die 'dd mbr4 failed'
 dd if=mbr bs=1048576 of="$dvname" 2>/dev/null || die 'dd mbr5 failed'
 rm data mbr
 # layout partition table (per board-specific requirements)
-(fdisk -c=nondos -t MBR -w always -W always "$tgtimg" <<-'EOF'
+if test x"$paging" = x"no"; then cat <<-EOF
 	n
 	p
 	1
@@ -705,15 +772,77 @@ rm data mbr
 	1
 	w
 	EOF
-) || die 'fdisk failed'
+elif test -n "$swmode"; then cat <<-EOF
+	n
+	p
+	1
+	2048
+	524287
+	n
+	p
+	2
+	524288
+	$(echo "($sz-$swsize)*2048-1" | bc)
+	n
+	p
+	3
+	$(echo "($sz-$swsize)*2048" | bc)
+
+	t
+	1
+	c
+	t
+	3
+	82
+	a
+	1
+	w
+	EOF
+else cat <<-EOF
+	n
+	p
+	1
+	2048
+	524287
+	n
+	p
+	3
+	524288
+	$((524288+($swsize*2048)-1))
+	n
+	p
+	2
+	$((524288+($swsize*2048)))
+
+	t
+	1
+	c
+	t
+	3
+	82
+	a
+	1
+	w
+	EOF
+fi >fdsk
+fdisk -c=nondos -t MBR -w always -W always "$tgtimg" <fdsk || \
+    die 'fdisk failed'
 # map partitions so we can access them under a fixed name
 kpx=/dev/mapper/${dvname##*/}
 kpartx -a -f -v -p p -t dos -s "$dvname" || die 'kpartx failed'
 # create filesystems
+test -b "${kpx}p1" || die 'cannot kpartx firmware partition'
 eatmydata mkfs.msdos -f 1 -F 32 -m txt -n RASPI_FIRMW -v "${kpx}p1" || \
     die 'mkfs.msdos failed'
+test -b "${kpx}p2" || die 'cannot kpartx root partition'
 eatmydata mkfs.ext4 -e remount-ro -E discard -L RASPI_root \
     -U random "${kpx}p2" || die 'mkfs.ext4 failed'
+if test "$swsize" -gt 0; then
+	test -b "${kpx}p3" || die 'cannot kpartx swap partition'
+	eatmydata dd if=/dev/zero bs=1048576 count=1 of="${kpx}p3" 2>/dev/null
+	eatmydata mkswap -L RASPI_swap "${kpx}p3" || die 'mkswap failed'
+fi
+
 # mount filesystems
 mpt=$T/mnt
 mkdir "$mpt" || die 'mkdir mpt failed'
@@ -835,6 +964,10 @@ LABEL=RASPI_root   /               ext4   defaults,relatime,discard       0  2
 LABEL=RASPI_FIRMW  /boot/firmware  vfat   defaults,noatime,discard        0  1
 swap               /tmp            tmpfs  defaults,relatime,nosuid,nodev  0  0
 	EOF
+	if test "$swsize" -gt 0; then cat >>"$mpt/etc/fstab" <<-'EOF'
+LABEL=RASPI_swap   swap            swap   sw,discard=once                 0  0
+	EOF
+	fi
 	# hostname and hosts (generic)
 	case $myfqdn in
 	(*.*)	myhost="$myfqdn ${myfqdn%%.*}" ;;
