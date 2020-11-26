@@ -1,5 +1,5 @@
 #!/bin/sh
-# $MirOS: contrib/hosted/tg/deb/hookdir/D25backports,v 1.7 2019/12/04 07:32:25 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/D25backports,v 1.8 2020/10/31 07:21:35 tg Exp $
 #-
 # Not complicated enough for copyright.
 #
@@ -28,13 +28,13 @@ case $d in
 	echo deb http://deb.debian.org/debian/ \
 	    $d-backports main >>/etc/apt/sources.list
 	;;
-(dapper|hardy|jaunty|karmic|lucid|maverick|natty|oneiric|quantal|raring|saucy|utopic|vivid|wily|yakkety|zesty|artful)
+(dapper|hardy|jaunty|karmic|lucid|maverick|natty|oneiric|quantal|raring|saucy|utopic|vivid|wily|yakkety|zesty|artful|cosmic|disco)
 	echo deb http://old-releases.ubuntu.com/ubuntu/ \
 	    $d-updates main universe >>/etc/apt/sources.list
 	echo deb http://old-releases.ubuntu.com/ubuntu/ \
 	    $d-backports main universe >>/etc/apt/sources.list
 	;;
-(precise|trusty|xenial|bionic|cosmic|disco|eoan|focal)
+(precise|trusty|xenial|bionic|eoan|focal|groovy|hirsute)
 	echo deb http://archive.ubuntu.com/ubuntu/ \
 	    $d-updates main universe >>/etc/apt/sources.list
 	echo deb http://archive.ubuntu.com/ubuntu/ \
