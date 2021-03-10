@@ -1,8 +1,8 @@
 #!/bin/mksh
-rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.77 2019/05/18 18:39:07 tg Exp $'
+rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.81 2021/02/13 08:31:03 tg Exp $'
 #-
 # Copyright © 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015,
-#	      2016, 2017, 2019
+#	      2016, 2017, 2019, 2021
 #	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -21,6 +21,7 @@ rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.77 2019/05/18 18:39:07 tg E
 # of said person's immediate fault when using the work as intended.
 
 unset normarchs repo_keyid gpg_remote gpg_bin repo_origin repo_label repo_title
+unset hide_components
 unset -f repo_intro repo_description
 me=$(dirname "$0"); [[ -s $me/mkdebidx.inc ]] && . "$me/mkdebidx.inc"
 unset me
@@ -60,7 +61,7 @@ typeset -f repo_description >/dev/null || function repo_description {
 }
 set -A dpkgarchs -- alpha amd64 arm arm64 armel armhf hppa hurd-i386 i386 \
     ia64 kfreebsd-amd64 kfreebsd-i386 m68k mips mips64el mipsel powerpc \
-    powerpcspe ppc64 ppc64el s390 s390x sh4 sparc sparc64 x32
+    powerpcspe ppc64 ppc64el riscv64 s390 s390x sh4 sparc sparc64 x32
 [[ -n "${normarchs[*]}" ]] || set -A normarchs -- "${dpkgarchs[@]}"
 
 set +U
@@ -145,6 +146,7 @@ IFS=$' \t\n'; set +o noglob
 
 suites=:
 for suite in "$@"; do
+	[[ -d dists/$suite || $suite = - ]] || die "suite $suite not found"
 	suites=:dists/$suite$suites
 done
 
@@ -416,6 +418,10 @@ for suite in dists/*; do
 		distname=${dist##*/}
 		if [[ $distname != +([a-z0-9_-]) ]]; then
 			print -u2 "W: Invalid dist name '$distname'"
+			continue
+		fi
+		if [[ " $hide_components " = *" $distname "* ]]; then
+			print -u2 "I: Not indexing dist $suitename/$distname"
 			continue
 		fi
 

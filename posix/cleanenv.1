@@ -1,5 +1,5 @@
 .ds p. /bin:/usr/bin:/sbin:/usr/sbin:/usr/X11R6/bin
-.Dd October 3, 2014
+.Dd February 7, 2021
 .Dt CLEANENV 1
 .Os
 .Sh NAME
@@ -28,7 +28,8 @@ were passed.
 With
 .Fl
 set, it cleans even more, i.e. anonymises: only
-.Ev HOME Ns = Ns Pa /
+.Ev HOME Ns = Ns Pa / ,
+.Ev LC_ALL Ns = Ns Ic C.UTF-8
 and
 .Ev PATH Ns = Ns Pa \*(p.
 are set then, whereas normal operation keeps the user's

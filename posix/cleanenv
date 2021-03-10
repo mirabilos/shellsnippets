@@ -1,5 +1,5 @@
 #!/bin/sh
-# $MirOS: src/scripts/cleanenv,v 1.5 2014/09/28 19:49:56 tg Exp $
+# $MirOS: src/scripts/cleanenv,v 1.6 2021/02/07 02:07:58 tg Exp $
 
 p=/bin:/usr/bin:/sbin:/usr/sbin:/usr/X11R6/bin
 
@@ -13,7 +13,7 @@ fi
 if test x"$a1" = x"-"; then
 	shift
 	exec /usr/bin/env -i \
-	    PATH=$p HOME=/ \
+	    PATH=$p HOME=/ LC_ALL=C.UTF-8 \
 	    "$@"
 fi
 

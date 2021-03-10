@@ -73,6 +73,8 @@ for df in "${asso_y[@]}"; do
 				continue ;;
 			(mksh/hex*src/bin/mksh/check.t*)
 				continue ;;
+			(mksh/sysadmin/gencert.sh*1.135)
+				continue ;;
 			(mksh/@(sysadmin/@(mvndebri.sh|vcs2deb)|teckids/mk/common|website.shar)*)
 				continue ;;
 			(mksh/uhr-preR41contrib/hosted/tg/uhr1.5*)

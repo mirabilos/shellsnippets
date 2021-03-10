@@ -1,5 +1,5 @@
 #!/bin/sh
-# $MirOS: contrib/hosted/tg/deb/hookdir/D10wtfrepo,v 1.8 2019/11/23 21:38:01 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/D10wtfrepo,v 1.9 2021/02/13 23:21:21 tg Exp $
 #-
 # Not complicated enough for copyright.
 
@@ -9,9 +9,9 @@ LC_ALL=C; export LC_ALL
 d=${DIST%/*}
 d=${d%-backports*}
 case $d in
-(sarge|etch|lenny|squeeze|wheezy|jessie|stretch|buster|sid)
+(sarge|etch|lenny|squeeze|wheezy|jessie|stretch|buster|bullseye|sid)
 	;;
-(bullseye)
+(bookworm)
 	d=sid
 	;;
 (*)
