@@ -2,11 +2,17 @@
 #-
 # keyboard layout quick switcher; usage:
 #  k                # loads ~/.Xmodmap
+#  k .rdp           # loads ~/.Xmodmap.rdp
 #  k us             # uses stock US layout
 #  k de nodeadkeys  # switches to stock German layout
 
+case x$1 in
+x|x.*)	noxkb() { true; }; noxmm() { false; } ;;
+*)	noxkb() { false; }; noxmm() { true; } ;;
+esac
+
 set -ex
-test -z "$1" || setxkbmap "$@"
+noxkb || setxkbmap "$@"
 setxkbmap -option grp_led:caps
 setxkbmap -option caps:none
-test -n "$1" || xmodmap ~/.Xmodmap
+noxmm || xmodmap ~/".Xmodmap$1"
