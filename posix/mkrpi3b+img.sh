@@ -1,6 +1,6 @@
 #!/bin/sh
 #-
-# Copyright © 2020
+# Copyright © 2020, 2021
 #	mirabilos <m@mirbsd.org>
 # Copyright © 2019, 2020
 #	mirabilos <t.glaser@tarent.de>
@@ -24,6 +24,14 @@
 # bullseye/sid host system, others should work as well given suitab‐
 # ly up-to-date tools), using qemu-user/binfmt_misc emulation to run
 # the foreign architecture steps in a chroot.
+
+# some shellcheck configuration:
+# - not always true, and more compatible
+# shellcheck disable=SC2004 shell=sh
+# - yes, we use UCS/UTF-8 characters, how’s t̲h̲a̲t̲ even surprising?
+# shellcheck disable=SC1111 disable=SC1112
+# - enable some optional checks
+# shellcheck enable=avoid-nullary-conditions enable=deprecate-which
 
 #########
 # SETUP #
@@ -49,6 +57,8 @@ d_armel='32-bit ARMv5 with software FPU (slow), untested'
 needprintf=
 if test -n "$KSH_VERSION"; then
 	p() {
+		# ↓ runs on Korn Shell only
+		# shellcheck disable=SC2039
 		typeset i
 		for i in "$@"; do
 			print -ru2 -- "$i"
@@ -221,6 +231,8 @@ cd "$T" || die 'cannot cd into temporary directory'
 # syntax: assign tgtvar fallback glob
 assign() {
 	assign_tgt=$1; shift
+	# ↓ false positive (eval)
+	# shellcheck disable=SC2034
 	assign_nil=$1; shift
 	eval "$assign_tgt=\$assign_nil"
 	test -n "$1" && test -e "$1" || return 0
@@ -275,6 +287,10 @@ dw() {
 ynw() {
 	ynwv=$1; shift
 	eval "ynwc=\$$ynwv"
+	# ↓ false positive (eval)
+	# shellcheck disable=SC2154
+	# ↓ IFS splitting actually required
+	# shellcheck disable=SC2086
 	if w $ynwc "$@"; then
 		eval "$ynwv="
 		snext
@@ -297,6 +313,8 @@ ynwfalse() {
 ################################
 
 states_termsize() {
+	# ↓ IFS splitting actually required
+	# shellcheck disable=SC2046
 	set -- $(stty size) || die 'stty failed'
 	test $# -eq 2 || die 'stty weird output' "$@"
 	case "$*" in
@@ -305,7 +323,7 @@ states_termsize() {
 	case $sthis in
 	(0)
 		#### INITIAL TERMINAL SIZE CHECK
-		if test $1 -ge 24 && test $2 -ge 80; then
+		if test "$1" -ge 24 && test "$2" -ge 80; then
 			sskip
 		fi ;;
 	(1)
@@ -316,7 +334,7 @@ states_termsize() {
 		;;
 	(2)
 		#### SEE WHETHER THAT HELPED
-		if test $1 -ge 24 && test $2 -ge 80; then
+		if test "$1" -ge 24 && test "$2" -ge 80; then
 			sskip
 		fi ;;
 	(3)
@@ -339,7 +357,7 @@ Press Enter to continue." 14 72
 		;;
 	(5)
 		#### SEE THAT WE END UP AT CORRECT SIZE
-		if test $1 -ge 24 && test $2 -ge 80; then
+		if test "$1" -ge 24 && test "$2" -ge 80; then
 			sdone
 		fi ;;
 	(6)
@@ -369,10 +387,16 @@ assign devices '' /dev/sd[a-z]
 tgtdev=MANUAL
 tgtimg=/dev/sdX
 swsize=0
+# ↓ false positive (eval)
+# shellcheck disable=SC2034
 swmode=			# nonempty=after (else (true) before the root partition)
 myfqdn=rpi3bplus.lan.tarent.invalid
 userid=pi
+# ↓ false positive (eval)
+# shellcheck disable=SC2034
 setcma=			# empty means yes (set CMA to higher value by default)
+# ↓ false positive (eval)
+# shellcheck disable=SC2034
 dropsd=--defaultno	# nonempty means no (do not drop systemd by default)
 pkgadd=-		# - means out default values
 tgarch=arm64
@@ -383,6 +407,8 @@ states_menu() {
 		sgoback_devchoice=$sthis
 		#### WHICH TARGET DEVICE? (CHOICE)
 		set --
+		# ↓ false positive (eval in assign)
+		# shellcheck disable=SC2154
 		for x in $devices; do
 			set -- "$@" "$x" "$x"
 		done
@@ -568,6 +594,8 @@ and OVERWRITE ALL DATA with no chance of recovery?" 14 72
 			esac
 			# similar for the component labels
 			IFS=.; set -o noglob
+			# ↓ IFS splitting actually required
+			# shellcheck disable=SC2086
 			set -- $myfqdn
 			IFS=" $ht$nl"; set +o noglob
 			for x in "$@"; do
@@ -708,6 +736,8 @@ Enter just - to restore the default and start editing anew." \
 		(arm64|armhf|armel) eval "arch=\"\$tgarch: \$d_$tgarch\"" ;;
 		(*) die "huh? tgarch<$tgarch>" ;;
 		esac
+		# ↓ false positive (eval) on $arch
+		# shellcheck disable=SC2154
 		dw --title 'Proceed with installation?' --defaultno \
 		    --yesno "Do you wish to proceed and DELETE ALL DATA from the target device? (Choosing “No” or pressing Escape allows you to go back to each individual step for changing the information.) Summary of settings:
 
@@ -739,7 +769,9 @@ dd if=/dev/urandom bs=256 count=1 of=rnd 2>/dev/null || die 'dd rnd1 failed'
 # create MBR with empty BIOS partition table
 s='This SD card boots on a Raspberry Pi 3B+ only!'
 # x86 machine code outputting message then stopping
-printf '\xE8\x'$(echo "obase=16; ${#s}+5" | bc)'\0\r\n' >data
+# ↓ dynamically composed format string
+# shellcheck disable=SC2059
+printf '\xE8\x'"$(echo "obase=16; ${#s}+5" | bc)"'\0\r\n' >data
 printf '%s' "$s" | tee txt >>data
 printf '\r\n\0\x5E\16\x1F\xAC\10\xC0\x74\xFE\xB4\16\xBB\7\0\xCD\20\xEB\xF2' \
     >>data
@@ -881,8 +913,10 @@ test -x "$qemu_user_static" || \
 # added programs: eatmydata to speed up APT/dpkg; makedev needs to be
 # run very early as we can’t use udev or the host’s /dev filesystem,
 # mksh because the post-install script is written in it for simplicity
-eatmydata debootstrap --arch=$tgarch --include=eatmydata,makedev,mksh $init \
-    --force-check-gpg --verbose --foreign buster "$mpt" \
+# ↓ IFS splitting actually required
+# shellcheck disable=SC2086
+eatmydata debootstrap --arch="$tgarch" --include=eatmydata,makedev,mksh \
+    --force-check-gpg $init --verbose --foreign buster "$mpt" \
     http://deb.debian.org/debian sid || die 'debootstrap (first stage) failed'
     # script specified here as it’s normally what buster symlinks to,
     # to achieve compatibility with more host distros
@@ -1122,9 +1156,12 @@ Press Enter to continue.' 12 72 || :)
 		rm -f /var/cache/apt/archives/*.deb  # save temp space
 	EOF
 	set -o noglob
+	# ↓ IFS splitting actually required
+	# shellcheck disable=SC2086
 	set -- $pkgadd
 	set +o noglob
-	pkgs= s=
+	pkgs=''
+	s=''
 	for pkg in "$@"; do
 		# macro substitution of tools often found together
 		case $pkg in
