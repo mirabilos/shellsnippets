@@ -1,4 +1,6 @@
 #!/bin/sh
+echo >&2 E: WIP
+exit 255
 #-
 # Copyright © 2020, 2021
 #	mirabilos <m@mirbsd.org>
@@ -20,10 +22,10 @@
 # damage or existence of a defect, except proven that it results out
 # of said person’s immediate fault when using the work as intended.
 #-
-# Installs a Raspberry Pi 3B+ image from scratch (tested on a Debian
-# bullseye/sid host system, others should work as well given suitab‐
-# ly up-to-date tools), using qemu-user/binfmt_misc emulation to run
-# the foreign architecture steps in a chroot.
+# Installs Debian for a Raspberry Pi from scratch, using binfmt-misc
+# driven qemu-user-static emulation running the foreign architecture
+# steps in a chroot. Tested on Debian bullseye/sid; should also work
+# elsewhere recent. The i386 testing mode only works on x86 hosts.
 
 # some shellcheck configuration:
 # - not always true, and more compatible
@@ -53,6 +55,10 @@ export safe_PATH PATH
 d_arm64='64-bit ARMv8 (aarch64)'
 d_armhf='32-bit ARMv7 with hardware Floating Point (fast)'
 d_armel='32-bit ARMv5 with software FPU (slow), untested'
+d_i386='32-bit x86, for testing, does not run on a Pi'
+D_buster='10 (buster), released July 2019'
+D_bullseye='11 (bullseye), released mid-2021'
+D_sid='unstable (sid); may not install successfully'
 
 needprintf=
 if test -n "$KSH_VERSION"; then
@@ -64,7 +70,7 @@ if test -n "$KSH_VERSION"; then
 			print -ru2 -- "$i"
 		done
 	}
-elif test x"$(printf '%s\n' 'a b' c 2>/dev/null)" = x"a b${nl}c"; then
+elif test x"$(printf '%s\n' 'a b' c 2>/dev/null; echo x)" = x"a b${nl}c${nl}x"; then
 	p() {
 		printf '%s\n' "$@" >&2
 	}
@@ -215,7 +221,7 @@ case $(id -u) in
 esac
 
 # create temporary directory as base of operations
-T=$(mktemp -d /tmp/mkrpi3b+img.XXXXXXXXXX) || \
+T=$(mktemp -d /tmp/debraspi.sh.XXXXXXXXXX) || \
     die 'cannot create temporary directory'
 case $T in
 (/*) ;;
@@ -223,6 +229,112 @@ case $T in
 esac
 chmod 700 "$T" || die 'chmod failed'
 cd "$T" || die 'cannot cd into temporary directory'
+
+#########################
+# MODEL-SPECIFIC THINGS #
+#########################
+
+# see 'Choose target model' below for the table, also (parms) case
+tgload() {
+	case $1 in
+	(arches)
+		case $tg_mod in
+		(0*|1*) echo armel i386 ;;
+		(2E) echo armhf armel i386 ;;
+		(*) echo arm64 armhf armel i386 ;;
+		esac ;;
+	(dists)
+		case $tg_mod in
+		(4*)	echo bullseye sid ;;
+		(*)	echo buster bullseye sid ;;
+		esac ;;
+	(model)
+		case $tg_mod in
+		(0)	echo 0/1A+/CM1 ;;
+		(0W)	echo 0W/0WH ;;
+		(1E)	echo 1B+ ;;
+		(2E)	echo 2B 1.0 ;;
+		(2E2)	echo 2B 1.2 ;;
+		(3W)	echo 3A+ ;;
+		(3B)	echo 3B/3B+ ;;
+		(3)	echo CM3 ;;
+		(4B)	echo 4B/400 ;;
+		esac ;;
+	(parms)
+		# $1=ethernet $2=wlan $3=nocma
+		case $tg_mod in
+		(0)	echo 0 0 0 ;;	# ARMv6 0, 1A+, CM1
+		(0W)	echo 0 1 0 ;;	# ARMv6 0W, 0WH
+		(1E)	echo 1 0 0 ;;	# ARMv6 1B+
+		(2E)	echo 1 0 0 ;;	# ARMv7 2B 1.0
+		(2E2)	echo 1 0 0 ;;	# ARMv8 2B 1.2
+		(3W)	echo 0 1 0 ;;	# ARMv8 3A+
+		(3B)	echo 1 1 0 ;;	# ARMv8 3B, 3B+
+		(3)	echo 0 0 0 ;;	# ARMv8 CM3
+		(4B)	echo 1 1 1 ;;	# ARMv8 4B, 400
+		esac ;;
+	esac
+}
+
+recalc_pkgs() {
+	# model-specific packages
+	set -- $(tgload parms)
+	if test x"$2" = x"1"; then
+		pkgadd_wlan=_WLAN_
+	else
+		pkgadd_wlan=
+	fi
+	if test x"$1" = x"1"; then
+		set -- ethtool
+	else
+		set --
+	fi
+	# basic packages; change at your own risk
+	set -- "$@" ca-certificates ifupdown iproute2 less lsb-release man-db \
+	    net-tools netcat-openbsd openssh-client popularity-contest procps
+	case $tgdist in
+	(buster) ;;
+	(*) set -- "$@" bsdextrautils ;;
+	esac
+	pkgbase="$*"
+	# extra packages; menu-editable
+	set -- anacron bc bind9-host bridge-utils postfix bsd-mailx curl \
+	    etckeeper jupp joe-jupp lynx mc mlocate molly-guard ntp \
+	    openssh-server patch pv rdate reportbug rsync screen sharutils \
+	    unscd wget $pkgadd_wlan
+	pkgaddf="$*"
+	case $tgdist in
+	(sid) hasbackports= ;;
+	(*) hasbackports=x ;;
+	esac
+	case $tgarch in
+	(arm64) kernel=linux-image-arm64 ;;
+	(armhf) kernel=linux-image-armmp ;;
+	(armel) kernel=linux-image-rpi ;;
+	(i386) kernel=linux-image-686-pae ;;
+	(*) die "huh? tgarch<$tgarch>" ;;
+	esac
+	case $tgarch in
+	(arm64) qemu=qemu-aarch64-static ;;
+	(*) qemu=qemu-arm-static ;;
+	esac
+	set -- adduser ed linuxlogo
+	case $tgdist in
+	(buster) set -- "$@" raspi-firmware/buster-backports ;;
+	(*) set -- "$@" raspi-firmware ;;
+	esac
+	set -- "$@" sudo whiptail
+	case $tgarch in
+	(i386) set -- "$@" grub-pc ;;
+	esac
+die XXX preseed grub-pc so it installs to the target device
+	pkgsysi="$*"
+	set -- eatmydata makedev mksh libterm-readline-gnu-perl
+	ynwfalse dropsd || set -- "$@" sysvinit-core systemd-
+	set -- "$@" busybox firmware-linux-free $kernel $pkgsysi \
+	    'console-{common,data,setup}' locales
+	pkgsysd="$*"
+}
 
 #########################
 # DIALOGUE PREPARATIONS #
@@ -268,16 +380,17 @@ alias sredo='Sredo; return'
 
 # wrap around whiptail
 w() {
-	whiptail --backtitle 'mkrpi3b+img.sh' --output-fd 4 4>res "$@"
+	whiptail --backtitle 'debraspi.sh[host]' --output-fd 4 4>res "$@"
 	rv=$?
 	res=$(cat res) || die cannot read whiptail result file
 	return $rv
 }
 # w plus advance the state machine
 dw() {
-	w "$@" && snext $rv
-	if test x"$s" = x"0"; then
+	w "$@" && { snext $rv; }
+	if test x"$sthis" = x"0"; then
 		p '' 'I: aborted by user'
+		trap - EXIT
 		diecleanup
 		exit $rv
 	fi
@@ -399,11 +512,87 @@ setcma=			# empty means yes (set CMA to higher value by default)
 # shellcheck disable=SC2034
 dropsd=--defaultno	# nonempty means no (do not drop systemd by default)
 pkgadd=-		# - means out default values
-tgarch=arm64
+tg_mod=
+tgarch=
+tgdist=
 # state machine (menu question number)
 states_menu() {
 	case $sthis in
 	(0)
+		### MODEL
+		if dw --title 'Choose target model' \
+		    --notags ${tg_mod:+--default-item "$tg_mod"} \
+		    --menu 'Please select which Raspberry Pi model to create an image for. This presets some things, such as CPU architecture (can be changed later) and whether Ethernet or WLAN are present and model-specific options.
+
+Use the cursor keys ↑ and ↓ to select an item; press Enter to accept and continue, or Esc to exit. Note this list scrolls down for more.' \
+		    20 72 7 \
+		    0	'ARMv6 - - | 0, 1A+, CM1' \
+		    0W	'ARMv6 - W | 0W, 0WH' \
+		    1E	'ARMv6 E - | 1B+' \
+		    2E	'ARMv7 E - | 2B 1.0' \
+		    2E2	'ARMv8 E - | 2B 1.2' \
+		    3W	'ARMv8 - W | 3A+' \
+		    3B	'ARMv8 E W | 3B, 3B+' \
+		    3	'ARMv8 - - | CM3' \
+		    4B	'ARMv8 E W | 4B, 400' \
+		    ; then
+			# select default architecture and release when model changes
+			test x"$tg_mod" = x"$res" || {
+				tgarch=
+				tgdist=
+			}
+			tg_mod=$res
+			# ensure arch is valid for model
+			set -- $(tgload arches)
+			: "${tgarch:=$1}"
+			case " $* " in
+			(*" $tgarch "*) ;;
+			(*) tgarch=$1 ;;
+			esac
+		fi
+		;;
+	(1)
+		#### ARCHITECTURE
+		set --
+		for x in $(tgload arches); do
+			eval "y=\$d_$x"
+			set -- "$@" "$x" "$y"
+		done
+		if dw --title 'Choose target architecture' \
+		    --notags --default-item "$tgarch" \
+		    --menu 'Please select which Debian ARM architecture to install. The initial default is usually fine, it’s the “best-fitting” architecture for the selected model, and it’s possible to run 32-bit binaries (armel and armhf) under a 64-bit kernel (arm64) with Multi-Arch.
+
+Use the cursor keys ↑ and ↓ to select an item; press Enter to accept and continue, or Esc to go back.' \
+		    20 72 6 \
+		    "$@"; then
+			tgarch=$res
+			# ensure dist is valid for model/arch
+			set -- $(tgload dists)
+			: "${tgdist:=$1}"
+			case " $* " in
+			(*" $tgdist "*) ;;
+			(*) tgdist=$1 ;;
+			esac
+		fi
+		;;
+	(2)
+		### DISTRIBUTION
+		set --
+		for x in $(tgload dists); do
+			eval "y=\$D_$x"
+			set -- "$@" "$x" "$y"
+		done
+		if dw --title 'Choose target distribution (release)' \
+		    --notags --default-item "$tgdist" \
+		    --menu 'Please select which version of Debian to install.
+
+Use the cursor keys ↑ and ↓ to select an item; press Enter to accept and continue, or Esc to go back.' \
+		    20 72 6 \
+		    "$@"; then
+			tgdist=$res
+		fi
+		;;
+	(3)
 		sgoback_devchoice=$sthis
 		#### WHICH TARGET DEVICE? (CHOICE)
 		set --
@@ -425,7 +614,7 @@ states_menu() {
 			fi
 		fi
 		;;
-	(1)
+	(4)
 		sgoback_devname=$sthis
 		#### WHICH TARGET DEVICE OR IMAGE? (FREETEXT)
 		if dw --title 'Choose target device' \
@@ -434,7 +623,7 @@ states_menu() {
 			tgtimg=$res
 		fi
 		;;
-	(2)
+	(5)
 		# minimum disc size (MBR, firmware, root, possibly swap)
 		minsz=1792
 		#### WHETHER TO CREATE A SWAP PARTITION
@@ -472,7 +661,7 @@ Size in MiB:' \
 			fi
 		fi
 		;;
-	(3)
+	(6)
 		#### WHERE TO PUT THE SWAP PARTITION
 		ynw swmode --title 'Swap partition location' \
 		    --yes-button Before --no-button After \
@@ -483,7 +672,7 @@ Putting it before makes enlarging the root partition (such as when moving to a l
 Putting it after makes it possible to add the space to the root partition later, disabling swap, when free space has become tight.' \
 		    14 72
 		;;
-	(4)
+	(7)
 		#### VALIDATE IMAGE/DEVICE PATH/SIZE/ETC. / CREATE SPARSE FILE
 		# step to go back to if things fail
 		if test x"$tgtdev" = x"MANUAL"; then
@@ -567,7 +756,19 @@ Do you REALLY want to use this as target device
 and OVERWRITE ALL DATA with no chance of recovery?" 14 72
 		sz=${sz%.*}
 		;;
-	(5)
+	(8)
+		set -- $(tgload parms)
+		if test x"$3" = x"1"; then
+			sskip  # RPi 4 handles the CMA differently
+		fi
+		#### ADJUST DEFAULT CMA SIZE?
+		ynw setcma --title 'Default CMA size' \
+		    --yesno "Raise default CMA from 64 to 128 MiB?
+
+This is especially useful when you’ll be using graphics." \
+		    10 72
+		;;
+	(9)
 		#### HOSTNAME FOR THE SYSTEM
 		if dw --title 'Enter target hostname' \
 		    --inputbox 'Enter fully-qualified hostname the target device should have:' \
@@ -623,7 +824,7 @@ and OVERWRITE ALL DATA with no chance of recovery?" 14 72
 			esac
 		fi
 		;;
-	(6)
+	(10)
 		#### USERNAME TO CREATE FOR INITIAL SSH AND SUDO
 		if dw --title 'Enter initial username' \
 		    --inputbox 'Enter UNIX username of the initially created user (which has full sudo access):' \
@@ -649,15 +850,7 @@ and OVERWRITE ALL DATA with no chance of recovery?" 14 72
 			esac
 		fi
 		;;
-	(7)
-		#### ADJUST DEFAULT CMA SIZE?
-		ynw setcma --title 'Default CMA size' \
-		    --yesno "Raise default CMA from 64 to 128 MiB?
-
-This is especially useful when you’ll be using graphics." \
-		    10 72
-		;;
-	(8)
+	(11)
 		#### SELECT INIT SYSTEM
 		ynw dropsd --title 'Choose the init system' \
 		    --yesno "Change init system from systemd to sysvinit?
@@ -669,31 +862,13 @@ filesystem layout.
 Most users will say “No” here." \
 		    10 72
 		;;
-	(9)
-		#### ARCHITECTURE
-		case $tgarch in
-		(arm64) set -- on off off ;;
-		(armhf) set -- off on off ;;
-		(armel) set -- off off on ;;
-		(*) die "huh? tgarch<$tgarch>" ;;
-		esac
-		if dw --title 'Choose target architecture' \
-		    --radiolist 'Please select which Debian architecture to install on the target. The default is usually fine, as you can run 32-bit binaries (both armel and armhf) under a 64-bit kernel normally, with Multi-Arch.
-
-Use the cursor keys ↑ and ↓ followed by Space to select an item; press Enter to accept and continue, or Esc to go back.' \
-		   15 72 3 \
-		   arm64 "$d_arm64 " "$1" \
-		   armhf "$d_armhf " "$2" \
-		   armel "$d_armel " "$3"; then
-			tgarch=$res
-		fi
-		;;
-	(10)
+	(12)
 		#### EXTRA PACKAGES TO INSTALL
+		recalc_pkgs
 		if test x"$pkgadd" = x"-"; then
 			# openssh-server will generate the server keys using
 			# random bytes from the host, in the chroot (good!)
-			pkgadd='anacron bind9-host bridge-utils postfix bsd-mailx curl etckeeper ethtool ntp openssh-server patch pv rdate reportbug unscd wget _WLAN_'
+			pkgadd=$pkgaddf
 			blurb=' We have provided you with a selection of default useful system utilities and services, which you can change if you wish, of course.'
 		else
 			blurb=
@@ -701,16 +876,18 @@ Use the cursor keys ↑ and ↓ followed by Space to select an item; press Enter
 		if dw --title 'Extra packages to install' \
 		    --inputbox "Enter extra packages to install, separated by space.$blurb Some other extra packages, like less and sudo, are always installed.
 
-You can use the macro _WLAN_ to select packages needed to support WiFi. To install packages from Backports, append “/buster-backports” to the package name, e.g. “musescore3/buster-backports”. Removing packages by appending “-” to their name is also possible, as this list is passed as-is to apt-get install.
+You can use the macro _WLAN_ to select packages needed to support WiFi. ${hasbackports:+To install packages from Backports, append “/$tgdist-backports” to the package name, e.g. “musescore3/buster-backports”. }Removing packages by appending “-” to their name is also possible, as this list is passed as-is to apt-get install.
 
 Press ^U (Ctrl-U) to delete the entire line.
 Enter just - to restore the default and start editing anew." \
 		    20 72 "$pkgadd"; then
 			pkgadd=$res
-			test x"$pkgadd" = x"-" && sredo
+			if test x"$pkgadd" = x"-"; then
+				sredo
+			fi
 		fi
 		;;
-	(11)
+	(13)
 		#### SUMMARY BEFORE DOING ANYTHING (except sparse file creation)
 		if test "$swsize" -gt 0; then
 			if ynwfalse swmode; then
@@ -720,9 +897,12 @@ Enter just - to restore the default and start editing anew." \
 			fi
 			paging="$swsize MiB, $paging the root partition"
 		else
-			paging='no'
+			paging='no paging'
 		fi
-		if ynwtrue setcma; then
+		set -- $(tgload parms)
+		if test x"$3" = x"1"; then
+			cma=
+		elif ynwtrue setcma; then
 			cma=128
 		else
 			cma=64
@@ -741,16 +921,13 @@ Enter just - to restore the default and start editing anew." \
 		dw --title 'Proceed with installation?' --defaultno \
 		    --yesno "Do you wish to proceed and DELETE ALL DATA from the target device? (Choosing “No” or pressing Escape allows you to go back to each individual step for changing the information.) Summary of settings:
 
-Target  : $tgtimg (≥ $sz MiB)
-Pagefile: $paging
+Installing Debian $tgdist/$tgarch, $init
+Target: $(tgload model) ${cma:+(CMA $cma MiB) }for $userid
+Destination: $tgtimg (≥ $sz MiB), $paging
 Hostname: $myfqdn
-Username: $userid
-CMA size: $cma MiB                  Machine: $arch
-init/FHS: $init
-
-Packages: $pkgadd" 20 72
+Packages: $pkgsysd $pkgadd" 20 72
 		;;
-	(12)
+	(14)
 		sdone
 		;;
 	esac
@@ -767,7 +944,7 @@ sleep 3
 # store some random seed for later, 1ˢᵗ half (taken from host CSPRNG)
 dd if=/dev/urandom bs=256 count=1 of=rnd 2>/dev/null || die 'dd rnd1 failed'
 # create MBR with empty BIOS partition table
-s='This SD card boots on a Raspberry Pi 3B+ only!'
+s="This SD card boots on a Raspberry Pi $(tgload model) only!"
 # x86 machine code outputting message then stopping
 # ↓ dynamically composed format string
 # shellcheck disable=SC2059
@@ -787,7 +964,7 @@ dd if=pt of=mbr bs=1 seek=446 conv=notrunc 2>/dev/null || die 'dd mbr4 failed'
 dd if=mbr bs=1048576 of="$dvname" 2>/dev/null || die 'dd mbr5 failed'
 rm data mbr
 # layout partition table (per board-specific requirements)
-if test x"$paging" = x"no"; then cat <<-EOF
+if test x"$paging" = x"no paging"; then cat <<-EOF
 	n
 	p
 	1
@@ -865,15 +1042,15 @@ kpx=/dev/mapper/${dvname##*/}
 kpartx -a -f -v -p p -t dos -s "$dvname" || die 'kpartx failed'
 # create filesystems
 test -b "${kpx}p1" || die 'cannot kpartx firmware partition'
-eatmydata mkfs.msdos -f 1 -F 32 -m txt -n RASPI_FIRMW -v "${kpx}p1" || \
+eatmydata mkfs.msdos -f 1 -F 32 -m txt -n RASPIFIRM -v "${kpx}p1" || \
     die 'mkfs.msdos failed'
 test -b "${kpx}p2" || die 'cannot kpartx root partition'
-eatmydata mkfs.ext4 -e remount-ro -E discard -L RASPI_root \
+eatmydata mkfs.ext4 -e remount-ro -E discard -L RASPIROOT \
     -U random "${kpx}p2" || die 'mkfs.ext4 failed'
 if test "$swsize" -gt 0; then
 	test -b "${kpx}p3" || die 'cannot kpartx swap partition'
 	eatmydata dd if=/dev/zero bs=1048576 count=1 of="${kpx}p3" 2>/dev/null
-	eatmydata mkswap -L RASPI_swap "${kpx}p3" || die 'mkswap failed'
+	eatmydata mkswap -L RASPISWAP "${kpx}p3" || die 'mkswap failed'
 fi
 
 # mount filesystems
@@ -895,12 +1072,6 @@ if ynwfalse dropsd; then
 else
 	init=--no-merged-usr
 fi
-case $tgarch in
-(arm64) kernel=linux-image-arm64 qemu=qemu-aarch64-static ;;
-(armhf) kernel=linux-image-armmp qemu=qemu-arm-static ;;
-(armel) kernel=linux-image-rpi qemu=qemu-arm-static ;;
-(*) die "huh? tgarch<$tgarch>" ;;
-esac
 # retrieve path to the command (its existence was tested earlier)
 qemu_user_static=$(command -v $qemu) || die 'huh?'
 case $qemu_user_static in
@@ -916,13 +1087,13 @@ test -x "$qemu_user_static" || \
 # ↓ IFS splitting actually required
 # shellcheck disable=SC2086
 eatmydata debootstrap --arch="$tgarch" --include=eatmydata,makedev,mksh \
-    --force-check-gpg $init --verbose --foreign buster "$mpt" \
+    --force-check-gpg $init --verbose --foreign "$tgdist" "$mpt" \
     http://deb.debian.org/debian sid || die 'debootstrap (first stage) failed'
     # script specified here as it’s normally what buster symlinks to,
     # to achieve compatibility with more host distros
 # we need this early; Debian #700633
 (
-	set -e
+	set -ex
 	cd "$mpt"
 	for archive in var/cache/apt/archives/*eatmydata*.deb; do
 		dpkg-deb --fsys-tarfile "$archive" >a
@@ -972,12 +1143,26 @@ fi
 	set -ex
 	# as set by d-i
 	printf '%s\n' '0.0 0 0.0' 0 UTC >"$mpt/etc/adjtime"
-	cat >"$mpt/etc/apt/sources.list" <<-'EOF'
-deb http://deb.debian.org/debian buster main non-free contrib
-deb http://deb.debian.org/debian-security buster/updates main non-free contrib
-deb http://deb.debian.org/debian buster-updates main non-free contrib
-deb http://deb.debian.org/debian buster-backports main non-free contrib
-	EOF
+	case $tgdist in
+	(buster) cat <<-'EOF'
+deb http://deb.debian.org/debian/ buster main non-free contrib
+deb http://deb.debian.org/debian-security/ buster/updates main non-free contrib
+deb http://deb.debian.org/debian/ buster-updates main non-free contrib
+deb http://deb.debian.org/debian/ buster-backports main non-free contrib
+#deb http://deb.debian.org/debian/ buster-backports-sloppy main non-free contrib
+		EOF
+	(bullseye) cat <<-'EOF'
+deb http://deb.debian.org/debian/ bullseye main non-free contrib
+deb http://deb.debian.org/debian-security/ bullseye-security main non-free contrib
+deb http://deb.debian.org/debian/ bullseye-updates main non-free contrib
+#deb http://deb.debian.org/debian/ bullseye-backports main non-free contrib
+#deb http://deb.debian.org/debian/ bullseye-backports-sloppy main non-free contrib
+		EOF
+	(sid) cat <<-'EOF'
+deb http://deb.debian.org/debian/ sid main non-free contrib
+		EOF
+	(*) die "huh? tgdist<$tgdist>" ;;
+	esac >"$mpt/etc/apt/sources.list"
 	# from console-setup (1.193) config/keyboard (d-i)
 	cat >"$mpt/etc/default/keyboard" <<-'EOF'
 		# KEYBOARD CONFIGURATION FILE
@@ -995,12 +1180,12 @@ deb http://deb.debian.org/debian buster-backports main non-free contrib
 	: >"$mpt/etc/default/locale"
 	# target-appropriate
 	cat >"$mpt/etc/fstab" <<-'EOF'
-LABEL=RASPI_root   /               ext4   defaults,relatime,discard       0  2
-LABEL=RASPI_FIRMW  /boot/firmware  vfat   defaults,noatime,discard        0  1
-swap               /tmp            tmpfs  defaults,relatime,nosuid,nodev  0  0
+LABEL=RASPIROOT  /               ext4   defaults,relatime,discard       0  2
+LABEL=RASPIFIRM  /boot/firmware  vfat   defaults,noatime,discard        0  1
+swap             /tmp            tmpfs  defaults,relatime,nosuid,nodev  0  0
 	EOF
 	if test "$swsize" -gt 0; then cat >>"$mpt/etc/fstab" <<-'EOF'
-LABEL=RASPI_swap   swap            swap   sw,discard=once                 0  0
+LABEL=RASPISWAP  swap            swap   sw,discard=once                 0  0
 	EOF
 	fi
 	# hostname and hosts (generic)
@@ -1057,6 +1242,7 @@ LABEL=RASPI_swap   swap            swap   sw,discard=once                 0  0
 		unset LANGUAGE
 		export DEBIAN_FRONTEND=teletype HOME=/root LC_ALL=C.UTF-8 \
 		    PATH=/usr/sbin:/usr/bin:/sbin:/bin POSIXLY_CORRECT=1
+		set +U
 		export SUDO_USER=root USER=root # for etckeeper
 		# necessary to avoid leaking the host’s /dev
 		print -ru2 -- 'I: the MAKEDEV step is extremely slow…'
@@ -1088,17 +1274,17 @@ LABEL=RASPI_swap   swap            swap   sw,discard=once                 0  0
 	EOF
 	# install base packages
 	echo "kernel=$kernel qemu=$qemu"
+	echo "set -A pkgbase -- $pkgbase"
+	echo "set -A pkgsysi -- $pkgsysi"
 	cat <<-'EOF'
 		rm -f /var/cache/apt/archives/*.deb  # save temp space
 		# kernel, initrd and base firmware
 		apt-get --purge -y install --no-install-recommends \
-		    busybox firmware-linux-free \
-		    $kernel
+		    busybox firmware-linux-free $kernel
 		rm -f /var/cache/apt/archives/*.deb  # save temp space
 		# some tools and bootloader firmware
 		apt-get --purge -y install --no-install-recommends \
-		    adduser ed linuxlogo raspi-firmware/buster-backports \
-		    sudo whiptail
+		    "${pkgsysi[@]}"
 		rm -f /var/cache/apt/archives/*.deb  # save temp space
 		export DEBIAN_FRONTEND=dialog
 		# basic configuration
@@ -1106,7 +1292,7 @@ LABEL=RASPI_swap   swap            swap   sw,discard=once                 0  0
 		    '-uy ${PRETTY_NAME+-t "OS version: $PRETTY_NAME"} || :)' \
 		    >/etc/profile.d/linux_logo.sh
 		# user configuration
-		(whiptail --backtitle 'mkrpi3b+img.sh' --msgbox \
+		(whiptail --backtitle 'debraspi.sh[pi]' --msgbox \
 		    'We will now reconfigure some packages, so you can set up some basic things about your system: timezone (default UTC), keyboard layout, console font, and the system locale (and possibly whether additional locales are to be installed).
 
 Press Enter to continue.' 12 72 || :)
@@ -1124,6 +1310,7 @@ Press Enter to continue.' 12 72 || :)
 		esac
 	EOF
 	# adjust CMA size?
+die XXX RPi 4
 	ynwfalse setcma || cat <<-'EOF'
 		ed -s /etc/default/raspi-firmware <<-'EODB'
 			,g/^#CMA=64M/s//CMA=128M/
@@ -1134,7 +1321,7 @@ Press Enter to continue.' 12 72 || :)
 	# remaining packages and configuration
 	cat <<-'EOF'
 		ed -s /etc/default/raspi-firmware <<-'EODB'
-			,g!^#ROOTPART=/dev/mmcblk0p2!s!!ROOTPART=LABEL=RASPI_root!
+			,g!^#ROOTPART=/dev/mmcblk0p2!s!!ROOTPART=LABEL=RASPIROOT!
 			w
 			q
 		EODB
@@ -1146,13 +1333,9 @@ Press Enter to continue.' 12 72 || :)
 			man-db man-db/build-database boolean false
 			man-db man-db/auto-update boolean false
 		EODB
-		: install basic packages  # change at your own risk but ok
-		# bullseye/sid += bsdextrautils
+		: install basic packages
 		apt-get --purge -y install --no-install-recommends \
-		    bc ca-certificates ifupdown iproute2 jupp joe-jupp less \
-		    lsb-release lynx man-db mc mlocate molly-guard net-tools \
-		    netcat-openbsd openssh-client popularity-contest procps \
-		    rsync screen sharutils
+		    "${pkgbase[@]}"
 		rm -f /var/cache/apt/archives/*.deb  # save temp space
 	EOF
 	set -o noglob
@@ -1198,7 +1381,7 @@ Press Enter to continue.' 12 72 || :)
 
 	cat <<-'EOF'
 		# instruct the user what they can do now
-		whiptail --backtitle 'mkrpi3b+img.sh' \
+		whiptail --backtitle 'debraspi.sh[pi]' \
 		    --msgbox "We will now (chrooted into the target system, under emulation, so it will be really slooooow…) run a login shell as the user account we just created ($userid), so you can do any manual post-installation steps desired.
 
 Please use “sudo -S command” to run things as root, if necessary.
@@ -1209,7 +1392,7 @@ Press Enter to continue; exit the emulation with the “exit” command." 14 72
 		export HOME=/  # later overridden by su
 		# create an initial entry in syslog
 		>>/var/log/syslog print -r -- "$(date +"%b %d %T")" \
-		    "${HOSTNAME%%.*} mkrpi3b+img.sh[$$]:" \
+		    "${HOSTNAME%%.*} debraspi.sh[$$]:" \
 		    soliciting manual post-installation steps
 		chown 0:adm /var/log/syslog
 		chmod 640 /var/log/syslog
@@ -1241,7 +1424,7 @@ Press Enter to continue; exit the emulation with the “exit” command." 14 72
 		find . ! -xtype d ! -name utmp ! -name innd.pid -delete
 		# fine𝄐
 		>>/var/log/syslog print -r -- "$(date +"%b %d %T")" \
-		    "${HOSTNAME%%.*} mkrpi3b+img.sh[$$]:" \
+		    "${HOSTNAME%%.*} debraspi.sh[$$]:" \
 		    finishing up installation\; once booted natively on the \
 		    device, you can nuke /usr/bin/$qemu manually later
 	EOF
