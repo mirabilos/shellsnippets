@@ -2,7 +2,7 @@
 #-
 # Copyright © 2020
 #	mirabilos <m@mirbsd.org>
-# Copyright © 2013, 2014, 2018
+# Copyright © 2013, 2014, 2018, 2021
 #	mirabilos <t.glaser@tarent.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -126,4 +126,4 @@ case ${DIST%/*} {
 
 unset TMPDIR
 set -x
-exec sudo "${cmd[@]}" cowbuilder "$@"
+exec ${SUDO-sudo} "${cmd[@]}" cowbuilder "$@"
