@@ -20,9 +20,9 @@
 # of said person’s immediate fault when using the work as intended.
 #-
 # Reads IP and Legacy IP addresses/networks with CIDR præfix lengths
-# from stdin, sorts and merges them and outputs that to stdout; most
-# redundant /128 and /32 are omitted. Exits nōnzero on error however
-# some partial output may still be generated.
+# from stdin; sorts and deduplicates them merging adjacent and over‐
+# lapping ranges; writes CIDR notation without redundant /128 or /32
+# to stdout. Exits nōn-zero on error but partial output may be seen.
 
 unset LANGUAGE
 export LC_ALL=C
@@ -196,13 +196,12 @@ dsp6() {
 }
 
 outipr() {
-	local snum smin smax slim i
+	local snum smin smax slim i p
 
 	case $1 {
 	(4)
 		p4 "$2" "$3"
 		while :; do
-			# technically not enough to prevent /32 below but speed
 			if (( ipnum == iplim )); then
 				print -r -- $((#ipnum>>24)).$((#(ipnum>>16)&0xFF)).$((#(ipnum>>8)&0xFF)).$((#ipnum&0xFF))
 				break
@@ -216,7 +215,9 @@ outipr() {
 				((# ipmin != ipnum || ipmax > iplim )) || break
 				((# ++pfxlen ))
 			done
-			print -r -- $((#ipmin>>24)).$((#(ipmin>>16)&0xFF)).$((#(ipmin>>8)&0xFF)).$((#ipmin&0xFF))/$pfxlen
+			p=/$pfxlen
+			((# pfxlen != 32 )) || p=
+			print -r -- $((#ipmin>>24)).$((#(ipmin>>16)&0xFF)).$((#(ipmin>>8)&0xFF)).$((#ipmin&0xFF))$p
 			((# ipmax != iplim )) || break
 			((# ipnum = ipmax + 1 ))
 		done
@@ -226,7 +227,6 @@ outipr() {
 		slim=${|str6 iplim;}
 		while :; do
 			snum=${|str6 ipnum;}
-			# technically not enough to prevent /128 below but speed
 			if [[ $snum = "$slim" ]]; then
 				print -r -- ${|dsp6 ipnum;}
 				break
@@ -245,7 +245,9 @@ outipr() {
 				[[ $smin != "$snum" || $smax > $slim ]] || break
 				((# ++pfxlen ))
 			done
-			print -r -- ${|dsp6 ipmin;}/$pfxlen
+			p=/$pfxlen
+			((# pfxlen != 128 )) || p=
+			print -r -- ${|dsp6 ipmin;}$p
 			[[ $smax != "$slim" ]] || break
 			set -A ipnum -- "${ipmax[@]}"
 			typeset -gUui16 -Z7 ipnum[*]
