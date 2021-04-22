@@ -20,7 +20,9 @@
 # of said person’s immediate fault when using the work as intended.
 #-
 # Reads IP and Legacy IP addresses/networks with CIDR præfix lengths
-# from stdin, sorts and merges them and outputs that to stdout.
+# from stdin, sorts and merges them and outputs that to stdout; most
+# redundant /128 and /32 are omitted. Exits nōnzero on error however
+# some partial output may still be generated.
 
 unset LANGUAGE
 export LC_ALL=C
@@ -35,7 +37,7 @@ set +ex
 typeset -Uui10 ln=0
 oip=
 die() {
-	print -ru2 -- "E: (line #$ln) $oip$*"
+	print -ru2 -- "E: (line #$ln) ${oip:+[${oip@Q}] }$*"
 	exit 1
 }
 
@@ -79,9 +81,9 @@ chkipv6() {
 		x=${ipnum#16#}
 		s+=${x::4}:${x:4}
 	fi
-	[[ $s = ::* ]] && s=0$s
-	[[ $s = *:: ]] && s+=0
 	if [[ $s = *::* ]]; then
+		[[ $s = ::* ]] && s=0$s
+		[[ $s = *:: ]] && s+=0
 		x=${s%%::*}
 		y=0
 		z=${s#*::}
@@ -138,33 +140,6 @@ iprange6() {
 	done
 }
 
-printip() {
-	case $1 {
-	(4)
-		print -r -- 4 ${2#16#} ;;
-	(6)
-		print -r -- 6 ${2#16#}:${3#16#}:${4#16#}:${5#16#}:${6#16#}:${7#16#}:${8#16#}:${9#16#} ;;
-	(*)
-		local s x
-		for x in "$@"; do s+=" ${x@Q}"; done
-		die "printip:$s" ;;
-	}
-}
-
-printipr() {
-	case $1 {
-	(4)
-		print -r -- 4 ${2#16#} ${3#16#} ;;
-	(6)
-		print -r -- 6 ${2#16#}:${3#16#}:${4#16#}:${5#16#}:${6#16#}:${7#16#}:${8#16#}:${9#16#} \
-		    ${10#16#}:${11#16#}:${12#16#}:${13#16#}:${14#16#}:${15#16#}:${16#16#}:${17#16#} ;;
-	(*)
-		local s x
-		for x in "$@"; do s+=" ${x@Q}"; done
-		die "printipr:$s" ;;
-	}
-}
-
 p4() {
 	s4
 	ipnum=16#$1
@@ -193,12 +168,9 @@ inc6() {
 	done
 }
 
-cmp6() {
-	nameref sa=$1 sb=$3
-	local a b
-	a=${sa[0]#16#}:${sa[1]#16#}:${sa[2]#16#}:${sa[3]#16#}:${sa[4]#16#}:${sa[5]#16#}:${sa[6]#16#}:${sa[7]#16#}
-	b=${sb[0]#16#}:${sb[1]#16#}:${sb[2]#16#}:${sb[3]#16#}:${sb[4]#16#}:${sb[5]#16#}:${sb[6]#16#}:${sb[7]#16#}
-	eval "[[ \$a $2 \$b ]]"
+str6() {
+	nameref s=$1
+	REPLY=${s[0]#16#}:${s[1]#16#}:${s[2]#16#}:${s[3]#16#}:${s[4]#16#}:${s[5]#16#}:${s[6]#16#}:${s[7]#16#}
 }
 
 dsp6() {
@@ -212,22 +184,15 @@ dsp6() {
 	IFS=$' \t\n'
 	s=${fucking_rfc5952_mandates_lowercase//16#}
 	case $s {
-	(0:0:0:0:0:0:0:0)
-		REPLY=::
-		return ;;
-	(0:0:0:0:0:0:0:1)
-		REPLY=::1
-		return ;;
-	(*:0:0:0:0:0:0:0)
-		REPLY=${s%%:*}::
-		return ;;
-	(0:0:0:0:@(0:0|0:ffff|ffff:0):*|64:ff9b:0:0:0:0:*)
+	(0:0:0:0:0:0:0:[01])
+		;;
+	(0:0:0:0:0:0:*|0:0:0:0:0:ffff:*|0:0:0:0:ffff:0:*|64:ff9b:0:0:0:0:*)
 		s=${s%:*:*}:
 		suf=$((#(src[6]>>8)&0xFF)).$((#src[6]&0xFF)).$((#(src[7]>>8)&0xFF)).$((#src[7]&0xFF))
 		;;
 	}
 	for ns in :0:0:0:0:0:0: :0:0:0:0:0: :0:0:0:0: :0:0:0: :0:0:; do
-		if [[ $s = *$ns* ]]; then
+		if [[ $s = *"$ns"* ]]; then
 			s=${s/$ns/::}
 			[[ $s = *::0 ]] && s=${s%0}
 			[[ $s = 0::* ]] && s=${s#0}
@@ -238,39 +203,57 @@ dsp6() {
 }
 
 outipr() {
-	local pfxsuff
+	local snum smin smax slim i
 
 	case $1 {
 	(4)
 		p4 "$2" "$3"
 		while :; do
+			# technically not enough to prevent /32 below but speed
+			if (( ipnum == iplim )); then
+				print -r -- $((#ipnum>>24)).$((#(ipnum>>16)&0xFF)).$((#(ipnum>>8)&0xFF)).$((#ipnum&0xFF))
+				break
+			fi
 			# find matching leading subnet
 			pfxlen=0
+			((# (ipnum & 0xFFFF0000) != (iplim & 0xFFFF0000) )) || \
+			    pfxlen=16
 			while :; do
 				iprange4
 				((# ipmin != ipnum || ipmax > iplim )) || break
 				((# ++pfxlen ))
 			done
-			pfxsuff=/$pfxlen
-			((# pfxlen != 32 )) || pfxsuff=
-			print -r -- $((#ipmin>>24)).$((#(ipmin>>16)&0xFF)).$((#(ipmin>>8)&0xFF)).$((#ipmin&0xFF))$pfxsuff
-			((# ipmax == iplim )) && break
+			print -r -- $((#ipmin>>24)).$((#(ipmin>>16)&0xFF)).$((#(ipmin>>8)&0xFF)).$((#ipmin&0xFF))/$pfxlen
+			((# ipmax != iplim )) || break
 			((# ipnum = ipmax + 1 ))
 		done
 		;;
 	(6)
 		p6 "$2" "$3"
+		slim=${|str6 iplim;}
 		while :; do
+			snum=${|str6 ipnum;}
+			# technically not enough to prevent /128 below but speed
+			if [[ $snum = "$slim" ]]; then
+				print -r -- ${|dsp6 ipnum;}
+				break
+			fi
+			# find matching leading subnet
 			pfxlen=0
+			for i in 0 1 2 3 4 5 6; do
+				# speed; 7 won’t ever be matched here anyway
+				(( ipnum[i] == iplim[i] )) || break
+				((# pfxlen += 16 ))
+			done
 			while :; do
 				iprange6
-				cmp6 ipmin != ipnum || cmp6 ipmax '>' iplim || break
+				smin=${|str6 ipmin;}
+				smax=${|str6 ipmax;}
+				[[ $smin != "$snum" || $smax > $slim ]] || break
 				((# ++pfxlen ))
 			done
-			pfxsuff=/$pfxlen
-			((# pfxlen != 128 )) || pfxsuff=
-			print -r -- ${|dsp6 ipmin;}$pfxsuff
-			cmp6 ipmax = iplim && break
+			print -r -- ${|dsp6 ipmin;}/$pfxlen
+			[[ $smax != "$slim" ]] || break
 			set -A ipnum -- "${ipmax[@]}"
 			typeset -gUui16 -Z7 ipnum[*]
 			inc6
@@ -295,7 +278,8 @@ cmpr() {
 	(6)
 		p6 "$Lt" "$Cf"
 		inc6
-		cmp6 ipnum != iplim || return 1
+		local snum=${|str6 ipnum;} slim=${|str6 iplim;}
+		[[ $snum != "$slim" ]] || return 1
 		;;
 	(*)
 		local s x
@@ -307,32 +291,36 @@ cmpr() {
 
 while read -Ar; do
 	((# ++ln ))
-	for ip in "${REPLY[@]}"; do
-		oip="[${ip@Q}] "
-		unset pfxlen
-		if [[ $ip = */* ]]; then
-			pfxlen=${ip##*/}
-			ip=${ip%/*}
-		elif [[ $ip = *:* ]]; then
-			pfxlen=128
+	for oip in "${REPLY[@]}"; do
+		if [[ $oip = */* ]]; then
+			unset pfxlen
+			pfxlen=${oip##*/}
+			ip=${oip%/*}
+			[[ $pfxlen = @(0|[1-9]?([0-9]?([0-9]))) ]] || \
+			    die "prefixlen not numeric or too long"
 		else
-			pfxlen=32
+			if [[ $oip = *:* ]]; then
+				pfxlen=128
+			else
+				pfxlen=32
+			fi
+			ip=$oip
 		fi
-		[[ $pfxlen = @(0|[1-9]?([0-9]?([0-9]))) ]] || \
-		    die "prefixlen not numeric or too long"
 		if [[ $ip = *:* ]]; then
 			((# pfxlen <= 128 )) || \
 			    die "prefixlen too long"
 			chkipv6 "$ip" || \
 			    die "invalid IP address"
+			iprange6
+			print -r -- "6 ${|str6 ipmin;} ${|str6 ipmax;}"
 		else
 			((# pfxlen <= 32 )) || \
 			    die "prefixlen too long"
 			chkipv4 "$ip" || \
 			    die "invalid Legacy IP address"
+			iprange4
+			print -r -- "4 ${ipmin#16#} ${ipmax#16#}"
 		fi
-		eval "iprange$ipver"
-		printipr "$ipver" "${ipmin[@]}" "${ipmax[@]}"
 	done
 done | sort -u | {
 	die() {
@@ -341,12 +329,12 @@ done | sort -u | {
 	}
 	Ln=0
 	while read -r Cn Cf Ct; do
-		if [[ $Cn != $Ln ]] || cmpr "$Cn" "$Cf" "$Lt"; then
-			[[ $Ln = 0 ]] || outipr "$Ln" "$Lf" "$Lt"
+		if [[ $Cn != "$Ln" ]] || cmpr "$Cn" "$Cf" "$Lt"; then
+			(( Ln == 0 )) || outipr "$Ln" "$Lf" "$Lt"
 			Ln=$Cn Lf=$Cf Lt=$Ct
 			continue
 		fi
 		[[ $Ct < $Lt ]] || Lt=$Ct
 	done
-	[[ $Ln = 0 ]] || outipr "$Ln" "$Lf" "$Lt"
+	(( Ln == 0 )) || outipr "$Ln" "$Lf" "$Lt"
 }
