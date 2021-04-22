@@ -1,0 +1,352 @@
+#!/bin/mksh
+# -*- mode: sh -*-
+#-
+# Copyright © 2021
+#	mirabilos <t.glaser@tarent.de>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# Reads IP and Legacy IP addresses/networks with CIDR præfix lengths
+# from stdin, sorts and merges them and outputs that to stdout.
+
+unset LANGUAGE
+export LC_ALL=C
+
+set -ex
+: if these fail upgrade your mksh
+set -o noglob -o pipefail
+typeset -gUui16 -Z11 ipnum
+: ok, working...
+set +ex
+
+typeset -Uui10 ln=0
+oip=
+die() {
+	print -ru2 -- "E: (line #$ln) $oip$*"
+	exit 1
+}
+
+s4() {
+	unset ipnum ipmin ipmax iplim
+	typeset -gUui16 -Z11 ipnum=0 ipmin=0 ipmax=0 iplim=0
+}
+
+s6() {
+	unset ipnum ipmin ipmax iplim
+	typeset -gUui16 -Z7 ipnum=0 ipmin=0 ipmax=0 iplim=0
+}
+
+chkipv4() {
+	local a x
+	local -Uui16 i
+
+	[[ $1 = +([0-9]).+([0-9]).+([0-9]).+([0-9]) ]] || return 1
+	IFS=.
+	set -A a -- $1
+	IFS=$' \t\n'
+	s4
+	for x in "${a[@]}"; do
+		((# ${#x} > 0 && ${#x} <= 3 )) || return 1
+		i=10#$x
+		((# i <= 255 )) || return 1
+		((# ipnum = (ipnum << 8) | i ))
+	done
+	ipver=4
+}
+
+chkipv6() {
+	local -u u=$1
+	local s=$u w x y z
+
+	if [[ $s = *:*.* ]]; then
+		x=${s##*:}
+		s=${s%"$x"}
+		chkipv4 "$x" || return 1
+		ipver=
+		x=${ipnum#16#}
+		s+=${x::4}:${x:4}
+	fi
+	[[ $s = ::* ]] && s=0$s
+	[[ $s = *:: ]] && s+=0
+	if [[ $s = *::* ]]; then
+		x=${s%%::*}
+		y=0
+		z=${s#*::}
+		while :; do
+			s=$x:$y:$z
+			w=${s//[!:]}
+			((# ${#w} < 7 )) || break
+			y+=:0
+		done
+	fi
+	[[ $s = +([0-9A-F:]) ]] || return 1
+	IFS=:
+	set -A z -- $s
+	IFS=$' \t\n'
+	s6
+	x=0
+	for w in "${z[@]}"; do
+		((# ${#w} > 0 && ${#w} <= 4 )) || return 1
+		ipnum[x++]=16#$w
+	done
+	((# x == 8 )) || return 1
+	ipver=6
+}
+
+set -A mask4 -- 0x00000000 \
+    0x80000000 0xC0000000 0xE0000000 0xF0000000 \
+    0xF8000000 0xFC000000 0xFE000000 0xFF000000 \
+    0xFF800000 0xFFC00000 0xFFE00000 0xFFF00000 \
+    0xFFF80000 0xFFFC0000 0xFFFE0000 0xFFFF0000 \
+    0xFFFF8000 0xFFFFC000 0xFFFFE000 0xFFFFF000 \
+    0xFFFFF800 0xFFFFFC00 0xFFFFFE00 0xFFFFFF00 \
+    0xFFFFFF80 0xFFFFFFC0 0xFFFFFFE0 0xFFFFFFF0 \
+    0xFFFFFFF8 0xFFFFFFFC 0xFFFFFFFE 0xFFFFFFFF
+
+set -A mask6 -- 0x0000 \
+    0x8000 0xC000 0xE000 0xF000 \
+    0xF800 0xFC00 0xFE00 0xFF00 \
+    0xFF80 0xFFC0 0xFFE0 0xFFF0 \
+    0xFFF8 0xFFFC 0xFFFE 0xFFFF
+
+iprange4() {
+	((# ipmin = ipnum & mask4[pfxlen] ))
+	((# ipmax = ipnum | ~mask4[pfxlen] ))
+}
+
+iprange6() {
+	local -i n rpl=$pfxlen p
+
+	for n in 0 1 2 3 4 5 6 7; do
+		((# p = rpl > 16 ? 16 : rpl ))
+		((# rpl -= p ))
+		((# ipmin[n] = ipnum[n] & mask6[p] ))
+		((# ipmax[n] = ipnum[n] | ~mask6[p] ))
+	done
+}
+
+printip() {
+	case $1 {
+	(4)
+		print -r -- 4 ${2#16#} ;;
+	(6)
+		print -r -- 6 ${2#16#}:${3#16#}:${4#16#}:${5#16#}:${6#16#}:${7#16#}:${8#16#}:${9#16#} ;;
+	(*)
+		local s x
+		for x in "$@"; do s+=" ${x@Q}"; done
+		die "printip:$s" ;;
+	}
+}
+
+printipr() {
+	case $1 {
+	(4)
+		print -r -- 4 ${2#16#} ${3#16#} ;;
+	(6)
+		print -r -- 6 ${2#16#}:${3#16#}:${4#16#}:${5#16#}:${6#16#}:${7#16#}:${8#16#}:${9#16#} \
+		    ${10#16#}:${11#16#}:${12#16#}:${13#16#}:${14#16#}:${15#16#}:${16#16#}:${17#16#} ;;
+	(*)
+		local s x
+		for x in "$@"; do s+=" ${x@Q}"; done
+		die "printipr:$s" ;;
+	}
+}
+
+p4() {
+	s4
+	ipnum=16#$1
+	iplim=16#$2
+}
+
+p6() {
+	s6
+	p6h ipnum "$1"
+	p6h iplim "$2"
+}
+
+p6h() {
+	nameref d=$1
+	local s=0x${2//:/ 0x}
+	set -A d $s
+	typeset -gUui16 -Z7 d[*]
+}
+
+inc6() {
+	local n=8
+
+	while ((# n-- )); do
+		((# ++ipnum[n] > 0xFFFF )) || break
+		((# ipnum[n] = 0 ))
+	done
+}
+
+cmp6() {
+	nameref sa=$1 sb=$3
+	local a b
+	a=${sa[0]#16#}:${sa[1]#16#}:${sa[2]#16#}:${sa[3]#16#}:${sa[4]#16#}:${sa[5]#16#}:${sa[6]#16#}:${sa[7]#16#}
+	b=${sb[0]#16#}:${sb[1]#16#}:${sb[2]#16#}:${sb[3]#16#}:${sb[4]#16#}:${sb[5]#16#}:${sb[6]#16#}:${sb[7]#16#}
+	eval "[[ \$a $2 \$b ]]"
+}
+
+dsp6() {
+	nameref src=$1
+	local -l fucking_rfc5952_mandates_lowercase
+	local arr s ns suf
+	set -A arr -- "${src[@]}"
+	typeset -gUui16 arr[*]
+	IFS=:
+	fucking_rfc5952_mandates_lowercase="${arr[*]}"
+	IFS=$' \t\n'
+	s=${fucking_rfc5952_mandates_lowercase//16#}
+	case $s {
+	(0:0:0:0:0:0:0:0)
+		REPLY=::
+		return ;;
+	(0:0:0:0:0:0:0:1)
+		REPLY=::1
+		return ;;
+	(*:0:0:0:0:0:0:0)
+		REPLY=${s%%:*}::
+		return ;;
+	(0:0:0:0:@(0:0|0:ffff|ffff:0):*|64:ff9b:0:0:0:0:*)
+		s=${s%:*:*}:
+		suf=$((#(src[6]>>8)&0xFF)).$((#src[6]&0xFF)).$((#(src[7]>>8)&0xFF)).$((#src[7]&0xFF))
+		;;
+	}
+	for ns in :0:0:0:0:0:0: :0:0:0:0:0: :0:0:0:0: :0:0:0: :0:0:; do
+		if [[ $s = *$ns* ]]; then
+			s=${s/$ns/::}
+			[[ $s = *::0 ]] && s=${s%0}
+			[[ $s = 0::* ]] && s=${s#0}
+			break
+		fi
+	done
+	REPLY=$s$suf
+}
+
+outipr() {
+	local pfxsuff
+
+	case $1 {
+	(4)
+		p4 "$2" "$3"
+		while :; do
+			# find matching leading subnet
+			pfxlen=0
+			while :; do
+				iprange4
+				((# ipmin != ipnum || ipmax > iplim )) || break
+				((# ++pfxlen ))
+			done
+			pfxsuff=/$pfxlen
+			((# pfxlen != 32 )) || pfxsuff=
+			print -r -- $((#ipmin>>24)).$((#(ipmin>>16)&0xFF)).$((#(ipmin>>8)&0xFF)).$((#ipmin&0xFF))$pfxsuff
+			((# ipmax == iplim )) && break
+			((# ipnum = ipmax + 1 ))
+		done
+		;;
+	(6)
+		p6 "$2" "$3"
+		while :; do
+			pfxlen=0
+			while :; do
+				iprange6
+				cmp6 ipmin != ipnum || cmp6 ipmax '>' iplim || break
+				((# ++pfxlen ))
+			done
+			pfxsuff=/$pfxlen
+			((# pfxlen != 128 )) || pfxsuff=
+			print -r -- ${|dsp6 ipmin;}$pfxsuff
+			cmp6 ipmax = iplim && break
+			set -A ipnum -- "${ipmax[@]}"
+			typeset -gUui16 -Z7 ipnum[*]
+			inc6
+		done
+		;;
+	(*)
+		local s x
+		for x in "$@"; do s+=" ${x@Q}"; done
+		die "outipr:$s" ;;
+	}
+}
+
+cmpr() {
+	local Cn=$1 Cf=$2 Lt=$3
+
+	[[ $Cf > $Lt ]] || return 1
+	case $Cn {
+	(4)
+		p4 "$Lt" "$Cf"
+		((# ++ipnum != iplim )) || return 1
+		;;
+	(6)
+		p6 "$Lt" "$Cf"
+		inc6
+		cmp6 ipnum != iplim || return 1
+		;;
+	(*)
+		local s x
+		for x in "$@"; do s+=" ${x@Q}"; done
+		die "cmpr:$s" ;;
+	}
+	return 0
+}
+
+while read -Ar; do
+	((# ++ln ))
+	for ip in "${REPLY[@]}"; do
+		oip="[${ip@Q}] "
+		unset pfxlen
+		if [[ $ip = */* ]]; then
+			pfxlen=${ip##*/}
+			ip=${ip%/*}
+		elif [[ $ip = *:* ]]; then
+			pfxlen=128
+		else
+			pfxlen=32
+		fi
+		[[ $pfxlen = @(0|[1-9]?([0-9]?([0-9]))) ]] || \
+		    die "prefixlen not numeric or too long"
+		if [[ $ip = *:* ]]; then
+			((# pfxlen <= 128 )) || \
+			    die "prefixlen too long"
+			chkipv6 "$ip" || \
+			    die "invalid IP address"
+		else
+			((# pfxlen <= 32 )) || \
+			    die "prefixlen too long"
+			chkipv4 "$ip" || \
+			    die "invalid Legacy IP address"
+		fi
+		eval "iprange$ipver"
+		printipr "$ipver" "${ipmin[@]}" "${ipmax[@]}"
+	done
+done | sort -u | {
+	die() {
+		print -ru2 -- "E: $*"
+		exit 1
+	}
+	Ln=0
+	while read -r Cn Cf Ct; do
+		if [[ $Cn != $Ln ]] || cmpr "$Cn" "$Cf" "$Lt"; then
+			[[ $Ln = 0 ]] || outipr "$Ln" "$Lf" "$Lt"
+			Ln=$Cn Lf=$Cf Lt=$Ct
+			continue
+		fi
+		[[ $Ct < $Lt ]] || Lt=$Ct
+	done
+	[[ $Ln = 0 ]] || outipr "$Ln" "$Lf" "$Lt"
+}
