@@ -34,13 +34,6 @@ typeset -gUui16 -Z11 ipnum
 : ok, working...
 set +ex
 
-typeset -Uui10 ln=0
-oip=
-die() {
-	print -ru2 -- "E: (line #$ln) ${oip:+[${oip@Q}] }$*"
-	exit 1
-}
-
 s4() {
 	unset ipnum ipmin ipmax iplim
 	typeset -gUui16 -Z11 ipnum=0 ipmin=0 ipmax=0 iplim=0
@@ -289,9 +282,19 @@ cmpr() {
 	return 0
 }
 
-while read -Ar; do
-	((# ++ln ))
-	for oip in "${REPLY[@]}"; do
+die() {
+	print -ru2 -- "E: $*"
+	exit 1
+}
+Ln=0
+for Ct in $(
+	die() {
+		print -ru2 -- "E: ${oip:+[${oip@Q}] }$*"
+		print 1
+		exit 1
+	}
+
+	for oip in $(cat); do
 		if [[ $oip = */* ]]; then
 			unset pfxlen
 			pfxlen=${oip##*/}
@@ -312,29 +315,35 @@ while read -Ar; do
 			chkipv6 "$ip" || \
 			    die "invalid IP address"
 			iprange6
-			print -r -- "6 ${|str6 ipmin;} ${|str6 ipmax;}"
+			print -r -- "6${|str6 ipmin;}-${|str6 ipmax;}"
 		else
 			((# pfxlen <= 32 )) || \
 			    die "prefixlen too long"
 			chkipv4 "$ip" || \
 			    die "invalid Legacy IP address"
 			iprange4
-			print -r -- "4 ${ipmin#16#} ${ipmax#16#}"
+			print -r -- "4${ipmin#16#}-${ipmax#16#}"
 		fi
-	done
-done | sort -u | {
-	die() {
-		print -ru2 -- "E: $*"
-		exit 1
+	done | sort -u
+    ); do
+	Cn=${Ct::1}
+	case $Cn {
+	(4)
+		Cf=${Ct:1:8}
+		Ct=${Ct:10}
+		;;
+	(6)
+		Cf=${Ct:1:39}
+		Ct=${Ct:41}
+		;;
+	(*)
+		exit 1 ;;
 	}
-	Ln=0
-	while read -r Cn Cf Ct; do
-		if [[ $Cn != "$Ln" ]] || cmpr "$Cn" "$Cf" "$Lt"; then
-			(( Ln == 0 )) || outipr "$Ln" "$Lf" "$Lt"
-			Ln=$Cn Lf=$Cf Lt=$Ct
-			continue
-		fi
-		[[ $Ct < $Lt ]] || Lt=$Ct
-	done
-	(( Ln == 0 )) || outipr "$Ln" "$Lf" "$Lt"
-}
+	if [[ $Cn != "$Ln" ]] || cmpr "$Cn" "$Cf" "$Lt"; then
+		(( Ln == 0 )) || outipr "$Ln" "$Lf" "$Lt"
+		Ln=$Cn Lf=$Cf Lt=$Ct
+		continue
+	fi
+	[[ $Ct < $Lt ]] || Lt=$Ct
+done
+(( Ln == 0 )) || outipr "$Ln" "$Lf" "$Lt"
