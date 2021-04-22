@@ -52,25 +52,28 @@ s6() {
 }
 
 chkipv4() {
-	local a x
+	local a b x
 	local -Uui16 i
 
-	[[ $1 = +([0-9]).+([0-9]).+([0-9]).+([0-9]) ]] || return 1
+	[[ $ip = +([0-9.]) ]] || return 1
 	IFS=.
-	set -A a -- $1
+	set -A a -- $ip
 	IFS=$' \t\n'
 	s4
-	for x in "${a[@]}"; do
-		((# ${#x} > 0 && ${#x} <= 3 )) || return 1
-		i=10#$x
+	x=0
+	for b in "${a[@]}"; do
+		((# ${#b} > 0 && ${#b} <= 3 )) || return 1
+		i=10#$b
 		((# i <= 255 )) || return 1
 		((# ipnum = (ipnum << 8) | i ))
+		((# ++x ))
 	done
+	((# x == 4 )) || return 1
 	ipver=4
 }
 
 chkipv6() {
-	local -u u=$1
+	local -u u=$ip
 	local s=$u w x y z
 
 	if [[ $s = *:*.* ]]; then
@@ -163,7 +166,7 @@ inc6() {
 	local n=8
 
 	while ((# n-- )); do
-		((# ++ipnum[n] > 0xFFFF )) || break
+		((# ++ipnum[n] > 0xFFFF )) || return 0
 		((# ipnum[n] = 0 ))
 	done
 }
@@ -179,10 +182,8 @@ dsp6() {
 	local arr s ns suf
 	set -A arr -- "${src[@]}"
 	typeset -gUui16 arr[*]
-	IFS=:
-	fucking_rfc5952_mandates_lowercase="${arr[*]}"
-	IFS=$' \t\n'
-	s=${fucking_rfc5952_mandates_lowercase//16#}
+	fucking_rfc5952_mandates_lowercase=${|str6 arr;}
+	s=$fucking_rfc5952_mandates_lowercase
 	case $s {
 	(0:0:0:0:0:0:0:[01])
 		;;
@@ -205,9 +206,9 @@ dsp6() {
 outipr() {
 	local snum smin smax slim i p
 
-	case $1 {
+	case $Ln {
 	(4)
-		p4 "$2" "$3"
+		p4 "$Lf" "$Lt"
 		while :; do
 			if (( ipnum == iplim )); then
 				print -r -- $((#ipnum>>24)).$((#(ipnum>>16)&0xFF)).$((#(ipnum>>8)&0xFF)).$((#ipnum&0xFF))
@@ -230,7 +231,7 @@ outipr() {
 		done
 		;;
 	(6)
-		p6 "$2" "$3"
+		p6 "$Lf" "$Lt"
 		slim=${|str6 iplim;}
 		while :; do
 			snum=${|str6 ipnum;}
@@ -261,34 +262,31 @@ outipr() {
 			inc6
 		done
 		;;
+	(0)
+		;;
 	(*)
-		local s x
-		for x in "$@"; do s+=" ${x@Q}"; done
-		die "outipr:$s" ;;
+		die outipr "$Ln" ;;
 	}
 }
 
 cmpr() {
-	local Cn=$1 Cf=$2 Lt=$3
-
-	[[ $Cf > $Lt ]] || return 1
+	[[ $Cn$Cf > $Ln$Lt ]] || return 1
 	case $Cn {
 	(4)
 		p4 "$Lt" "$Cf"
 		((# ++ipnum != iplim )) || return 1
+		return 0
 		;;
 	(6)
 		p6 "$Lt" "$Cf"
 		inc6
 		local snum=${|str6 ipnum;} slim=${|str6 iplim;}
 		[[ $snum != "$slim" ]] || return 1
+		return 0
 		;;
 	(*)
-		local s x
-		for x in "$@"; do s+=" ${x@Q}"; done
-		die "cmpr:$s" ;;
+		die cmpr "$Cn" ;;
 	}
-	return 0
 }
 
 while read -Ar; do
@@ -300,6 +298,11 @@ while read -Ar; do
 			ip=${oip%/*}
 			[[ $pfxlen = @(0|[1-9]?([0-9]?([0-9]))) ]] || \
 			    die "prefixlen not numeric or too long"
+			if [[ $ip = *:* ]]; then
+				((# pfxlen <= 128 )) || die "prefixlen too big"
+			else
+				((# pfxlen <= 32 )) || die "prefixlen too big"
+			fi
 		else
 			if [[ $oip = *:* ]]; then
 				pfxlen=128
@@ -309,17 +312,11 @@ while read -Ar; do
 			ip=$oip
 		fi
 		if [[ $ip = *:* ]]; then
-			((# pfxlen <= 128 )) || \
-			    die "prefixlen too long"
-			chkipv6 "$ip" || \
-			    die "invalid IP address"
+			chkipv6 || die "invalid IP address"
 			iprange6
 			print -r -- "6 ${|str6 ipmin;} ${|str6 ipmax;}"
 		else
-			((# pfxlen <= 32 )) || \
-			    die "prefixlen too long"
-			chkipv4 "$ip" || \
-			    die "invalid Legacy IP address"
+			chkipv4 || die "invalid Legacy IP address"
 			iprange4
 			print -r -- "4 ${ipmin#16#} ${ipmax#16#}"
 		fi
@@ -331,12 +328,12 @@ done | sort -u | {
 	}
 	Ln=0
 	while read -r Cn Cf Ct; do
-		if [[ $Cn != "$Ln" ]] || cmpr "$Cn" "$Cf" "$Lt"; then
-			(( Ln == 0 )) || outipr "$Ln" "$Lf" "$Lt"
+		if cmpr; then
+			outipr
 			Ln=$Cn Lf=$Cf Lt=$Ct
-			continue
+		elif [[ $Ct > $Lt ]]; then
+			Lt=$Ct
 		fi
-		[[ $Ct < $Lt ]] || Lt=$Ct
 	done
-	(( Ln == 0 )) || outipr "$Ln" "$Lf" "$Lt"
+	outipr
 }
