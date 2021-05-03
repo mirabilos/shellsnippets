@@ -45,7 +45,7 @@ set -o pipefail
 #cd ~postgres || die 2 'HOME directory of management user postgres doesn’t exist'
 #cd dumps || die 2 'dumps subdirectory doesn’t exist'
 #dst=$(realpath .) || die 2 'huh?'
-dst=/var/backups/local/postgres
+dst=/var/backups/postgres
 cd /
 umask 077
 
