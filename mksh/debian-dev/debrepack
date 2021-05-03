@@ -1,7 +1,7 @@
 #!/bin/mksh
 #-
-# Copyright © 2015
-#	Thorsten “mirabilos” Glaser <tg@mirbsd.org>
+# Copyright © 2015, 2021
+#	mirabilos <tg@debian.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission
@@ -84,4 +84,4 @@ set -ex
 (cd c && find . | sort | paxcpio -oC512 -Hustar -Minodes -Mlinks -Muidgid -Mgslash) | \
     $cc >"$cf"
 
-paxtar -A -M dist -cf "${fp}_${fv}_${fa}.deb" debian-binary "$cf" "$df"
+paxtar -D ar -M dist -cf "${fp}_${fv}_${fa}.deb" debian-binary "$cf" "$df"
