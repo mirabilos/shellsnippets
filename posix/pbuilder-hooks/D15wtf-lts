@@ -1,0 +1,56 @@
+#!/bin/sh
+# $MirOS: contrib/hosted/tg/deb/hookdir/D15wtf-lts,v 1.2 2021/04/25 23:54:16 tg Exp $
+#-
+# Not complicated enough for copyright.
+
+unset LANGUAGE
+LC_ALL=C; export LC_ALL
+
+d=${DIST%/*}
+d=${d%-backports*}
+case $d in
+(wheezy|jessie|stretch|buster|bullseye)
+	;;
+(sid|dpo)
+	echo >&2 W: D15wtf-lts: adding testing-LTS for unstable!
+	d=bullseye
+	;;
+(*)
+	echo >&2 W: D15wtf-lts: ignoring unknown DIST "'$DIST'"
+	exit 0
+	;;
+esac
+
+# Import 2018 key
+apt-key add - <<'EOF'
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+
+mQGNBFlP41MBDADGjAsxl0jbdknmg2CHKf7gQPBxOBk5/qw6F5HAOthBM/14sohA
+iwXyXW7oEcmPAKc7v8yn+A/JjrCfsp6rXUnMlB37zr5qb0JIO1o3p0guekGGJ/in
+48NClFMQU71MmOvaRWIKrNVtFIhLcFncCU9k6bB1hCnhhSmHGBlsIIGhInIHbv4o
+5IZYKb0BWJ1SqiOLAwYblstUIcFGR2K+z3l+hwFgMFM0VhMCi0fCyrdEWw9Qs1I1
+l0K3hzG2WUOhWO+aY4qoOyPlMc3a9zXBFdc0JHptRgh3JTBf2gK3kO6wcPfdG5Hq
+btCstesRFYS9nOoKwyxg80iZYpV4+q6POeS43Xfi2APXB+3tXAQJ5+dCYam/jlzu
+oyPAEZxai5R8m1q9SD+c16nx8F5GSuEoAcvfyAc7EqhCfnjh3o2/QokOPPboMRWW
+s46FaIWZiuNf8p1hfgj6cjH1ny124AbvvClddCDPuFwwXVxRji3ApeOwPUkqoFDn
+zebsA4OA2+ggEGEAEQEAAbQxU2lnbmluZyBrZXkgMjAxOCBmb3Ig4oCcV1RG4oCd
+IHBhY2thZ2UgcmVwb3NpdG9yeYkBuwQTAQkAJQIbAwULCAQJBwUVCQoDCAMWAgAC
+HgECF4AFAl3YB/oFCQwM8qIACgkQAgir6mZzodk/Xwv9Hw3T+DVlTYDgUtrkj3hy
+U/r75ng4RX0w8de/q3KuCWW9J8gx+CrZ3sy4xjJYZPpy4y7SilDNudzJcS3Qe88T
+LdeO4x68MruAERZQNHfw1uKdg05LGV1a8ISrc5mB0lsL82eRewde/47DeZhln7R6
+x2/fOZQNVtdRM0g+Auwlsd+LvTvLe1mGIjXOIA6vJYvbKYNalO0PQtz3WWbKkUYG
+JqIu1RwEtnGraKQOqulCO775fQdG1SCK3BmqAmTcb3UmkJBwsQGCIU6EYspexnq7
+BHbWrVpA2Q+1k6xR5cYctJCw0PDNYQrSNR7T4ZkW+pu65IOHq33+h+GTIMIwiZ51
+u96fgu6za40eVr7cVyaj6BrNEBiJ2q7qL2DNi8rM4kuZzIrvUWEnjnZJC4w22ABW
+ePRDsE2zp3D/toKEL8DruIg7D1iwde8m7Ut4vDhl0RDLd6xRAy0Vaw9h4rWtW8OZ
+4vcfr/+2s0fcsj6hcQqjPyvlbEoBmgK1TJHm/+aytozg
+=pYYz
+-----END PGP PUBLIC KEY BLOCK-----
+EOF
+
+cat >>/etc/apt/sources.list <<EOF
+deb http://www.mirbsd.org/~tg/Debs/ $d lts
+EOF
+
+apt-get update
+apt-get -y --purge dist-upgrade

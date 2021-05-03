@@ -1,0 +1,30 @@
+#!/bin/sh
+# $MirOS: contrib/hosted/tg/deb/hookdir/D26backportsloppy,v 1.1 2019/12/04 07:27:09 tg Exp $
+#-
+# Not complicated enough for copyright.
+
+unset LANGUAGE
+LC_ALL=C; export LC_ALL
+
+d=${DIST%/*}
+d=${d%-backports*}
+case $d in
+(lenny|squeeze)
+	echo deb http://archive.debian.org/debian-backports/ \
+	    $d-backports-sloppy main >>/etc/apt/sources.list
+	;;
+(wheezy|jessie)
+	echo deb http://archive.debian.org/debian/ \
+	    $d-backports-sloppy main >>/etc/apt/sources.list
+	;;
+(stretch)
+	echo deb http://deb.debian.org/debian/ \
+	    $d-backports-sloppy main >>/etc/apt/sources.list
+	;;
+(*)
+	echo >&2 W: D26backportsloppy: ignoring unknown DIST "'$DIST'"
+	exit 0
+	;;
+esac
+
+apt-get update

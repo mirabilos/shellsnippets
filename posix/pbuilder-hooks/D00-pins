@@ -1,0 +1,17 @@
+#!/bin/sh
+# $MirOS: contrib/hosted/tg/deb/hookdir/D00-pins,v 1.1 2020/10/31 07:21:35 tg Exp $
+#-
+# Not complicated enough for copyright.
+
+unset LANGUAGE
+LC_ALL=C; export LC_ALL
+
+# depends on systemd, gconf-gsettings-backend replaces it
+cat >>/etc/apt/preferences <<\EOF
+Package: dconf-gsettings-backend
+Pin: version *
+Pin-Priority: -1
+
+EOF
+
+exit 0

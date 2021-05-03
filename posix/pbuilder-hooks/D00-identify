@@ -1,0 +1,27 @@
+#!/bin/sh
+# $MirOS: contrib/hosted/tg/deb/hookdir/D00-identify,v 1.1 2021/01/21 21:24:38 tg Exp $
+#-
+# © 2021 mirabilos Ⓕ CC0
+
+unset LANGUAGE
+LC_ALL=C; export LC_ALL
+
+exec >&2
+echo "I: building on $(cat /etc/issue.net 2>&1)" \
+    "(debian_version $(cat /etc/debian_version 2>&1))"
+
+set -- debian_chroot PBUILDERSATISFYDEPENDSCMD isbackports \
+    APTCACHE BASEPATH BUILDPLACE BUILDDIR BUILDRESULT \
+    BUILD_ARCH DISTRIBUTION
+test x"$DISTRIBUTION" = x"$DIST" || set -- "$@" DIST
+set -- "$@" ARCHITECTURE
+test x"$ARCHITECTURE" = x"$ARCH" || set -- "$@" ARCH
+
+for var in "$@"; do
+	eval "v=\${$var}" || continue
+	test -n "$v" || continue
+	echo "N: $var=$v"
+done
+
+echo "I: $(uname -a)"
+exit 0
