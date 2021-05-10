@@ -215,7 +215,7 @@ pystones() {
 }
 
 # using Git to create coloured diffs of arbitrary files
-alias cdiff='git diff --color=always --no-index --no-prefix'
+alias cdiff='git diff --color=auto --no-index --no-prefix'
 
 # map TO_CLIPBOARD and PASTE_URL lynx keymap entries to commands
 export RL_CLCOPY_CMD='xsel -ib'
