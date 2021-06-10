@@ -80,7 +80,14 @@ set -ex
 (cd d && find . -type f | sed s,^./,, | sort | xargs md5sum --) >c/md5sums
 (cd d && find . | sort | paxcpio -oC512 -Hustar -Minodes -Mlinks -Muidgid -Mgslash) | \
     $dc >"$df"
-(cd c && chmod 644 *)
+for x in c/*; do
+	if [[ $x = c/config || $x = c/@(post|pre)@(inst|rm) ]]; then
+		p=755
+	else
+		p=644
+	fi
+	chmod $p "$x"
+done
 (cd c && find . | sort | paxcpio -oC512 -Hustar -Minodes -Mlinks -Muidgid -Mgslash) | \
     $cc >"$cf"
 
