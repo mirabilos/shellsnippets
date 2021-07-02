@@ -1,4 +1,4 @@
-# $MirOS: contrib/code/Snippets/getshver,v 1.25 2021/04/03 21:17:01 tg Exp $
+# $MirOS: contrib/code/Snippets/getshver,v 1.26 2021/06/22 14:46:26 tg Exp $
 #-
 # Copyright (c) 2009, 2010, 2011, 2012, 2013, 2014, 2016, 2018,
 #		2019, 2021
@@ -131,6 +131,7 @@ x) ;;
 x2*) x=bash2 ;;
 x3*) x=bash3 ;;
 x4*) x=bash4 ;;
+x5*) x=bash5 ;;
 # either bash1 or an unlikely version
 *) x=bash ;;
 esac
