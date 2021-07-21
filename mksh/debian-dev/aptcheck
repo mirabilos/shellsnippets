@@ -20,7 +20,8 @@
 # of said person’s immediate fault when using the work as intended.
 #-
 # Check dpkg/APT package database for packages not at a repository’s
-# version, or not up-to-date excluding backports.
+# version, or not up-to-date excluding backports. It also shows both
+# bpo and nōn-backports nearest versions.
 
 LC_ALL=C; export LC_ALL
 unset LANGUAGE
@@ -66,8 +67,24 @@ function maybe_emit {
 		if (( y & 1 )); then
 			if (( y == 1 )); then
 				z="$pkg ${vers[x]} not in repository"
-				if (( x == 0 )); then
+				if (( nver == 1 )); then
+					z+=' (unique local package)'
+				elif (( x == 0 )); then
 					z+=' (newer than all other versions)'
+					nobpnewer= bpnewer=
+					while (( ++x < nver )); do
+						if (( typs[x] == 2 )); then
+							[[ -n $bpnewer ]] || \
+							    bpnewer=${vers[x]}
+						else
+							[[ -n $nobpnewer ]] || \
+							    nobpnewer=${vers[x]}
+						fi
+					done
+					z+=', downgrade to'
+					[[ -z $nobpnewer ]] || z+=" $nobpnewer"
+					[[ -z $bpnewer ]] || z+=" bpo $bpnewer"
+					x=0
 				else
 					z+=', upgrade to'
 					[[ -z $nobpnewer ]] || z+=" $nobpnewer"
