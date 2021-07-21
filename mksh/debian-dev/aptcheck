@@ -105,7 +105,8 @@ function die {
 
 init_progress_bar 80
 trap 'e=$?; cd /; rm -rf "$T"; done_progress_bar $e' EXIT
-dpkg-query -Wf '${db:Status-Abbrev}\t${binary:Package}\t${Version}\n' >pl
+dpkg-query -Wf '${db:Status-Abbrev}\t${binary:Package}\t${Version}\n' \
+    -- "$@" >pl
 totpkgs=$(wc -l <pl)
 redo_progress_bar $((totpkgs + 2))
 draw_progress_bar
