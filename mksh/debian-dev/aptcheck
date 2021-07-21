@@ -1,0 +1,150 @@
+#!/usr/bin/env mksh
+# -*- mode: sh -*-
+#-
+# Copyright © 2021
+#	mirabilos <t.glaser@tarent.de>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# Check dpkg/APT package database for packages not at a repository’s
+# version, or not up-to-date excluding backports.
+
+LC_ALL=C; export LC_ALL
+unset LANGUAGE
+set -o noglob
+
+function acquire {
+	local s p v
+
+	dpkg-query -Wf '${db:Status-Abbrev}\t${binary:Package}\t${Version}\n' | \
+	    while IFS=$'\t' read -r s p v; do
+		if [[ $s = [ih]'i ' ]]; then
+			print -r -- "$p"
+		else
+			print -ru4 "$p $v ERROR STATUS '$s'"
+		fi
+	done | xargs -d '\n' -r apt-cache policy --
+	print _
+}
+
+function handle_s3 {
+	(( s == 3 )) || return
+	vers[nver]=$cv
+	(( rtype > 0 )) || die no archive for version
+	typs[nver]=$rtype
+	let ++nver
+	cv=
+	s=2
+}
+
+function maybe_emit {
+	local bpnewer= nobpnewer= x y z
+
+	handle_s3
+	cv=
+	(( nver > 0 )) || die no versions for package
+	x=-1
+	while (( ++x < nver )); do
+		y=${typs[x]}
+		if (( y & 1 )); then
+			if (( y == 1 )); then
+				z="$pkg ${vers[x]} not in repository"
+				if (( x == 0 )); then
+					z+=' (newer than all other versions)'
+				else
+					z+=', upgrade to'
+					[[ -z $nobpnewer ]] || z+=" $nobpnewer"
+					[[ -z $bpnewer ]] || z+=" bpo $bpnewer"
+				fi
+				print -r -- "$z"
+			elif [[ -n $nobpnewer ]]; then
+				print -r -- $pkg $nobpnewer newer than ${vers[x]}
+			fi
+			break
+		fi
+		if (( y == 2 )); then
+			[[ -n $bpnewer ]] || bpnewer=${vers[x]}
+		else
+			[[ -n $nobpnewer ]] || nobpnewer=${vers[x]}
+		fi
+	done
+	(( x < nver )) || print -r -- "$pkg ? not installed?"
+	return 0 # comment out to debug
+
+	z=_debug:$pkg
+	x=-1
+	while (( ++x < nver )); do
+		z+=" ${typs[x]}(${vers[x]})"
+	done
+	print -r -- "$z"
+}
+
+function die {
+	print -ru2 -- "E: $*"
+	print -ru2 -- "N: line: $line"
+	print -ru2 -- "N: pkg: $pkg  - ver: $cv  - state: $s"
+	exit 1
+}
+
+exec 4>&1
+acquire |&
+s=0 pkg= cv=
+while IFS= read -pr line; do
+	if [[ $line != ' '* ]]; then
+		(( s == 0 )) || maybe_emit
+		pkg=${line%:}
+		cv=
+		s=1
+		continue
+	fi
+	(( s > 0 )) || die invalid first line
+	if (( s == 1 )); then
+		[[ $line = '  Version table:' ]] || continue
+		set -A vers
+		set -A typs
+		nver=0
+		iver=-1
+		s=2
+		continue
+	fi
+	if [[ $line = '        '* ]]; then
+		(( s == 3 )) || die unexpected archive line
+		case ${line##+( )} {
+		(*' /var/lib/dpkg/status')
+			(( rtype |= 1 )) ;;
+		(*'-backports'?(-sloppy)'/'+([a-z])' '+([a-z0-9])' Packages')
+			(( rtype |= 2 )) ;;
+		(*' '*' '*/*' '+([a-z0-9])' Packages')
+			(( rtype |= 4 )) ;;
+		(*)
+			die unknown archive line ;;
+		}
+		continue
+	fi
+	if [[ $line = ' *** '* ]]; then
+		x=1
+	elif [[ $line = '     '* ]]; then
+		x=0
+	else
+		die unexpected line type, expected version
+	fi
+	handle_s3
+	s=3
+	set -- $line
+	shift $x
+	cv=$1
+	rtype=0
+done
