@@ -24,21 +24,24 @@
 
 LC_ALL=C; export LC_ALL
 unset LANGUAGE
+
+set -e
+set -o pipefail
+me=$(realpath "$0/..")
+if [[ ! -s $me/progress-bar && -s $me/../progress-bar ]]; then
+	. "$me/../progress-bar"
+else
+	. "$me/progress-bar"
+fi
 set -o noglob
+set +e
 
-function acquire {
-	local s p v
-
-	dpkg-query -Wf '${db:Status-Abbrev}\t${binary:Package}\t${Version}\n' | \
-	    while IFS=$'\t' read -r s p v; do
-		if [[ $s = [ih]'i ' ]]; then
-			print -r -- "$p"
-		else
-			print -ru4 "$p $v ERROR STATUS '$s'"
-		fi
-	done | xargs -d '\n' -r apt-cache policy --
-	print _
-}
+if ! T=$(mktemp -d /tmp/aptcheck.XXXXXXXXXX); then
+	print -ru2 -- error creating temporary directory
+	exit 1
+fi
+trap 'e=$?; cd /; rm -rf "$T"; exit $e' EXIT
+cd "$T" || exit 255
 
 function handle_s3 {
 	(( s == 3 )) || return
@@ -54,6 +57,7 @@ function maybe_emit {
 	local bpnewer= nobpnewer= x y z
 
 	handle_s3
+	draw_progress_bar
 	cv=
 	(( nver > 0 )) || die no versions for package
 	x=-1
@@ -99,8 +103,24 @@ function die {
 	exit 1
 }
 
-exec 4>&1
-acquire |&
+init_progress_bar 80
+trap 'e=$?; cd /; rm -rf "$T"; done_progress_bar $e' EXIT
+dpkg-query -Wf '${db:Status-Abbrev}\t${binary:Package}\t${Version}\n' >pl
+totpkgs=$(wc -l <pl)
+redo_progress_bar $((totpkgs + 2))
+draw_progress_bar
+
+grep -ve $'^[ih]i \t' <pl |&
+while IFS=$'\t' read -pr s p v; do
+	print -r "$p $v ERROR STATUS '$s'"
+	draw_progress_bar
+done
+grep -e $'^[ih]i \t' <pl | cut -sf2 >pp
+draw_progress_bar
+
+xargs -rd '\n' -n 32 -- apt-cache policy -- <pp |&
+pid=$!
+trap 'kill $pid 2>/dev/null; print -n \\r; exit 130' INT
 s=0 pkg= cv=
 while IFS= read -pr line; do
 	if [[ $line != ' '* ]]; then
@@ -148,3 +168,8 @@ while IFS= read -pr line; do
 	cv=$1
 	rtype=0
 done
+maybe_emit
+
+cd /
+rm -rf "$T"
+done_progress_bar
