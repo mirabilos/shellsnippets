@@ -1,0 +1,34 @@
+#!/bin/mksh
+
+repo=${1:-/cvs}
+
+set -o noglob
+while IFS= read -r line; do
+	line=${line///<CTRL-A>}
+	[[ $line = *'$'+([A-Za-z])': '+([! ])',v '+([0-9.])' '+([0-9/])' '+([0-9:])' '+([! ])' '+([! ])' $'* ]] || continue
+	while [[ $line != ''+([A-Za-z])': '+([! ])',v '+([0-9.])' '+([0-9/])' '+([0-9:])' '+([! ])' '+([! ])' $'* ]]; do
+		line=${line#*'$'}
+	done
+	set -- $line
+	if [[ $2 != *,v ]]; then print -r 'ERR	in $2:' $2; continue; fi
+	if [[ $3 != +([0-9.]) ]]; then print -r 'ERR	in $3:' $3; continue; fi
+	if [[ $4 != +([0-9/]) ]]; then print -r 'ERR	in $4:' $4; continue; fi
+	if [[ $5 != +([0-9:]) ]]; then print -r 'ERR	in $5:' $5; continue; fi
+	file=${2//'/Attic/'/'/'}
+	dir=${file%/*}
+	file=${file##*/}
+	if [[ -s $repo/$dir/$file ]]; then
+		file=$repo/$dir/$file
+	elif [[ -s $repo/$dir/Attic/$file ]]; then
+		file=$repo/$dir/Attic/$file
+	else
+		print -r "ERR	cannot find <$repo>/<$dir>/<$file>"
+		continue
+	fi
+	rev=$(sed -n '1s/[^0-9.]//gp' <"$file")
+	if [[ $3 = "$rev" ]]; then
+		print -r "ok	$rev	$3	$file"
+	else
+		print -r "CHECK	$rev	$3	$file"
+	fi
+done
