@@ -1,0 +1,123 @@
+#!/bin/sh
+#-
+# Copyright © 2021
+#	mirabilos <t.glaser@tarent.de>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# Workaround for Linux not being able to encrypt swap unlike MirBSD:
+# use this with a cryptsetup device to “cycle” it, that is, make the
+# kernel discard the previous swap encryption key (something OpenBSD
+# and derivates do automatically, during regular operation, and with
+# no need to temporarily swapoff the device).
+#
+# First though, set up cryptsetup swap. In this example /dev/sdX2 is
+# used as the current device on which to set this up; we’ll create a
+# protective tiny ext2fs in front of it so accessing it by label, to
+# not accidentally overwrite anything should disc/partition enumera‐
+# tion change their numbering. We shall use the name “cswap” for the
+# cryptsetup device; if changing this pass the new name as argument.
+# You also need a unique label (e.g. “swp_HOSTNAME”) for the protec‐
+# tive ext2fs so if you ever plug another machine’s discs they won’t
+# mistakenly be used; the label may have up to 16 bytes in length.
+#
+# First though turn off swap from the target device so we can modify
+# it, remove its line in fstab(5), disable suspend-to-disc which can
+# obviously not work on encrypted devices with ephemeral keys:
+#
+# $ sudo swapoff /dev/sdX2
+# $ sudoedit /etc/fstab /etc/initramfs-tools/conf.d/resume
+#	→ first file: remove line with /dev/sdX2 or equivalent
+#	→ second file: replace entire content with “RESUME=none”
+#
+# Then we’re going to set things up:
+#
+#   # nuke beginning 2 MiB of partition
+# $ sudo dd if=/dev/urandom iflag=fullblock count=4096 of=/dev/sdX2
+#   # create protective filesystem
+# $ sudo mke2fs -E discard -L swp_HOSTNAME /dev/sdX2 512k
+# $ sudo mount -o sync /dev/sdX2 /mnt
+# $ echo 'This is a protective filesystem for cryptsetup swap.' | \
+#     sudo dd of=/mnt/README.txt
+# $ sudo umount /mnt
+#   # declare crypttab(5) entry and activate it
+# $ sudoedit /etc/crypttab
+#	→ add a line that reads:
+# cswap LABEL=swp_HOSTNAME /dev/random offset=1024,discard,cipher=aes-xts-plain64,size=256,plain,swap
+# $ sudo cryptdisks_start cswap  # if this fails, see below
+#   # declare fstab(5) entry, enable swap again
+# $ sudoedit /etc/fstab
+#	→ add a line that reads:
+# /dev/mapper/cswap swap swap sw,discard 0 0
+#	→ (optionally) pipe nōn-comment lines through column -t to pretty-print
+# $ sudo swapon -o discard /dev/mapper/cswap
+#
+# This is now reboot-safe but if you ran into problems at any point,
+# it’ll be safe to continue if you stopped. If the cryptdisks_start
+# part failed on Debian with “precheck … failed”, apply the fix from:
+# https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=994056#5
+#
+# Then, run t̲h̲i̲s̲ script periodically (but only if you have at least as much
+# free RAM (in top(1) “avail Mem”), better more, as “KiB Swap: used”, as it
+# needs to temporarily disable swap) to let the kernel forget the ephemeral
+# encryption key and generate a new one, using fresh randomness; due to
+# https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=728197 you’ll also want
+# to do this once in /etc/rc.local so it runs after the system has come up.
+# $ sudo install swapcycle /usr/local/sbin/
+#
+# Tell xfce to hide its hibernation button with (thanks, ArchWiki):
+# $ xfconf-query -c xfce4-session -np /shutdown/ShowHibernate -t bool -s false
+
+d=${1:-cswap}	# device to use
+p=$2		# priority (optional)
+delay=${3:-3}	# empirical; raise when necessary (stopping fails with busy)
+
+set -e
+. /lib/lsb/init-functions
+set +e
+
+log_action_begin_msg "Restarting cryptdisks swap $d"
+
+test x"$(id -u)" = x"0" || {
+	log_action_end_msg 1 "need root"
+	exit 1
+}
+
+run() {
+	o=$("$@" 2>&1)
+	e=$?
+	test x"$e" = x"0" && return 0
+	echo >&2 "
+$o
+ "
+	log_action_end_msg 1
+	swapon "/dev/mapper/$d" # just in case
+	exit "$e"
+}
+
+run swapoff "/dev/mapper/$d"
+
+# this is unfortunately needed as swapoff(8) returns too early
+log_action_cont_msg 'swapoff'
+cat /proc/swaps >/dev/null
+sleep "$delay"
+
+run cryptdisks_stop "$d"
+run cryptdisks_start "$d"
+run swapon -o discard${p:+,pri="$p"} "/dev/mapper/$d"
+
+log_action_end_msg 0
+exit 0
