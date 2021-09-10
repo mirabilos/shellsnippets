@@ -33,6 +33,9 @@
 # You also need a unique label (e.g. “swp_HOSTNAME”) for the protec‐
 # tive ext2fs so if you ever plug another machine’s discs they won’t
 # mistakenly be used; the label may have up to 16 bytes in length.
+# Alternatively, you can use a logical volume with a unique(!) name;
+# I learnt the schema vg-HOSTNAME/lv-PURPOSE early. Thus, substitute
+# /dev/sdX2 with /dev/vg-HOSTNAME/lv-swap below.
 #
 # First though turn off swap from the target device so we can modify
 # it, remove its line in fstab(5), disable suspend-to-disc which can
@@ -43,7 +46,7 @@
 #	→ first file: remove line with /dev/sdX2 or equivalent
 #	→ second file: replace entire content with “RESUME=none”
 #
-# Then we’re going to set things up:
+# Then we’re going to set things up unless using LVM:
 #
 #   # nuke beginning 2 MiB of partition
 # $ sudo dd if=/dev/urandom iflag=fullblock count=4096 of=/dev/sdX2
@@ -53,11 +56,16 @@
 # $ echo 'This is a protective filesystem for cryptsetup swap.' | \
 #     sudo dd of=/mnt/README.txt
 # $ sudo umount /mnt
+#
+# Again for both schemata:
+#
 #   # declare crypttab(5) entry and activate it
 # $ sudoedit /etc/crypttab
 #	→ add a line that reads:
 # cswap LABEL=swp_HOSTNAME /dev/random offset=1024,discard,cipher=aes-xts-plain64,size=256,plain,swap
-# $ sudo cryptdisks_start cswap  # if this fails, see below
+#	*or* (LVM o̲n̲l̲y̲)
+# cswap /dev/vg-HOSTNAME/lv-swap /dev/random discard,cipher=aes-xts-plain64,size=256,plain,swap
+# $ sudo cryptdisks_start cswap   # if this fails (nōn-LVM) see below
 #   # declare fstab(5) entry, enable swap again
 # $ sudoedit /etc/fstab
 #	→ add a line that reads:
@@ -76,7 +84,8 @@
 # encryption key and generate a new one, using fresh randomness; due to
 # https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=728197 you’ll also want
 # to do this once in /etc/rc.local so it runs after the system has come up.
-# $ sudo install swapcycle /usr/local/sbin/
+# $ sudo install swapcycle /usr/local/sbin/  # add to /etc/rc.local e.g. ↓
+#	(/usr/local/sbin/swapcycle 2>&1 | logger -t swapcycle:onboot) &
 #
 # Tell xfce to hide its hibernation button with (thanks, ArchWiki):
 # $ xfconf-query -c xfce4-session -np /shutdown/ShowHibernate -t bool -s false
