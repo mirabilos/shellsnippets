@@ -1,6 +1,8 @@
 #!/bin/sh
 echo >&2 E: WIP
 exit 255
+#XXX TODO: use debchroot.sh helpers?
+
 #-
 # Copyright © 2020, 2021
 #	mirabilos <m@mirbsd.org>
