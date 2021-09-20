@@ -1,5 +1,7 @@
 #!/bin/sh
 #-
+# Copyright © 2020, 2021
+#	mirabilos <m@mirbsd.org>
 # Copyright © 2019, 2020
 #	mirabilos <t.glaser@tarent.de>
 #
@@ -28,9 +30,11 @@
 #  sudo fallocate -l 2GiB /PAGEFILE.SYS
 #  sudo chown 0:0 /PAGEFILE.SYS
 #  sudo chmod 600 /PAGEFILE.SYS
-#  sudo mkswap /PAGEFILE.SYS
+#  sudo mkswap -L RasPi3B+swap /PAGEFILE.SYS
 # and add a line “/PAGEFILE.SYS swap swap sw 0 0” to fstab(5). *Or*:
 # repartition and “LABEL=RasPi3B+swap swap swap sw,discard=once 0 0”
+#
+# This script, eventually, will be superceded by debraspi.sh once ready.
 
 #########
 # SETUP #
