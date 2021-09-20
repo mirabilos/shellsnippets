@@ -36,6 +36,13 @@
 #
 # This script, eventually, will be superceded by debraspi.sh once ready.
 
+#XXX missing nodes in /dev, which may cause initrd troubles
+# $ ll /dev/mmc*
+# brw-rw---- 1 root disk 179, 0 15. Sep 19:52 /dev/mmcblk0
+# brw-rw---- 1 root disk 179, 1 15. Sep 19:53 /dev/mmcblk0p1
+# brw-rw---- 1 root disk 179, 2 15. Sep 19:52 /dev/mmcblk0p2
+# $ sudo cp -a /dev/mmc* /mnt/dev/
+
 #########
 # SETUP #
 #########
@@ -977,7 +984,7 @@ Press Enter to continue.' 16 72 || :)
 	for pkg in "$@"; do
 		# macro substitution of tools often found together
 		case $pkg in
-		(_WLAN_) pkg='crda firmware-brcm80211 wireless-tools wpasupplicant' ;;
+		(_WLAN_) pkg='firmware-brcm80211/buster-backports crda wireless-tools wpasupplicant' ;;
 		esac
 		# collect list of packages to install
 		pkgs="$pkgs$s$pkg" s=' '
