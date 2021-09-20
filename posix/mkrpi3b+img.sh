@@ -923,7 +923,9 @@ swap                /tmp            tmpfs  defaults,relatime,nosuid,nodev  0  0
 		(whiptail --backtitle 'mkrpi3b+img.sh' --msgbox \
 		    'We will now reconfigure some packages, so you can set up some basic things about your system: timezone (default UTC), keyboard layout, console font, and the system locale (and possibly whether additional locales are to be installed).
 
-Press Enter to continue.' 12 72 || :)
+In case of doubt (e.g. with unfamiliar questions that only show up at low debconf priority) just press Enter to keep the defaults.
+
+Press Enter to continue.' 16 72 || :)
 		dpkg-reconfigure -plow tzdata
 		rm -f /etc/default/locale  # force generation
 		DEBIAN_PRIORITY=low \
