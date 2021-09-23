@@ -65,8 +65,6 @@ debchroot_go() {
 
 debchroot_run() (
 	set +eu
-	debchroot__fqdn=
-	debchroot__host=
 	debchroot__name=
 	if test x"$1" = x"-n"; then
 		debchroot__name=$2
@@ -79,42 +77,25 @@ debchroot_run() (
 	    if test -s "$debchroot__mpt/etc/debian_chroot"; then
 		debchroot__name=$(cat "$debchroot__mpt/etc/debian_chroot")
 	fi
-	test -h "$debchroot__mpt/etc/hostname" || \
+	test -n "$debchroot__name" || \
+	    test -h "$debchroot__mpt/etc/hostname" || \
 	    if test -s "$debchroot__mpt/etc/hostname"; then
-		debchroot__fqdn=$(cat "$debchroot__mpt/etc/hostname")
+		debchroot__name=$(cat "$debchroot__mpt/etc/hostname")
 		# short hostname of chroot
-		debchroot__host=${debchroot__fqdn%%.*}
-		# test if it differs
-		case "$(cat /proc/sys/kernel/hostname)" in
-		("$debchroot__host"|"$debchroot__host".*)
-			test -n "$debian_chroot" || debchroot__host=
-			debchroot__fqdn=
-			;;
+		debchroot__name=${debchroot__name%%.*}
+		# only if it differs from current hostname and not chained
+		test -n "$debian_chroot" || case "$(hostname)" in
+		("$debchroot__name"|"$debchroot__name".*) debchroot__name= ;;
 		esac
 	fi
-	test -n "$debchroot__name" || debchroot__name=$debchroot__host
 	test -n "$debchroot__name" || debchroot__name=$debchroot__mpt
 	debian_chroot=${debian_chroot:+"$debian_chroot|"}$debchroot__name
 	export debian_chroot
-	if test -z "$debchroot__fqdn"; then
-		debchroot__fqdn=$(cat /proc/sys/kernel/hostname)
-		case $debchroot__fqdn in
-		(*.*) debchroot__fqdn=${debchroot__fqdn%%.*}:$debchroot__mpt.${debchroot__fqdn#*.} ;;
-		(*) debchroot__fqdn=$debchroot__fqdn:$debchroot__mpt ;;
-		esac
-	fi
-	export debchroot__fqdn
 	if test -t 2; then
 		echo >&2 "I: entering chroot $(debchroot__e "$debchroot__mpt")" \
 		    "as $(debchroot__e "$debchroot__name")"
 	fi
-	exec unshare --uts /bin/sh -c '
-		cat >/proc/sys/kernel/hostname <<EOF
-$debchroot__fqdn
-EOF
-		unset debchroot__fqdn
-		exec "$@"
-	    ' sh chroot "$debchroot__mpt" "$@"
+	exec chroot "$debchroot__mpt" "$@"
 )
 
 debchroot__e() {
