@@ -525,12 +525,12 @@ if test -n "${debchroot_embed:-}"; then
 fi
 
 case $2:$1 in
-(start:/*|stop:/*|go:/*)
+(start:/*|stop:/*|go:/*|start:.|stop:.|go:.)
 	p=$1 cmd=$2
 	shift; shift
 	set -- "$cmd" "$p" "$@"
 	;;
-(run:/*)
+(run:/*|run:.)
 	p=$1 cmd=$2
 	shift; shift
 	if test x"$1" = x"-n"; then
