@@ -173,7 +173,7 @@ debchroot__init() {
 }
 
 debchroot__prep() {
-	local x rv
+	local x rv tdev
 
 	# unless mounted, mount basic filesystems first; assume workable /dev though
 	test -f "$1/proc/cmdline" || \
@@ -197,7 +197,83 @@ debchroot__prep() {
 		echo >&2 "E: cannot mount $(debchroot__e "$1")/tmp"
 		return 1
 	fi
-	# /dev/pts is a bit trickier
+
+	# chroot job response file
+	x=$(mktemp "$1/tmp/tf.XXXXXXXXXX") || {
+		echo >&2 "E: cannot create temporary file"
+		return 1
+	}
+
+	# /dev is tricky, consider uid/gid mismatch between host and chroot
+	if ! mountpoint -q "$1/dev"; then
+		if ! tdev=$(mktemp -d "$1/tmp/mnt.XXXXXXXXXX"); then
+			echo >&2 "E: cannot create temporary mountpoint"
+			return 1
+		fi
+		case $tdev in
+		("$1/tmp/"*) ;;
+		(*)
+			echo >&2 "E: temporary mountpoint improper"
+			return 1 ;;
+		esac
+		if ! mount -t tmpfs -o mode=0755,uid=0,gid=0 devcpy "$tdev"; then
+			echo >&2 "E: cannot mount target /dev tmpfs"
+			return 1
+		fi
+		(
+			set -e
+			cd /dev
+			tar -cf - -b 1 --one-file-system --warning=no-file-ignored .
+		) >"$tdev/.archive" || {
+			echo >&2 "E: cannot pack up /dev"
+			return 1
+		}
+		dev=${tdev#"$1"} chroot "$1" /bin/sh 7>"$x" <<\EOCHR
+			LC_ALL=C; export LC_ALL; LANGUAGE=C; unset LANGUAGE
+			set -e
+			cd "$dev"
+			exec <.archive
+			rm .archive
+			tar -xf - --same-permissions --same-owner
+			rm -rf pts shm
+			mkdir pts
+			if test -h /dev/shm; then
+				cp -a /dev/shm .
+			else
+				mkdir shm
+			fi
+			echo klaar >&7
+EOCHR
+		rv=$?
+		rv=$rv,"$(cat "$x")"
+		test x"$rv" = x"0,klaar" || {
+			echo >&2 "E: cannot set up target /dev"
+			return 1
+		}
+		(
+			set -e
+			cd /dev
+			find . -type s -print0
+		) >"$x" || {
+			echo >&2 "E: cannot discover /dev sockets"
+			return 1
+		}
+		(
+			set -e
+			cd "$tdev"
+			<"$x" xargs -0rI @@ touch @@
+			<"$x" xargs -0rI @@ mount --bind /dev/@@ @@
+		) || {
+			echo >&2 "E: cannot set up /dev sockets"
+			return 1
+		}
+		if ! mount --move "$tdev" "$1/dev"; then
+			echo >&2 "E: cannot finalise target /dev"
+			return 1
+		fi
+		rmdir "$tdev" || :
+	fi
+	# /dev/pts is a bit tricky… consider /dev might not be from us
 	if ! mountpoint -q "$1/dev/pts"; then
 		test -h "$1/dev/pts" && if ! rm "$1/dev/pts"; then
 			echo >&2 "E: target has /dev/pts as symlink"
@@ -244,11 +320,6 @@ debchroot__prep() {
 	chmod 0755 "$1/usr/sbin/policy-rc.d"
 	test -x "$1/usr/sbin/policy-rc.d" || {
 		echo >&2 "E: cannot install policy-rc.d deny script"
-		return 1
-	}
-
-	x=$(mktemp "$1/tmp/tf.XXXXXXXXXX") || {
-		echo >&2 "E: cannot create temporary file"
 		return 1
 	}
 
