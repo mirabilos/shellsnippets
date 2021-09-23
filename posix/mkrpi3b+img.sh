@@ -343,7 +343,14 @@ done
 #################
 
 # default values
-assign devices '' /dev/sd[a-z]
+devices=
+for x in /dev/sd[a-z] /dev/mmcblk*; do
+	test -e "$x" || continue
+	case $x in
+	(*[0-9]p[0-9]|*[0-9]p[0-9][0-9]) ;;
+	(*) devices="${devices:+$devices }$x" ;;
+	esac
+done
 tgtdev=MANUAL
 tgtimg=/dev/sdX
 myfqdn=rpi3bplus.lan.tarent.invalid
