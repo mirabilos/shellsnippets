@@ -2,12 +2,6 @@
 echo >&2 E: WIP
 exit 255
 #XXX TODO: use debchroot.sh helpers?
-# $ ll /dev/mmc*
-# brw-rw---- 1 root disk 179, 0 15. Sep 19:52 /dev/mmcblk0
-# brw-rw---- 1 root disk 179, 1 15. Sep 19:53 /dev/mmcblk0p1
-# brw-rw---- 1 root disk 179, 2 15. Sep 19:52 /dev/mmcblk0p2
-# $ sudo cp -a /dev/mmc* /mnt/dev/
-#XXX ↑
 
 #-
 # Copyright © 2020, 2021

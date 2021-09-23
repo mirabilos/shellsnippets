@@ -216,7 +216,7 @@ debchroot__prep() {
 			echo >&2 "E: temporary mountpoint improper"
 			return 1 ;;
 		esac
-		if ! mount -t tmpfs -o mode=0755,uid=0,gid=0 devcpy "$tdev"; then
+		if ! mount -t tmpfs -o mode=0755,uid=0,gid=0 sdev "$tdev"; then
 			echo >&2 "E: cannot mount target /dev tmpfs"
 			return 1
 		fi

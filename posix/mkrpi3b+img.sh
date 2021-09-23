@@ -36,12 +36,8 @@
 #
 # This script, eventually, will be superceded by debraspi.sh once ready.
 
-#XXX missing nodes in /dev, which may cause initrd troubles
-# $ ll /dev/mmc*
-# brw-rw---- 1 root disk 179, 0 15. Sep 19:52 /dev/mmcblk0
-# brw-rw---- 1 root disk 179, 1 15. Sep 19:53 /dev/mmcblk0p1
-# brw-rw---- 1 root disk 179, 2 15. Sep 19:52 /dev/mmcblk0p2
-# $ sudo cp -a /dev/mmc* /mnt/dev/
+#XXX missing nodes in /dev, which may cause initrd troubles (mmcblk…)
+# can be fixed by using debchroot.sh for chroot setup/use/teardown
 
 #########
 # SETUP #
