@@ -38,6 +38,7 @@
 
 #XXX missing nodes in /dev, which may cause initrd troubles (mmcblk…)
 # can be fixed by using debchroot.sh for chroot setup/use/teardown
+# workaround for now…
 
 #########
 # SETUP #
@@ -92,6 +93,9 @@ mpt=
 dieteardown() {
 	set -x
 	if test -n "$mpt"; then
+		# we *know* it is not present in the base image
+		rm -rf "$mpt/dev/mapper"
+
 		umount "$mpt/tmp"
 		umount "$mpt/proc"
 		umount "$mpt/dev/shm"
@@ -791,6 +795,10 @@ mount -t proc  proc "$mpt/proc" || die 'remount /proc failed'
 mount -t tmpfs swap "$mpt/tmp" || die 'remount /tmp failed'
 # extra as needed below
 mount --bind /dev/pts "$mpt/dev/pts" || die 'bind-mount /dev/pts failed'
+
+mkdir -p "$mpt/dev/mapper"
+test -d "$mpt/dev/mapper/." || die 'creating target /dev/mapper failed'
+cp -aL "$kpx"* "$mpt/dev/mapper/" || die 'copy to target /dev/mapper failed'
 
 # standard configuration files (generic)
 if test -n "$dropsd"; then
