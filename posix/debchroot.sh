@@ -98,6 +98,108 @@ debchroot_run() (
 	exec chroot "$debchroot__mpt" "$@"
 )
 
+debchroot_rpi() (
+	set +eu
+	tgtimg=$1
+	case $tgtimg in
+	(/*) ;;
+	(*)
+		echo >&2 "E: device/image $(debchroot__e "$tgtimg") not absolute"
+		exit 1 ;;
+	esac
+	if test -b "$tgtimg"; then
+		dvname=$tgtimg
+		loopdev=
+	elif test -f "$tgtimg"; then
+		dvname=$(losetup -f) || dvname='<ERROR>'
+		case $dvname in
+		(/dev/loop*) ;;
+		(*)
+			echo >&2 "E: losetup failed: $(debchroot__e "$dvname")"
+			exit 1 ;;
+		esac
+		loopdev=$dvname
+		if ! losetup "$loopdev" "$tgtimg"; then
+			echo >&2 "E: losetup failed"
+			exit 1
+		fi
+	else
+		echo >&2 "E: not a device or image file: $(debchroot__e "$tgtimg")"
+		exit 1
+	fi
+	kpx=/dev/mapper/${dvname##*/}
+	if ! kpartx -a -f -v -p p -t dos -s "$dvname"; then
+		echo >&2 "E: kpartx failed"
+		test -z "$loopdev" || losetup -d "$loopdev"
+		exit 1
+	fi
+	if ! fsck.fat -p "${kpx}p1"; then
+		echo >&2 "W: firmware/boot filesystem check failed"
+	fi
+	if ! e2fsck -p "${kpx}p2"; then
+		echo >&2 "W: root filesystem check failed"
+	fi
+	if ! mpt=$(mktemp -d /tmp/debchroot.XXXXXXXXXX); then
+		echo >&2 "E: could not create mountpoint"
+		kpartx -d -f -v -p p -t dos -s "$dvname"
+		test -z "$loopdev" || losetup -d "$loopdev"
+		exit 1
+	fi
+	if ! mount -t ext4 -o noatime,discard "${kpx}p2" "$mpt"; then
+		echo >&2 "E: could not mount image root filesystem"
+		rm -rf "$mpt"
+		kpartx -d -f -v -p p -t dos -s "$dvname"
+		test -z "$loopdev" || losetup -d "$loopdev"
+		exit 1
+	fi
+	if test -h "$mpt/boot"; then
+		echo >&2 "W: not mounting firmware/boot: /boot is a symlink"
+		bmpt=
+	elif test -d "$mpt/boot"; then
+		if test -h "$mpt/boot/firmware"; then
+			echo >&2 "W: not mounting firmware/boot:" \
+			    "/boot/firmware exists but is a symlink"
+			bmpt=
+		elif test -d "$mpt/boot/firmware"; then
+			bmpt=/boot/firmware
+		elif test -e "$mpt/boot/firmware"; then
+			echo >&2 "W: not mounting firmware/boot:" \
+			    "/boot/firmware exists but is no directory"
+			bmpt=
+		else
+			bmpt=/boot
+		fi
+	else
+		echo >&2 "W: not mounting firmware/boot: /boot is missing"
+		bmpt=
+	fi
+	test -z "$bmpt" || \
+	    if ! mount -t vfat -o noatime,discard "${kpx}p1" "$mpt$bmpt"; then
+		echo >&2 "W: not mounting firmware/boot: attempt failed"
+	fi
+	(
+		debchroot_start "$mpt" || exit 1
+		debchroot_go "$mpt" "$2"
+	)
+	rv=$?
+	re=
+	debchroot_stop "$mpt" || re=1
+	umount "$mpt" || re=1
+	if mountpoint -q "$mpt"; then
+		echo >&2 "E: not removing mountpoint" \
+		    "$(debchroot__e "$mpt") because it is still in use"
+		re=1
+	else
+		rm -rf "$mpt"
+	fi
+	kpartx -d -f -v -p p -t dos -s "$dvname" || re=1
+	test -z "$loopdev" || losetup -d "$loopdev" || re=1
+	case $rv,$re in
+	(0,1) rv=1 ;;
+	esac
+	exit $rv
+)
+
 debchroot__e() {
 	debchroot__esc <<EOF
 ${1}X
@@ -525,7 +627,7 @@ if test -n "${debchroot_embed:-}"; then
 fi
 
 case $2:$1 in
-(start:/*|stop:/*|go:/*|start:.|stop:.|go:.)
+(start:/*|stop:/*|go:/*|rpi:/*|start:.|stop:.|go:.)
 	p=$1 cmd=$2
 	shift; shift
 	set -- "$cmd" "$p" "$@"
@@ -565,6 +667,11 @@ case $1 in
 	debchroot_run "$@"
 	rv=$?
 	;;
+(rpi)
+	shift
+	debchroot_rpi "$@"
+	rv=$?
+	;;
 (*)
 	cat >&2 <<\EOF
 Usage: (you may also give the chroot directory before the command)
@@ -575,6 +682,8 @@ Usage: (you may also give the chroot directory before the command)
 	sh debchroot.sh run [-n chroot-name] /path/to/chroot cmd args…
 	# disband policy-rc.d and all sub-mounts
 	sh debchroot.sh stop /path/to/chroot
+	# mount RPi SD and enter it (p1 assumed firmware/boot, p2 root)
+	sh debchroot.sh rpi /dev/mmcblk0|/path/to/image [chroot-name]
 	# make the debchroot_* functions available
 	debchroot_embed=1 . ./debchroot.sh
 EOF
