@@ -36,13 +36,12 @@ debchroot_start() (
 	echo >&2 "I: preparing chroot directory $(debchroot__e "$mpt")..."
 	debchroot__prep "$mpt"
 	rv=$?
-	if test x"$rv" = x"0"; then
+	test -n "$debchroot__quiet" || if test x"$rv" = x"0"; then
 		echo >&2 "I: done, enter with one of:"
 		echo >&2 "N: debchroot_go $(debchroot__q "$mpt") [name]"
 		echo >&2 "N: debchroot_run [-n name] $(debchroot__q "$mpt") command …"
-		exit 0
 	fi
-	debchroot__undo "$mpt"
+	test x"$rv" = x"0" || debchroot__undo "$mpt"
 	exit "$rv"
 )
 
@@ -53,9 +52,10 @@ debchroot_stop() (
 	test x"$rv" = x"0" || exit "$rv"
 	debchroot__undo "$mpt"
 	rv=$?
-	if test x"$rv" = x"0"; then
+	test -n "$debchroot__quiet" || if test x"$rv" = x"0"; then
 		echo >&2 "I: retracted chroot directory $(debchroot__e "$mpt")"
 	fi
+	exit "$rv"
 )
 
 debchroot_go() {
@@ -100,6 +100,7 @@ debchroot_run() (
 
 debchroot_rpi() (
 	set +eu
+	debchroot__quiet=1
 	tgtimg=$1
 	case $tgtimg in
 	(/*) ;;
@@ -109,13 +110,16 @@ debchroot_rpi() (
 	esac
 	if test -b "$tgtimg"; then
 		dvname=$tgtimg
+		echo >&2 "I: preparing image device $(debchroot__e "$dvname")"
 		loopdev=
 	elif test -f "$tgtimg"; then
 		dvname=$(losetup -f) || dvname='<ERROR>'
+		echo >&2 "I: preparing image device $(debchroot__e "$dvname")" \
+		    "for image file $(debchroot__e "$tgtimg")"
 		case $dvname in
 		(/dev/loop*) ;;
 		(*)
-			echo >&2 "E: losetup failed: $(debchroot__e "$dvname")"
+			echo >&2 "E: losetup -f failed"
 			exit 1 ;;
 		esac
 		loopdev=$dvname
@@ -133,11 +137,11 @@ debchroot_rpi() (
 		test -z "$loopdev" || losetup -d "$loopdev"
 		exit 1
 	fi
-	if ! fsck.fat -p "${kpx}p1"; then
-		echo >&2 "W: firmware/boot filesystem check failed"
-	fi
 	if ! e2fsck -p "${kpx}p2"; then
 		echo >&2 "W: root filesystem check failed"
+	fi
+	if ! fsck.fat -p "${kpx}p1"; then
+		echo >&2 "W: firmware/boot filesystem check failed"
 	fi
 	if ! mpt=$(mktemp -d /tmp/debchroot.XXXXXXXXXX); then
 		echo >&2 "E: could not create mountpoint"
@@ -182,6 +186,7 @@ debchroot_rpi() (
 		debchroot_go "$mpt" "$2"
 	)
 	rv=$?
+	echo >&2 "I: umounting and ejecting"
 	re=
 	debchroot_stop "$mpt" || re=1
 	umount "$mpt" || re=1
