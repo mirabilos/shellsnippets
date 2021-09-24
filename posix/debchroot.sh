@@ -117,6 +117,9 @@ debchroot_rpi() (
 		echo >&2 "I: preparing image device $(debchroot__e "$dvname")" \
 		    "for image file $(debchroot__e "$tgtimg")"
 		case $dvname in
+		(/dev/loop*[!0-9]*)
+			echo >&2 "E: losetup -f failed"
+			exit 1 ;;
 		(/dev/loop*) ;;
 		(*)
 			echo >&2 "E: losetup -f failed"
@@ -134,7 +137,7 @@ debchroot_rpi() (
 	kpx=/dev/mapper/${dvname##*/}
 	if ! kpartx -a -f -v -p p -t dos -s "$dvname"; then
 		echo >&2 "E: kpartx failed"
-		test -z "$loopdev" || losetup -d "$loopdev"
+		debchroot__lounsetup "$loopdev"
 		exit 1
 	fi
 	if ! e2fsck -p "${kpx}p2"; then
@@ -146,14 +149,14 @@ debchroot_rpi() (
 	if ! mpt=$(mktemp -d /tmp/debchroot.XXXXXXXXXX); then
 		echo >&2 "E: could not create mountpoint"
 		kpartx -d -f -v -p p -t dos -s "$dvname"
-		test -z "$loopdev" || losetup -d "$loopdev"
+		debchroot__lounsetup "$loopdev"
 		exit 1
 	fi
 	if ! mount -t ext4 -o noatime,discard "${kpx}p2" "$mpt"; then
 		echo >&2 "E: could not mount image root filesystem"
 		rm -rf "$mpt"
 		kpartx -d -f -v -p p -t dos -s "$dvname"
-		test -z "$loopdev" || losetup -d "$loopdev"
+		debchroot__lounsetup "$loopdev"
 		exit 1
 	fi
 	if test -h "$mpt/boot"; then
@@ -198,10 +201,11 @@ debchroot_rpi() (
 		rm -rf "$mpt"
 	fi
 	kpartx -d -f -v -p p -t dos -s "$dvname" || re=1
-	test -z "$loopdev" || losetup -d "$loopdev" || re=1
+	debchroot__lounsetup "$loopdev" || re=1
 	case $rv,$re in
 	(0,1) rv=1 ;;
 	esac
+	test -n "$re" || echo >&2 "I: retracted image $(debchroot__e "$tgtimg")"
 	exit $rv
 )
 
@@ -624,6 +628,16 @@ EOF
 	}
 
 	return $rv
+}
+
+debchroot__lounsetup() {
+	test -n "$1" || return 0
+	losetup -d "$1"
+	if losetup "$1" >/dev/null 2>&1; then
+		echo >&2 "W: $1 still in use"
+		return 1
+	fi
+	return 0
 }
 
 if test -n "${debchroot_embed:-}"; then
