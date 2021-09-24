@@ -543,22 +543,27 @@ case $2:$1 in
 	;;
 esac
 
+rv=255
 case $1 in
 (start)
 	shift
 	debchroot_start "$@"
+	rv=$?
 	;;
 (stop)
 	shift
 	debchroot_stop "$@"
+	rv=$?
 	;;
 (go)
 	shift
 	debchroot_go "$@"
+	rv=$?
 	;;
 (run)
 	shift
 	debchroot_run "$@"
+	rv=$?
 	;;
 (*)
 	cat >&2 <<\EOF
@@ -579,3 +584,7 @@ EOF
 	exit 1
 	;;
 esac
+stty sane <&2 2>/dev/null
+tput cnorm 2>/dev/null
+tput sgr0 2>/dev/null
+exit $rv
