@@ -588,7 +588,7 @@ EOCHR
 			("$base"/*) umount "$mpt" ;;
 			esac
 		done
-	'
+	' sh
 	sleep 1
 
 	base="$1" debchroot__rev_mounts_do xargs -0r sh -c '
@@ -618,7 +618,7 @@ EOF
 				;;
 			esac
 		done
-	' || {
+	' sh || {
 		echo >&2 'N: perhaps some process still has it open?'
 		rv=1
 	}
