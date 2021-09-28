@@ -328,6 +328,11 @@ debchroot__prep() {
 			return 1 ;;
 		esac
 		if ! mount -t tmpfs -o mode=0755,uid=0,gid=0 sdev "$tdev"; then
+			echo >&2 "E: cannot mount temporary tmpfs"
+			return 1
+		fi
+		mkdir "$tdev/dev"
+		if ! mount -t tmpfs -o mode=0755,uid=0,gid=0 sdev "$tdev/dev"; then
 			echo >&2 "E: cannot mount target /dev tmpfs"
 			return 1
 		fi
@@ -335,11 +340,11 @@ debchroot__prep() {
 			set -e
 			cd /dev
 			tar -cf - -b 1 --one-file-system --warning=no-file-ignored .
-		) >"$tdev/.archive" || {
+		) >"$tdev/dev/.archive" || {
 			echo >&2 "E: cannot pack up /dev"
 			return 1
 		}
-		cdev=${tdev#"$1"}
+		cdev=${tdev#"$1"}/dev
 		export cdev
 		chroot "$1" /bin/sh 7>"$x" <<\EOCHR
 			LC_ALL=C; export LC_ALL; LANGUAGE=C; unset LANGUAGE
@@ -373,18 +378,19 @@ EOCHR
 		}
 		(
 			set -e
-			cd "$tdev"
+			cd "$tdev/dev"
 			<"$x" xargs -0rI @@ touch @@
 			<"$x" xargs -0rI @@ mount --bind /dev/@@ @@
 		) || {
 			echo >&2 "E: cannot set up /dev sockets"
 			return 1
 		}
-		if ! mount --move "$tdev" "$1/dev"; then
+		mount --make-private "$tdev"
+		if ! mount --move "$tdev/dev" "$1/dev"; then
 			echo >&2 "E: cannot finalise target /dev"
 			return 1
 		fi
-		rmdir "$tdev" || :
+		umount "$tdev" && rmdir "$tdev" || :
 	fi
 	# /dev/pts is a bit tricky… consider /dev might not be from us
 	if ! mountpoint -q "$1/dev/pts"; then
