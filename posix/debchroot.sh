@@ -284,7 +284,7 @@ debchroot__init() {
 }
 
 debchroot__prep() {
-	local x rv tdev
+	local x rv tdev cdev
 
 	# unless mounted, mount basic filesystems first; assume workable /dev though
 	test -f "$1/proc/cmdline" || \
@@ -339,10 +339,12 @@ debchroot__prep() {
 			echo >&2 "E: cannot pack up /dev"
 			return 1
 		}
-		dev=${tdev#"$1"} chroot "$1" /bin/sh 7>"$x" <<\EOCHR
+		cdev=${tdev#"$1"}
+		export cdev
+		chroot "$1" /bin/sh 7>"$x" <<\EOCHR
 			LC_ALL=C; export LC_ALL; LANGUAGE=C; unset LANGUAGE
 			set -e
-			cd "$dev"
+			cd "$cdev"
 			exec 6<.archive
 			rm .archive
 			tar -xf - --same-permissions --same-owner <&6
@@ -434,7 +436,9 @@ EOCHR
 		return 1
 	}
 
-	e="$(debchroot__e "$1")" chroot "$1" /bin/sh 7>"$x" <<\EOCHR
+	cdev="$(debchroot__e "$1")"
+	export cdev
+	chroot "$1" /bin/sh 7>"$x" <<\EOCHR
 		LC_ALL=C; export LC_ALL; LANGUAGE=C; unset LANGUAGE
 		mountpoint -q /dev/shm || {
 			test -d /dev/shm || rm -f /dev/shm
@@ -442,7 +446,7 @@ EOCHR
 			mount -t tmpfs swap /dev/shm
 		}
 		mountpoint -q /dev/shm || {
-			echo >&2 "E: cannot mount $e/dev/shm"
+			echo >&2 "E: cannot mount $cdev/dev/shm"
 			exit 1
 		}
 
@@ -530,9 +534,12 @@ debchroot__rev_mounts_do() (
 )
 
 debchroot__undo() {
-	local rv
+	local rv base
 
-	e="$(debchroot__e "$1")" chroot "$1" /bin/sh <<\EOCHR
+	base=$1
+	export base
+
+	chroot "$base" /bin/sh <<\EOCHR
 		LC_ALL=C; export LC_ALL; LANGUAGE=C; unset LANGUAGE
 		rv=0
 
@@ -586,7 +593,7 @@ debchroot__undo() {
 EOCHR
 	rv=$?
 
-	base="$1" debchroot__rev_mounts_do xargs -0r sh -c '
+	debchroot__rev_mounts_do xargs -0r sh -c '
 		for mpt in "$@"; do
 			case $mpt in
 			("$base"/*) umount "$mpt" ;;
@@ -595,7 +602,7 @@ EOCHR
 	' sh
 	sleep 1
 
-	base="$1" debchroot__rev_mounts_do xargs -0r sh -c '
+	debchroot__rev_mounts_do xargs -0r sh -c '
 		debchroot__e() {
 			debchroot__esc <<EOF
 ${1}X
@@ -704,7 +711,7 @@ Usage: (you may also give the chroot directory before the command)
 	# mount RPi SD and enter it (p1 assumed firmware/boot, p2 root)
 	sh debchroot.sh rpi /dev/mmcblk0|/path/to/image [chroot-name]
 	# make the debchroot_* functions available
-	debchroot_embed=1 . ./debchroot.sh
+	debchroot_embed=1; . ./debchroot.sh
 EOF
 	case $1 in
 	(help|-h|-\?|--help) exit 0 ;;
