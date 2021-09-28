@@ -343,9 +343,9 @@ debchroot__prep() {
 			LC_ALL=C; export LC_ALL; LANGUAGE=C; unset LANGUAGE
 			set -e
 			cd "$dev"
-			exec <.archive
+			exec 6<.archive
 			rm .archive
-			tar -xf - --same-permissions --same-owner
+			tar -xf - --same-permissions --same-owner <&6
 			rm -rf pts shm
 			mkdir pts
 			if test -h /dev/shm; then
