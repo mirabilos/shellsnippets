@@ -1,0 +1,87 @@
+#!/bin/mksh-static
+#-
+# Copyright © 2021
+#	mirabilos <t.glaser@tarent.de>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# Put this as ~/.etc/bin/_battst chmod 755. ~/.screenrc:
+#backtick 5 10 10 /bin/mksh-static -o noglob -c 'set -- $(</proc/acpi/ibm/thermal); print -r -- "$2°C"'
+#backtick 6 10 10 /bin/mksh-static $HOME/.etc/bin/_battst
+#hardstatus alwayslastline "%{wm}A %{kr} %H %{ky} %5` %6`%{ky} %l %{kg} %D %Y-%m-%d %0c %{=b by} %01L=%=%-w%50L>[%n%f %t]%+w%-1< "
+
+cd /sys/class/power_supply/BAT0
+status=$(<status)
+capacity=$(<capacity)
+level=$(<capacity_level)
+#status=$1 capacity=$3 level=$2
+#read status level capacity </tmp/x
+
+(( ${#capacity} > 1 )) || capacity=0$capacity
+
+case $status {
+(Unknown|Full)
+	i=' '
+	[[ $capacity = 100 ]] && i=
+	;;
+(Charging)
+	i='↑'
+	[[ $capacity = 100 ]] && i=
+	;;
+(Discharging)
+	i='↓'
+	[[ $capacity = 100 ]] && capacity=99
+	;;
+(Not\ charging)
+	i='‼'
+	[[ $capacity = 100 ]] && capacity=99
+	;;
+(*)
+	i='?'
+	[[ $capacity = 100 ]] && capacity=99
+	;;
+}
+
+set -A colours -- \
+	$'\005{+b}' \
+	$'\005{!s}\005{kw}' \
+	$'\005{!s}\005{kr}' \
+	$'\005{!s}\005{kR}' \
+	$'\005{!s}\005{+B kR}'
+set -A colreset -- \
+	$'\005{-}' \
+	$'\005{-}\005{-}' \
+	$'\005{-}\005{-}' \
+	$'\005{-}\005{-}' \
+	$'\005{-}\005{-}'
+blink1=$'\005{+B}'
+blink0=$'\005{-}'
+
+colour=0
+[[ $capacity > 70 ]] || colour=1
+[[ $capacity > 50 ]] || colour=2
+[[ $capacity > 30 ]] || colour=3
+[[ $capacity > 20 ]] || colour=4
+[[ $capacity = 100 ]] && colour=0
+[[ $level = Low ]] && colour=3
+[[ $level = Critical ]] && colour=4
+
+if [[ $capacity != 100 && ! $capacity > 80 ]]; then
+	[[ $i = ' ' ]] && i='~'
+	i=$blink1$i$blink0
+fi
+
+print -nr -- "${colours[colour]}$i$capacity${colreset[colour]}"
