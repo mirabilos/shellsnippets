@@ -19,8 +19,8 @@
 # of said person’s immediate fault when using the work as intended.
 #-
 # Put this as ~/.etc/bin/_battst chmod 755. ~/.screenrc:
-#backtick 5 10 10 /bin/mksh-static -o noglob -c 'set -- $(</proc/acpi/ibm/thermal); print -r -- "$2°C"'
-#backtick 6 10 10 /bin/mksh-static $HOME/.etc/bin/_battst
+#backtick 5 2 10 /bin/mksh-static -o noglob -c 'set -- $(</proc/acpi/ibm/thermal); print -r -- "$2"'
+#backtick 6 2 10 /bin/mksh-static $HOME/.etc/bin/_battst
 #hardstatus alwayslastline "%{wm}A %{kr} %H %{ky} %5` %6`%{ky} %l %{kg} %D %Y-%m-%d %0c %{=b by} %01L=%=%-w%50L>[%n%f %t]%+w%-1< "
 
 cd /sys/class/power_supply/BAT0
@@ -38,15 +38,15 @@ case $status {
 	[[ $capacity = 100 ]] && i=
 	;;
 (Charging)
-	i='↑'
+	i='^'
 	[[ $capacity = 100 ]] && i=
 	;;
 (Discharging)
-	i='↓'
+	i='v'
 	[[ $capacity = 100 ]] && capacity=99
 	;;
 (Not\ charging)
-	i='‼'
+	i='!'
 	[[ $capacity = 100 ]] && capacity=99
 	;;
 (*)
