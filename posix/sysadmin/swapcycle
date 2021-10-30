@@ -76,7 +76,9 @@
 # This is now reboot-safe but if you ran into problems at any point,
 # it’ll be safe to continue if you stopped. If the cryptdisks_start
 # part failed on Debian with “precheck … failed”, apply the fix from:
-# https://edugit.org/-/snippets/28
+# https://edugit.org/-/snippets/28 (for example by retrieving it with
+# git clone https://edugit.org/snippets/28.git then applying with:
+# cd / && patch -lp0 </path/to/28/cryptsetup.patch #)
 #
 # Then, run t̲h̲i̲s̲ script periodically (but only if you have at least as much
 # free RAM (in top(1) “avail Mem”), better more, as “KiB Swap: used”, as it
