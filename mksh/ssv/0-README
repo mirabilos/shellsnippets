@@ -6,7 +6,8 @@ Basic idea is to make CSV into something usable:
 • n̲o̲ quotes or escape characters
 • carriage return (\x0D) represents embedded newlines in cells
 
-Cell content is arbitrary binary except \x0A and \x1F (and NUL).
+Cell content is, in theory, arbitrary binary except NUL and
+the separators (\x1F and \x0A). In practice it should be UTF-8.
 
 
 SSV can easily be operated on from within shell, e.g. with:
