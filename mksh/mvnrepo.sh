@@ -1,7 +1,7 @@
 #!/usr/bin/env mksh
 # -*- mode: sh -*-
 #-
-# Copyright © 2018
+# Copyright © 2018, 2020, 2021
 #	mirabilos <t.glaser@tarent.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -20,9 +20,11 @@
 # of said person’s immediate fault when using the work as intended.
 #-
 # Create mvnrepository.com URLs for all dependencies, extensions and
-# Maven plugins, sorted and categorised, for up-to-date checks.
+# Maven plugins, sorted and categorised, for up-to-date checks. With
+# -r, raw undecorated output for easier concatenation is shown (only
+# an empty line to separate parent POM extras).
 
-LC_ALL=C; export LC_ALL
+export LC_ALL=C
 unset LANGUAGE
 
 set -e
@@ -35,6 +37,23 @@ die() {
 	print -ru2 -- "E: $*"
 	exit 1
 }
+
+x=$(sed --posix 's/u\+/x/g' <<<'fubar fuu' 2>&1) && alias 'sed=sed --posix'
+x=$(sed -e 's/u\+/x/g' -e 's/u/X/' <<<'fubar fuu' 2>&1)
+case $?:$x {
+(0:fXbar\ fuu) ;;
+(*) die your sed is not POSIX compliant ;;
+}
+
+rawout=0
+while getopts "r" ch; do
+	case $ch {
+	(r) rawout=1 ;;
+	(+r) rawout=0 ;;
+	(*) die 'usage: mvnrepo.sh [-r]' ;;
+	}
+done
+shift $((OPTIND - 1))
 
 set -A grouping 'Parent' 'Project' 'Dependencies' 'Extensions' 'Plugins' 'Plugin Deps'
 
@@ -121,7 +140,7 @@ function output {
 	set +e
 	asso_loadk $lines
 	nlines=${#asso_y[*]}
-	(( nlines )) || print -r -- "(none)"
+	(( nlines )) || (( rawout )) || print -r -- "(none)"
 	while (( ++lineno < nlines )); do
 		draw_progress_bar
 		line=${asso_y[lineno]}
@@ -129,7 +148,7 @@ function output {
 		[[ -n $vsn ]] && line+=/$vsn
 		typ=${line::1}
 		line=${line:2}
-		if (( typ < 2 )); then
+		(( rawout )) || if (( typ < 2 )); then
 			print -nr -- "${grouping[typ]}: "
 		elif (( typ != last )); then
 			print
@@ -165,7 +184,7 @@ Lxe=$((Lxp * 3 / 2))
 Lop=$((Lxp / 3))
 Loe=300 # outrageous, I know, but it makes things smoother
 set +e
-init_progress_bar $((2*Lxp + 2 + 2*Lxe + 1 + Lop + 1 + Lop + Loe))
+init_progress_bar $((2*Lxp + 2 + 2*Lxe + Lop + Lop + Loe))
 set -e
 
 LN=$_cur_progress_bar
@@ -180,13 +199,13 @@ set -e
 xml2path target/effective-pom.xml
 
 Lxe=$(wc -l <target/pom.xp)
+draw_progress_bar
 # re-estimate
 Loe=$(( (Lxe-Lxp) / 3 ))
 set +e
 asso_loadk plines
 Lop=${#asso_y[*]}
-_cnt_progress_bar=$((Lxpr + 2 + 2*Lxe + 1 + Lop + 1 + Lop + Loe))
-draw_progress_bar
+redo_progress_bar $((Lxpr + 2 + 2*Lxe + Lop + Lop + Loe))
 set -e
 
 LN=$_cur_progress_bar
@@ -198,8 +217,7 @@ rm -f target/effective-pom.xml target/pom.xp
 set +e
 asso_loadk elines
 Loe=${#asso_y[*]}
-_cnt_progress_bar=$((Lxpr + 2 + Lxer + 1 + Lop + 1 + Lop + Loe))
-draw_progress_bar
+redo_progress_bar $((Lxpr + 2 + Lxer + Lop + Lop + Loe))
 set -e
 
 drop plines elines
@@ -207,13 +225,12 @@ drop plines elines
 set +e
 asso_loadk elines
 Loe=${#asso_y[*]}
-_cnt_progress_bar=$((Lxpr + 2 + Lxer + 1 + Lop + 1 + Lop + Loe))
-draw_progress_bar
+redo_progress_bar $((Lxpr + 2 + Lxer + Lop + Lop + Loe))
 set -e
 
 output plines
 print
-print Effective POM extras:
+(( rawout )) || print Effective POM extras:
 output elines
 set +e
 done_progress_bar

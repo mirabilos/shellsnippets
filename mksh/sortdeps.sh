@@ -22,7 +22,7 @@
 # Pipe a Maven POM <dependencies> or <exclusions> element’s content,
 # without the surrounding grouping element, into this to sort them.
 
-LC_ALL=C; export LC_ALL
+export LC_ALL=C
 unset LANGUAGE
 
 set -e

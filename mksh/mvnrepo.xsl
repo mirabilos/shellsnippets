@@ -29,7 +29,6 @@
 <!DOCTYPE xsl:stylesheet [
 <!ENTITY nl "&#x0A;">
 ]>
-<!-- https://stackoverflow.com/a/4747858/2171120 -->
 <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="1.0">
 	<xsl:output method="text" encoding="UTF-8" indent="no"/>
 	<xsl:strip-space elements="*"/>
