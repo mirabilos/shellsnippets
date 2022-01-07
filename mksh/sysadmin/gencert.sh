@@ -1,6 +1,6 @@
 #!/bin/mksh
 # $Id: gencert.sh 1505+cvs 2010-10-11 12:26:46Z tglase $
-# $MirOS: src/etc/rc,v 1.133 2020/03/05 19:54:37 tg Exp $
+# $MirOS: src/etc/rc,v 1.136 2021/11/29 20:49:32 tg Exp $
 #-
 # Copyright © 2010
 #	mirabilos <t.glaser@tarent.de>
@@ -21,6 +21,8 @@
 # of dealing in the work, even if advised of the possibility of such
 # damage or existence of a defect, except proven that it results out
 # of said person’s immediate fault when using the work as intended.
+
+export LC_ALL=C.UTF-8
 
 seckeyname=/etc/ssl/private/default.key
 pubkeyname=/etc/ssl/default.cer

@@ -1,5 +1,5 @@
 #!/bin/bash
-# $MirOS: contrib/hosted/tg/deb/hookdir/D01slashrepo,v 1.3 2019/02/24 03:34:00 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/D01slashrepo,v 1.4 2021/12/14 14:47:20 tg Exp $
 #-
 # Copyright © 2014, 2018, 2019
 #	mirabilos <m@mirbsd.org>
@@ -31,7 +31,7 @@ unset LANGUAGE
 LC_ALL=C; export LC_ALL
 
 test -d "$base/." || {
-	echo >&2 "E: D01slashrepo: base '$base' does not exist"
+	echo >&2 "E: $this: base '$base' does not exist"
 	exit 1
 }
 
