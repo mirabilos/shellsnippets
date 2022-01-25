@@ -1,4 +1,4 @@
-# $MirOS: contrib/hosted/tg/historic/assotest,v 1.4 2014/11/16 12:16:26 tg Exp $
+# $MirOS: contrib/hosted/tg/historic/assotest,v 1.5 2022/01/25 06:24:48 tg Exp $
 #-
 # some number of interactive tests for asso-kit
 
@@ -18,7 +18,7 @@ function Lcdbhash_add {
         [[ -o utf8-mode ]]; typeset u=$?
         set +U
         typeset s="$*"
-        [[ -n $s ]] || { s=$(cat;print x); s=${s%x}; }
+        [[ -n $s ]] || { s=$(cat;print .); s=${s%.}; }
         typeset -i i=0 n=${#s}
 
         while (( i < n )); do
