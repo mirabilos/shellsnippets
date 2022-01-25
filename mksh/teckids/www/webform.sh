@@ -573,8 +573,8 @@ function dofield {
 	# unescape percent via backslash-unescaping ksh print builtin
 	fldv=${fldv//\\/\\\\}
 	fldv=${fldv//@(%)/\\x}
-	fldv=$(print -- "$fldv"x)
-	fldv=${fldv%x}
+	fldv=$(print -- "$fldv".)
+	fldv=${fldv%.}
 	#print -r -- "D: field '$fldk' with value '$fldv' found"
 	if [[ $fldk = utf8 ]]; then
 		if [[ $encoding_ok != unknown ]]; then

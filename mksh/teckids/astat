@@ -90,7 +90,7 @@ asqs=0
 acnt=0
 atot=0
 
-input=$(cat; print x)
+input=$(cat; print .)
 
 set -A revs
 [[ -n $veranst_dt ]] && set -A revs -- $(HOME=/nonexistent/really-nonexistent \
@@ -207,7 +207,7 @@ if (( ${#revs[*]} )); then
 fi
 
 print -nu2 'I: Updating statistics... (age)       \r'
-print -nr -- "${input%x}" | x_select Alter | {
+print -nr -- "${input%.}" | x_select Alter | {
 	read
 	while read x age; do
 		(( atot++ ))

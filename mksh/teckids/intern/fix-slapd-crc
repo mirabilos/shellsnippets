@@ -29,6 +29,6 @@ while IFS= read -pr -d '' name; do
 		print -ru2 -- "W: '$name' not *.ldif"
 		continue
 	fi
-	content=$(cat "$name"; echo x)
-	print -nr -- "${content%x}" | "$script" >"$name"
+	content=$(cat "$name"; echo .)
+	print -nr -- "${content%.}" | "$script" >"$name"
 done

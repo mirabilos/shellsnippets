@@ -49,7 +49,7 @@ function Lb64decode {
 	typeset u=$-
 	set +U
 	typeset c s="$*" t=
-	[[ -n $s ]] || { s=$(cat;print x); s=${s%x}; }
+	[[ -n $s ]] || { s=$(cat;print .); s=${s%.}; }
 	typeset -i i=0 n=${#s} p=0 v x
 	typeset -i16 o
 

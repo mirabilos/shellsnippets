@@ -55,7 +55,7 @@ function b64decode {
 	[[ -o utf8-mode ]]; local u=$?
 	set +U
 	local c s="$*" t=
-	[[ -n $s ]] || { s=$(cat;print x); s=${s%x}; }
+	[[ -n $s ]] || { s=$(cat;print .); s=${s%.}; }
 	local -i i=0 n=${#s} p=0 v x
 	local -i16 o
 

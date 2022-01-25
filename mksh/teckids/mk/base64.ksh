@@ -34,7 +34,7 @@ fi
 if whence -p b64decode >/dev/null 2>&1; then
 	function Lb64decode {
 		local s="$*"
-#		[[ -n $s ]] || { s=$(cat;print x); s=${s%x}; }
+#		[[ -n $s ]] || { s=$(cat;print .); s=${s%.}; }
 
 		print -nr -- "$s" | b64decode -r
 	}

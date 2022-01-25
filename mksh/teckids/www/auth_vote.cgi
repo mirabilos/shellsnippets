@@ -99,8 +99,8 @@ function dofield {
 	# unescape percent via backslash-unescaping ksh print builtin
 	fldv=${fldv//\\/\\\\}
 	fldv=${fldv//@(%)/\\x}
-	fldv=$(print -- "$fldv"x)
-	fldv=${fldv%x}
+	fldv=$(print -- "$fldv".)
+	fldv=${fldv%.}
 	for x in "${fields[@]}"; do
 		[[ $fldk = "$x" ]] || continue
 		eval $x=\$fldv
