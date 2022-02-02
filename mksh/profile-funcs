@@ -27,6 +27,7 @@ function showweather {
 # show appointments
 function showtermine {
 	[[ -s ~/.etc/Termine ]] || return 0
+	print -n '\033[0m'
 	LC_ALL=C.UTF-8 calendar -f ~/.etc/Termine | while IFS= read -r line; do
 		if [[ $line != *$'\t'* ]]; then
 			print -r -- "‣ $line"
@@ -37,5 +38,5 @@ function showtermine {
 		line=$(fold -sw 70 <<<"${line#*$'\t'}")
 		print -r -- "‣ $a${line//$'\n'/$'\n\t  '}"
 	done
-	LC_ALL=C.UTF-8 date +'⇒ %b %e  %Y, %H:%M:%S%z (%Z), %G-W%V-%u (%a) ⇐'
+	LC_ALL=C.UTF-8 date +$'⇒ \033[1m%b %d  %Y, %H:%M:%S%z (%Z), %G-W%V-%u (%a)\033[0m ⇐'
 }
