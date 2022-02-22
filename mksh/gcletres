@@ -1,7 +1,9 @@
 #!/bin/mksh
 #-
+# Copyright © 2022
+#	mirabilos <m@mirbsd.org>
 # Copyright © 2013, 2014
-#	Thorsten Glaser <t.glaser@tarent.de>
+#	mirabilos <t.glaser@tarent.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission
@@ -34,24 +36,27 @@ spec[1#ẞ]=38
 res=0
 read -aN -1
 n=${#REPLY[*]} i=-1
-typeset -i1 ch
+typeset -i1 ch v=0x41
 while (( ++i < n )); do
 	(( ch = (c = REPLY[i]) ))
 	if [[ -n ${spec[c]} ]]; then
 		(( res = spec[c] ))
-		print "$((i + 1))	${ch#1#} $res"
+		print "${v#1#}=$res	# $((i + 1))	${ch#1#} $res"
+		let ++v
 		continue
 	fi
 	(( c < 1#0 )) && continue
-	print -n "$((i + 1))	${ch#1#} "
+	print -n ""
 	if (( c <= 1#9 )); then
 		(( res = c - 1#0 ))
-		print "$res"
+		print "${v#1#}=$res	# $((i + 1))	${ch#1#} $res"
+		let ++v
 		continue
 	fi
 	(( c < 1#A || c > 1#z )) && continue
 	(( c < 1#a )) && (( c += 1#a - 1#A ))
 	(( c < 1#a || c > 1#z )) && continue
 	(( res = c - 1#a + 1 ))
-	print "$res"
+	print "${v#1#}=$res	# $((i + 1))	${ch#1#} $res"
+	let ++v
 done
