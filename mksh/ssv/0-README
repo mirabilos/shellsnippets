@@ -30,3 +30,7 @@ had I used it… but now it’s there and works.
 
 Erratum: Initially, \x1C (ASCII file separator) was misused
 	 as field separator; \x1F (unit separator) is correct.
+
+Other SSV implementations:
+• https://search.maven.org/artifact/org.evolvis.tartools/csvfile
+• https://evolvis.org/plugins/scmgit/cgi-bin/gitweb.cgi?p=useful-scripts/useful-scripts.git;a=blob;f=misc/ssv_csv.py;hb=HEAD
