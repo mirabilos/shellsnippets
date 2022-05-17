@@ -2,7 +2,7 @@
 #-
 # Copyright © 2020, 2021
 #	mirabilos <m@mirbsd.org>
-# Copyright © 2019, 2020
+# Copyright © 2019, 2020, 2022
 #	mirabilos <t.glaser@tarent.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -28,6 +28,8 @@
 # der the chroot base directory, including manually mounted ones, if
 # possible; it tries to lazily umount those in use and warns.
 
+debchroot__debchroot_='debchroot_'
+
 debchroot_start() (
 	set +eu
 	debchroot__init "$1" mpt
@@ -38,8 +40,10 @@ debchroot_start() (
 	rv=$?
 	test -n "$debchroot__quiet" || if test x"$rv" = x"0"; then
 		echo >&2 "I: done, enter with one of:"
-		echo >&2 "N: debchroot_go $(debchroot__q "$mpt") [name]"
-		echo >&2 "N: debchroot_run [-n name] $(debchroot__q "$mpt") command …"
+		echo >&2 "N: ${debchroot__debchroot_}go $(debchroot__q "$mpt") [name]"
+		echo >&2 "N: ${debchroot__debchroot_}run [-n name] $(debchroot__q "$mpt") command …"
+		echo >&2 "I: finally, undo and umount everything under the directory with:"
+		echo >&2 "N: ${debchroot__debchroot_}stop $(debchroot__q "$mpt")"
 	fi
 	test x"$rv" = x"0" || debchroot__undo "$mpt"
 	exit "$rv"
@@ -54,6 +58,7 @@ debchroot_stop() (
 	rv=$?
 	test -n "$debchroot__quiet" || if test x"$rv" = x"0"; then
 		echo >&2 "I: retracted chroot directory $(debchroot__e "$mpt")"
+		echo >&2 "N: everything mounted below was umounted as well!"
 	fi
 	exit "$rv"
 )
@@ -658,6 +663,10 @@ if test -n "${debchroot_embed:-}"; then
 	return 0
 fi
 
+debchroot__debchroot_="$0 "
+command -v "$0" >/dev/null 2>&1 || \
+    debchroot__debchroot_="sh $debchroot__debchroot_"
+
 case $2:$1 in
 (start:/*|stop:/*|go:/*|rpi:/*|start:.|stop:.|go:.)
 	p=$1 cmd=$2
@@ -705,19 +714,23 @@ case $1 in
 	rv=$?
 	;;
 (*)
-	cat >&2 <<\EOF
+	case $0 in
+	(*/*) selfpath=$(debchroot__q "$0") ;;
+	(*) selfpath=$(debchroot__q "./$0") ;;
+	esac
+	cat >&2 <<EOF
 Usage: (you may also give the chroot directory before the command)
 	# set up policy-rc.d and mounts
-	sh debchroot.sh start /path/to/chroot	# or “.” for cwd
+	${debchroot__debchroot_}start /path/to/chroot	# or “.” for cwd
 	# run a shell or things in a started chroot
-	sh debchroot.sh go /path/to/chroot [chroot-name]
-	sh debchroot.sh run [-n chroot-name] /path/to/chroot cmd args…
+	${debchroot__debchroot_}go /path/to/chroot [chroot-name]
+	${debchroot__debchroot_}run [-n chroot-name] /path/to/chroot cmd args…
 	# disband policy-rc.d and all sub-mounts
-	sh debchroot.sh stop /path/to/chroot
+	${debchroot__debchroot_}stop /path/to/chroot
 	# mount RPi SD and enter it (p1 assumed firmware/boot, p2 root)
-	sh debchroot.sh rpi /dev/mmcblk0|/path/to/image [chroot-name]
+	${debchroot__debchroot_}rpi /dev/mmcblk0|/path/to/image [chroot-name]
 	# make the debchroot_* functions available
-	debchroot_embed=1; . ./debchroot.sh
+	debchroot_embed=1; . $selfpath
 EOF
 	case $1 in
 	(help|-h|-\?|--help) exit 0 ;;
