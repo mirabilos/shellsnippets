@@ -590,6 +590,7 @@ EOCHR
 	export debchroot__prepd
 	chroot "$1" /bin/sh 7>"$debchroot__prepj" <<\EOCHR
 		LC_ALL=C; export LC_ALL; LANGUAGE=C; unset LANGUAGE
+		# note mountpoint, test -d follow; rm+mkdir is ephemeral
 		mountpoint -q /dev/shm || {
 			test -d /dev/shm || rm -f /dev/shm
 			test -d /dev/shm || mkdir -p /dev/shm
