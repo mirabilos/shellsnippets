@@ -1258,7 +1258,8 @@ LABEL=RASPISWAP  swap            swap   sw,discard=once                 0  0
 		set -x
 		(cd /dev && exec MAKEDEV std sd consoleonly ttyS0)
 		# because this is picked up by packages, e.g. postfix
-		hostname "$(</etc/hostname)"
+		HOSTNAME=$(</etc/hostname)
+		hostname "$HOSTNAME"
 		# sanitise APT state
 		apt-get clean
 		apt-get update

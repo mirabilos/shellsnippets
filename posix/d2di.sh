@@ -154,8 +154,8 @@ chmod 755 "$mp${rnd%/*}"
 		# go on
 		set -x
 		# because this is picked up by packages, e.g. postfix
-		hostname "$(cat /etc/hostname)"
-#XXX set $HOSTNAME
+		HOSTNAME=$(cat /etc/hostname)
+		hostname "$HOSTNAME"
 		# sanitise APT state
 		apt-get clean
 		apt-get update
