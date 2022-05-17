@@ -250,6 +250,8 @@ debchroot__init() {
 	fi
 
 	case $1 in
+	(///*)
+		mp=$1 ;;
 	(//*)
 		echo >&2 "E: cannot have chroot on UNC path (network)"
 		return 1 ;;
