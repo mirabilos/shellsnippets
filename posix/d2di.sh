@@ -25,6 +25,8 @@ exit 255
 # Converts the result of debootstrap into something that d-i (Debian
 # Installer) would have produced.
 
+# TODO: fstab; MAKEDEV considered awful
+
 LANGUAGE=C
 LC_ALL=C
 export LC_ALL
@@ -36,6 +38,7 @@ die() {
 
 getslist() {
 	case $relse in
+	(KEEP) ;;
 	(buster) cat <<-'EOF'
 deb http://deb.debian.org/debian/ buster main non-free contrib
 deb http://deb.debian.org/debian-security/ buster/updates main non-free contrib
@@ -86,7 +89,7 @@ usage() {
 	cat >&2 <<EOF
 Usage:	${0##*/} -I initsystem [-k kernelpackage] -n hostname [-P pkgs]
 	[-p prio] -r release [-u user] /path/to/chroot
-N: initsystem = systemd or sysv | release e.g. bullseye or sid
+N: initsystem = systemd or sysv | release e.g. bullseye or sid, or KEEP
 N: default kernelpackage: linux-image-\$dpkgarch
 N: default pkgs: $defpkgs
 N: prio for debconf [low|medium|high|critical]
@@ -161,8 +164,14 @@ chroot "$mp" /bin/sh -c '
 	(cd /dev && exec MAKEDEV std consoleonly ttyS0)
     ' || die could not create initial device nodes
 debchroot__quiet=1
-debchroot_start -P "$mp" || die could not reload chroot
+debchroot_start -P "$mp" || die could not reload chroot with /dev from host
 debchroot__quiet=
+
+sfn=$(mktemp "$mp/tmp.XXXXXXXXXX") || sfn=
+case $sfn in
+("$mp/tmp."*) ;;
+(*) die unable to create temporary file ;;
+esac
 
 (
 	set -e
@@ -171,11 +180,6 @@ debchroot__quiet=
 		#!/bin/sh
 		eval '(set -o pipefail)' >/dev/null 2>&1 && set -o pipefail || :
 		set -e
-		# reset environment so we can work
-		DEBIAN_FRONTEND=teletype HOME=/root LANGUAGE=C LC_ALL=C
-		PATH=/usr/sbin:/usr/bin:/sbin:/bin
-		export DEBIAN_FRONTEND HOME LC_ALL PATH
-		unset LANGUAGE
 		cd /
 		# for etckeeper
 		SUDO_USER=root USER=root
@@ -200,7 +204,8 @@ debchroot__quiet=
 		set -x
 		# as set by d-i
 		printf '%s\n' '0.0 0 0.0' 0 UTC >/etc/adjtime
-		cat >/etc/apt/sources.list <<\EOF
+		test x"$relse" = x"KEEP" || \
+		    cat >/etc/apt/sources.list <<\EOF
 	EOS
 	getslist
 	cat <<-'EOS'
@@ -241,7 +246,8 @@ debchroot__quiet=
 		# like d-i
 		rm -f /etc/mtab
 		ln -sfT /proc/self/mounts /etc/mtab
-		cat >>/etc/network/interfaces <<-'EOF'
+		grep -q 'iface lo inet loopback' /etc/network/interfaces || \
+		    cat >>/etc/network/interfaces <<-'EOF'
 
 			# The loopback network interface
 			auto lo
@@ -275,7 +281,7 @@ debchroot__quiet=
 			    'Package: systemd' 'Pin: version *' 'Pin-Priority: -1' '' \
 			    >/etc/apt/preferences.d/systemd
 			# make it suck slightly less, mostly already in sid
-			(: >/etc/init.d/.legacy-bootordering)
+			touch /etc/init.d/.legacy-bootordering
 			grep FANCYTTY /etc/lsb-base-logging.sh >/dev/null 2>&1 || \
 			    echo FANCYTTY=0 >>/etc/lsb-base-logging.sh
 		}
@@ -325,6 +331,7 @@ debchroot__quiet=
 		eatmydata apt-get --purge -y install --no-install-recommends \
 		    adduser ca-certificates ed less lsb-release man-db \
 		    popularity-contest procps sudo $(case $relse in
+			(KEEP) ;;
 			(buster) echo bsdmainutils ;;
 			(*) echo bsdextrautils ;;
 		    esac)
@@ -348,15 +355,15 @@ debchroot__quiet=
 		set +x
 		# instruct the user what they can do now
 		whiptail --backtitle 'd2di.sh' \
-		    --msgbox "We will now (chrooted into the target system, under emulation, so it will be really slooooow…) run a login shell as the user account we just created ($userid), so you can do any manual post-installation steps desired.
+		    --msgbox "A login shell will now be run inside the chroot for any manual post-installation steps desired.
 
 Please use “sudo -S command” to run things as root, if necessary.
 
-Press Enter to continue; exit the emulation with the “exit” command." 14 72
+Press Enter to continue; use the “exit” command to quit." 12 69
 		# clean environment for interactive use
-		export HOME=/  # later overridden by su
+		HOME=/  # later overridden by su
 		# create an initial entry in syslog
-		>>/var/log/syslog print -r -- "$(date +"%b %d %T")" \
+		>>/var/log/syslog echo "$(date +"%b %d %T")" \
 		    "${HOSTNAME%%.*} d2di.sh[$$]:" \
 		    soliciting manual post-installation steps
 		chown 0:adm /var/log/syslog
@@ -364,22 +371,23 @@ Press Enter to continue; exit the emulation with the “exit” command." 14 72
 		# avoids warnings with sudo, cf. Debian #922349
 		find /usr/lib -name libeatmydata.so\* -a -type f -print0 | \
 		    xargs -0r chmod u+s --
-		(unset SUDO_USER USER; exec su - "$userid")
+		(unset SUDO_USER USER; exec su - ${mkuser:+"$mkuser"})
 		# revert the above change again
 		find /usr/lib -name libeatmydata.so\* -a -type f -print0 | \
 		    xargs -0r chmod u-s --
 		# might not do anything, but allow the user refusal
-		print -ru2 -- 'I: running apt-get autoremove,' \
-		    'acknowledge as desired'
-		apt-get --purge autoremove
+		echo >&2 I: running apt-get autoremove, \
+		    acknowledge as desired
+		eatmydata apt-get --purge autoremove
 		# remove installation debris
-		print -ru2 -- 'I: finally, cleaning up'
-		apt-get clean
+		echo >&2 'I: finally, cleaning up'
+		eatmydata apt-get clean
 		pwck -s
 		grpck -s
-		rm -f /etc/{passwd,group,{,g}shadow,sub{u,g}id}-
+		rm -f /etc/passwd- /etc/group- /etc/shadow- /etc/gshadow- \
+		    /etc/subuid- /etc/subgid-
 		# record initial /etc state
-		if whence -p etckeeper >/dev/null; then
+		if command -v etckeeper >/dev/null 2>&1; then
 			etckeeper commit 'Finish installation'
 			etckeeper vcs gc
 		fi
@@ -389,17 +397,23 @@ Press Enter to continue; exit the emulation with the “exit” command." 14 72
 		find . ! -xtype d ! -name utmp ! -name innd.pid -delete
 		# fine𝄐
 		fstrim -v /
-		>>/var/log/syslog print -r -- "$(date +"%b %d %T")" \
+		>>/var/log/syslog echo "$(date +"%b %d %T")" \
 		    "${HOSTNAME%%.*} d2di.sh[$$]:" \
 		    finishing up post-installation
 		dd if=/dev/urandom bs=256 count=1 seek=1 conv=notrunc of="$rnd"
 	EOS
-) >"$mp/root/munge-it.sh" || die 'post-installation script creation failure'
+) >"$sfn" || die 'post-installation script creation failure'
 
-debchroot_run -P "$mp" -w 'exec unshare --uts chroot' \
-    /usr/bin/env -i TERM="$TERM" /bin/sh /root/munge-it.sh || die 'post-bootstrap failed'
+debchroot_run -P "$mp" -w 'exec unshare --uts chroot' /bin/sh -c '
+    exec /usr/bin/env -i \
+	DEBIAN_FRONTEND=teletype \
+	HOME=/root \
+	LC_ALL=C \
+	PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+	TERM="$TERM" \
+	debian_chroot="$debian_chroot" \
+    /bin/sh '"/${sfn##*/}" || die 'post-bootstrap failed'
 # remove the oneshot script
-rm -f "$mp/root/munge-it.sh"
-
+rm -f "$sfn"
 
 debchroot_stop -P "$mp"
