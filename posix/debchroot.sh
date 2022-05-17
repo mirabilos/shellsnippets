@@ -715,12 +715,10 @@ debchroot__rev_mounts_do() (
 )
 
 debchroot__undo() {
-	local rv base
+	debchroot__base=$1
+	export debchroot__base
 
-	base=$1
-	export base
-
-	chroot "$base" /bin/sh <<\EOCHR
+	chroot "$debchroot__base" /bin/sh <<\EOCHR
 		LC_ALL=C; export LC_ALL; LANGUAGE=C; unset LANGUAGE
 		rv=0
 
@@ -772,12 +770,12 @@ debchroot__undo() {
 
 		exit $rv
 EOCHR
-	rv=$?
+	debchroot__undoE=$?
 
 	debchroot__rev_mounts_do xargs -0r sh -c '
 		for mpt in "$@"; do
 			case $mpt in
-			("$base"/*) umount "$mpt" ;;
+			("$debchroot__base"/*) umount "$mpt" ;;
 			esac
 		done
 	' sh
@@ -801,7 +799,7 @@ EOF
 		rv=0
 		for mpt in "$@"; do
 			case $mpt in
-			("$base"/*)
+			("$debchroot__base"/*)
 				rv=1
 				echo >&2 "W: could not umount" \
 				    "$(debchroot__e "$mpt")"
@@ -813,10 +811,11 @@ EOF
 		exit $rv
 	' sh || {
 		echo >&2 'N: perhaps some process still has it open?'
-		rv=1
+		debchroot__undoE=1
 	}
 
-	return $rv
+	unset debchroot__base
+	eval "unset debchroot__undoE; return $debchroot__undoE"
 }
 
 debchroot__lounsetup() {
