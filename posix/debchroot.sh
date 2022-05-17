@@ -32,7 +32,21 @@ debchroot__debchroot_='debchroot_'
 
 debchroot_start() (
 	set +eu
-	debchroot__init "$1" mpt
+	debchroot__P=
+	while getopts "P:" debchroot__ch; do
+		case $debchroot__ch in
+		(P) debchroot__P=$OPTARG ;;
+		(*) echo >&2 "E: debchroot_start: bad options"; exit 1 ;;
+		esac
+	done
+	set -e
+	shift $(($OPTIND - 1))
+	if test -z "$debchroot__P"; then
+		debchroot__P=$1
+		shift
+	fi
+	set +e
+	debchroot__init "$debchroot__P" mpt
 	rv=$?
 	test x"$rv" = x"0" || exit "$rv"
 	echo >&2 "I: preparing chroot directory $(debchroot__e "$mpt")..."
@@ -51,7 +65,21 @@ debchroot_start() (
 
 debchroot_stop() (
 	set +eu
-	debchroot__init "$1" mpt
+	debchroot__P=
+	while getopts "P:" debchroot__ch; do
+		case $debchroot__ch in
+		(P) debchroot__P=$OPTARG ;;
+		(*) echo >&2 "E: debchroot_stop: bad options"; exit 1 ;;
+		esac
+	done
+	set -e
+	shift $(($OPTIND - 1))
+	if test -z "$debchroot__P"; then
+		debchroot__P=$1
+		shift
+	fi
+	set +e
+	debchroot__init "$debchroot__P" mpt
 	rv=$?
 	test x"$rv" = x"0" || exit "$rv"
 	debchroot__undo "$mpt"
@@ -64,19 +92,48 @@ debchroot_stop() (
 )
 
 debchroot_go() {
-	debchroot_run ${2:+-n "$2"} "$1" su -l -w \
+	debchroot__name=
+	debchroot__P=
+	while getopts "n:P:" debchroot__ch; do
+		case $debchroot__ch in
+		(n) debchroot__name=$OPTARG ;;
+		(P) debchroot__P=$OPTARG ;;
+		(*) echo >&2 "E: debchroot_go: bad options"; return 1 ;;
+		esac
+	done
+	shift $(($OPTIND - 1))
+	if test -z "$debchroot__P"; then
+		debchroot__P=${1:-}
+		if test -z "$debchroot__name"; then
+			debchroot__name=${2:-}
+		fi
+	elif test -z "$debchroot__name"; then
+		debchroot__name=${1:-}
+	fi
+	debchroot_run -P "$debchroot__P" -n "$debchroot__name" \
+	    -- su -l -w \
 	    debian_chroot,LANG,LC_CTYPE,LC_ALL,TERM,TERMCAP
 }
 
 debchroot_run() (
 	set +eu
 	debchroot__name=
-	if test x"$1" = x"-n"; then
-		debchroot__name=$2
-		shift; shift
+	debchroot__P=
+	while getopts "n:P:" debchroot__ch; do
+		case $debchroot__ch in
+		(n) debchroot__name=$OPTARG ;;
+		(P) debchroot__P=$OPTARG ;;
+		(*) echo >&2 "E: debchroot_run: bad options"; exit 1 ;;
+		esac
+	done
+	set -e
+	shift $(($OPTIND - 1))
+	if test -z "$debchroot__P"; then
+		debchroot__P=$1
+		shift
 	fi
-	debchroot__init "$1" debchroot__mpt || exit 255
-	shift
+	set +e
+	debchroot__init "$debchroot__P" debchroot__mpt || exit 255
 	test -n "$debchroot__name" || \
 	    test -h "$debchroot__mpt/etc/debian_chroot" || \
 	    if test -s "$debchroot__mpt/etc/debian_chroot"; then
@@ -105,22 +162,35 @@ debchroot_run() (
 
 debchroot_rpi() (
 	set +eu
+	debchroot__P=
+	while getopts "P:" debchroot__ch; do
+		case $debchroot__ch in
+		(P) debchroot__P=$OPTARG ;;
+		(*) echo >&2 "E: debchroot_rpi: bad options"; exit 1 ;;
+		esac
+	done
+	set -e
+	shift $(($OPTIND - 1))
+	if test -z "$debchroot__P"; then
+		debchroot__P=$1
+		shift
+	fi
+	set +e
 	debchroot__quiet=1
-	tgtimg=$1
-	case $tgtimg in
+	case $debchroot__P in
 	(/*) ;;
 	(*)
-		echo >&2 "E: device/image $(debchroot__e "$tgtimg") not absolute"
+		echo >&2 "E: device/image $(debchroot__e "$debchroot__P") not absolute"
 		exit 1 ;;
 	esac
-	if test -b "$tgtimg"; then
-		dvname=$tgtimg
+	if test -b "$debchroot__P"; then
+		dvname=$debchroot__P
 		echo >&2 "I: preparing image device $(debchroot__e "$dvname")"
 		loopdev=
-	elif test -f "$tgtimg"; then
+	elif test -f "$debchroot__P"; then
 		dvname=$(losetup -f) || dvname='<ERROR>'
 		echo >&2 "I: preparing image device $(debchroot__e "$dvname")" \
-		    "for image file $(debchroot__e "$tgtimg")"
+		    "for image file $(debchroot__e "$debchroot__P")"
 		case $dvname in
 		(/dev/loop*[!0-9]*)
 			echo >&2 "E: losetup -f failed"
@@ -131,12 +201,12 @@ debchroot_rpi() (
 			exit 1 ;;
 		esac
 		loopdev=$dvname
-		if ! losetup "$loopdev" "$tgtimg"; then
+		if ! losetup "$loopdev" "$debchroot__P"; then
 			echo >&2 "E: losetup failed"
 			exit 1
 		fi
 	else
-		echo >&2 "E: not a device or image file: $(debchroot__e "$tgtimg")"
+		echo >&2 "E: not a device or image file: $(debchroot__e "$debchroot__P")"
 		exit 1
 	fi
 	kpx=/dev/mapper/${dvname##*/}
@@ -191,7 +261,7 @@ debchroot_rpi() (
 	fi
 	(
 		debchroot_start "$mpt" || exit 1
-		debchroot_go "$mpt" "$2"
+		debchroot_go "$mpt" "$1"
 	)
 	rv=$?
 	echo >&2 "I: umounting and ejecting"
@@ -210,7 +280,7 @@ debchroot_rpi() (
 	case $rv,$re in
 	(0,1) rv=1 ;;
 	esac
-	test -n "$re" || echo >&2 "I: retracted image $(debchroot__e "$tgtimg")"
+	test -n "$re" || echo >&2 "I: retracted image $(debchroot__e "$debchroot__P")"
 	exit $rv
 )
 
