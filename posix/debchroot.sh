@@ -756,6 +756,9 @@ case $2:$1 in
 	shift; shift
 	set -- "$cmd" -P "$p" "$@"
 	;;
+(help:*|-h:*|-\?:*|--help:*)
+	set -- help
+	;;
 esac
 
 rv=255
