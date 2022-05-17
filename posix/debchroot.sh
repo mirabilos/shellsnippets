@@ -46,20 +46,20 @@ debchroot_start() (
 		shift
 	fi
 	set +e
-	debchroot__init "$debchroot__P" mpt
+	debchroot__init "$debchroot__P" debchroot__mpt
 	rv=$?
 	test x"$rv" = x"0" || exit "$rv"
-	echo >&2 "I: preparing chroot directory $(debchroot__e "$mpt")..."
-	debchroot__prep "$mpt"
+	echo >&2 "I: preparing chroot directory $(debchroot__e "$debchroot__mpt")..."
+	debchroot__prep "$debchroot__mpt"
 	rv=$?
 	test -n "$debchroot__quiet" || if test x"$rv" = x"0"; then
 		echo >&2 "I: done, enter with one of:"
-		echo >&2 "N: ${debchroot__debchroot_}go $(debchroot__q "$mpt") [name]"
-		echo >&2 "N: ${debchroot__debchroot_}run [-n name] $(debchroot__q "$mpt") command …"
+		echo >&2 "N: ${debchroot__debchroot_}go $(debchroot__q "$debchroot__mpt") [name]"
+		echo >&2 "N: ${debchroot__debchroot_}run [-n name] $(debchroot__q "$debchroot__mpt") command …"
 		echo >&2 "I: finally, undo and umount everything under the directory with:"
-		echo >&2 "N: ${debchroot__debchroot_}stop $(debchroot__q "$mpt")"
+		echo >&2 "N: ${debchroot__debchroot_}stop $(debchroot__q "$debchroot__mpt")"
 	fi
-	test x"$rv" = x"0" || debchroot__undo "$mpt"
+	test x"$rv" = x"0" || debchroot__undo "$debchroot__mpt"
 	exit "$rv"
 )
 
@@ -79,13 +79,13 @@ debchroot_stop() (
 		shift
 	fi
 	set +e
-	debchroot__init "$debchroot__P" mpt
+	debchroot__init "$debchroot__P" debchroot__mpt
 	rv=$?
 	test x"$rv" = x"0" || exit "$rv"
-	debchroot__undo "$mpt"
+	debchroot__undo "$debchroot__mpt"
 	rv=$?
 	test -n "$debchroot__quiet" || if test x"$rv" = x"0"; then
-		echo >&2 "I: retracted chroot directory $(debchroot__e "$mpt")"
+		echo >&2 "I: retracted chroot directory $(debchroot__e "$debchroot__mpt")"
 		echo >&2 "N: everything mounted below was umounted as well!"
 	fi
 	exit "$rv"
@@ -235,25 +235,25 @@ debchroot_rpi() (
 		debchroot__lounsetup "$loopdev"
 		exit 1
 	fi
-	mpt=$tdir/mpt
-	if ! mount -t ext4 -o noatime,discard "${kpx}p2" "$mpt"; then
+	debchroot__rpimpt=$tdir/mpt
+	if ! mount -t ext4 -o noatime,discard "${kpx}p2" "$debchroot__rpimpt"; then
 		echo >&2 "E: could not mount image root filesystem"
 		rm -rf "$tdir"
 		kpartx -d -f -v -p p -t dos -s "$dvname"
 		debchroot__lounsetup "$loopdev"
 		exit 1
 	fi
-	if test -h "$mpt/boot"; then
+	if test -h "$debchroot__rpimpt/boot"; then
 		echo >&2 "W: not mounting firmware/boot: /boot is a symlink"
 		bmpt=
-	elif test -d "$mpt/boot"; then
-		if test -h "$mpt/boot/firmware"; then
+	elif test -d "$debchroot__rpimpt/boot"; then
+		if test -h "$debchroot__rpimpt/boot/firmware"; then
 			echo >&2 "W: not mounting firmware/boot:" \
 			    "/boot/firmware exists but is a symlink"
 			bmpt=
-		elif test -d "$mpt/boot/firmware"; then
+		elif test -d "$debchroot__rpimpt/boot/firmware"; then
 			bmpt=/boot/firmware
-		elif test -e "$mpt/boot/firmware"; then
+		elif test -e "$debchroot__rpimpt/boot/firmware"; then
 			echo >&2 "W: not mounting firmware/boot:" \
 			    "/boot/firmware exists but is no directory"
 			bmpt=
@@ -265,24 +265,24 @@ debchroot_rpi() (
 		bmpt=
 	fi
 	test -z "$bmpt" || \
-	    if ! mount -t vfat -o noatime,discard "${kpx}p1" "$mpt$bmpt"; then
+	    if ! mount -t vfat -o noatime,discard "${kpx}p1" "$debchroot__rpimpt$bmpt"; then
 		echo >&2 "W: not mounting firmware/boot: attempt failed"
 	fi
 	(
-		debchroot_start "$mpt" || exit 1
-		debchroot_go "$mpt" "$debchroot_rpiname"
+		debchroot_start "$debchroot__rpimpt" || exit 1
+		debchroot_go "$debchroot__rpimpt" "$debchroot_rpiname"
 	)
 	rv=$?
 	echo >&2 "I: umounting and ejecting"
 	re=
-	debchroot_stop "$mpt" || re=1
-	umount "$mpt" || re=1
-	if mountpoint -q "$mpt"; then
+	debchroot_stop "$debchroot__rpimpt" || re=1
+	umount "$debchroot__rpimpt" || re=1
+	if mountpoint -q "$debchroot__rpimpt"; then
 		echo >&2 "E: not removing mountpoint" \
-		    "$(debchroot__e "$mpt") because it is still in use"
+		    "$(debchroot__e "$debchroot__rpimpt") because it is still in use"
 		re=1
 		# try lazy umount…
-		umount -l "$mpt"
+		umount -l "$debchroot__rpimpt"
 	else
 		rm -rf "$tdir"
 	fi
@@ -319,8 +319,6 @@ EOF
 }
 
 debchroot__init() {
-	local mp rv=0 x
-
 	if test -t 2; then
 		echo '[0m' | tr -d '\n' >&2
 	fi
@@ -332,43 +330,56 @@ debchroot__init() {
 
 	case $1 in
 	(///*)
-		mp=$1 ;;
+		;;
 	(//*)
-		echo >&2 "E: cannot have chroot on UNC path (network)"
+		echo >&2 "E: cannot have chroot on UNC path (network) $(debchroot__e "$1")"
+		unset debchroot__initd
 		return 1 ;;
 	(/*)
-		mp=$1 ;;
+		;;
 	(.)
-		if ! mp=$(pwd); then
-			echo >&2 "E: cannot canonicalise cwd"
+		debchroot__initd=$(pwd) || debchroot__initd="<ERROR:$?>$debchroot__initd"
+		case $debchroot__initd in
+		(/*)
+			shift
+			debchroot__init "$debchroot__initd" "$@"
+			return $?
+			;;
+		(*)
+			echo >&2 "E: cannot canonicalise cwd $(debchroot__e "$debchroot__initd")"
+			unset debchroot__initd
 			return 2
-		fi ;;
+			;;
+		esac ;;
 	(*)
 		echo >&2 "E: mountpoint $(debchroot__e "$1") no absolute path"
 		return 1 ;;
 	esac
 
-	if ! mp=$(readlink -f "$mp"); then
+	if ! debchroot__initmp=$(readlink -f "$1"); then
 		echo >&2 "E: cannot canonicalise mountpoint $(debchroot__e "$1")"
+		unset debchroot__initd debchroot__initmp
 		return 2
 	fi
 
-	for x in /bin /dev /etc /proc /sbin /sys /tmp /usr/sbin; do
-		if ! test -d "$mp$x/."; then
-			echo >&2 "E: mountpoint $(debchroot__e "$1") missing $x"
-			rv=1
+	debchroot__initrv=0
+	for debchroot__initd in /bin /dev /etc /proc /sbin /sys /tmp /usr/sbin; do
+		if ! test -d "$debchroot__initmp$debchroot__initd/."; then
+			echo >&2 "E: mountpoint $(debchroot__e "$1") missing $debchroot__initd"
+			debchroot__initrv=1
 			continue
 		fi
-		case $(readlink -f "$mp$x") in
-		("$mp"/*) ;;
+		case $(readlink -f "$debchroot__initmp$debchroot__initd") in
+		("$debchroot__initmp"/*) ;;
 		(*)
-			echo >&2 "E: mountpoint $(debchroot__e "$mp") $x escaping"
-			rv=1
+			echo >&2 "E: mountpoint $(debchroot__e "$debchroot__initmp") $debchroot__initd escaping"
+			debchroot__initrv=1
 			;;
 		esac
 	done
-	eval "$2=\$mp"
-	return $rv
+	eval "$2=\$debchroot__initmp"
+	unset debchroot__initd debchroot__initmp
+	eval "unset debchroot__initrv; return $debchroot__initrv"
 }
 
 debchroot__prep() {
@@ -613,7 +624,7 @@ EOCHR
 }
 
 debchroot__rev_mounts_do() (
-	eval '(set -o pipefail)' >/dev/null 2>&1 && set -o pipefail
+	eval '(set -o pipefail)' >/dev/null 2>&1 && set -o pipefail || :
 	LC_ALL=C; export LC_ALL; LANGUAGE=C; unset LANGUAGE
 	# make this literal newline and tab!
 	nl='
