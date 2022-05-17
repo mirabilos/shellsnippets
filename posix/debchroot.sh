@@ -46,7 +46,7 @@ debchroot_start() (
 		shift
 	fi
 	set +e
-	debchroot__init "$debchroot__P" debchroot__mpt
+	debchroot__init "$debchroot__P"
 	rv=$?
 	test x"$rv" = x"0" || exit "$rv"
 	echo >&2 "I: preparing chroot directory $(debchroot__e "$debchroot__mpt")..."
@@ -79,7 +79,7 @@ debchroot_stop() (
 		shift
 	fi
 	set +e
-	debchroot__init "$debchroot__P" debchroot__mpt
+	debchroot__init "$debchroot__P"
 	rv=$?
 	test x"$rv" = x"0" || exit "$rv"
 	debchroot__undo "$debchroot__mpt"
@@ -133,7 +133,7 @@ debchroot_run() (
 		shift
 	fi
 	set +e
-	debchroot__init "$debchroot__P" debchroot__mpt || exit 255
+	debchroot__init "$debchroot__P" || exit 255
 	test -n "$debchroot__name" || \
 	    test -h "$debchroot__mpt/etc/debian_chroot" || \
 	    if test -s "$debchroot__mpt/etc/debian_chroot"; then
@@ -341,8 +341,7 @@ debchroot__init() {
 		debchroot__initd=$(pwd) || debchroot__initd="<ERROR:$?>$debchroot__initd"
 		case $debchroot__initd in
 		(/*)
-			shift
-			debchroot__init "$debchroot__initd" "$@"
+			debchroot__init "$debchroot__initd"
 			return $?
 			;;
 		(*)
@@ -356,29 +355,28 @@ debchroot__init() {
 		return 1 ;;
 	esac
 
-	if ! debchroot__initmp=$(readlink -f "$1"); then
+	if ! debchroot__mpt=$(readlink -f "$1"); then
 		echo >&2 "E: cannot canonicalise mountpoint $(debchroot__e "$1")"
-		unset debchroot__initd debchroot__initmp
+		unset debchroot__initd debchroot__mpt
 		return 2
 	fi
 
 	debchroot__initrv=0
 	for debchroot__initd in /bin /dev /etc /proc /sbin /sys /tmp /usr/sbin; do
-		if ! test -d "$debchroot__initmp$debchroot__initd/."; then
+		if ! test -d "$debchroot__mpt$debchroot__initd/."; then
 			echo >&2 "E: mountpoint $(debchroot__e "$1") missing $debchroot__initd"
 			debchroot__initrv=1
 			continue
 		fi
-		case $(readlink -f "$debchroot__initmp$debchroot__initd") in
-		("$debchroot__initmp"/*) ;;
+		case $(readlink -f "$debchroot__mpt$debchroot__initd") in
+		("$debchroot__mpt"/*) ;;
 		(*)
-			echo >&2 "E: mountpoint $(debchroot__e "$debchroot__initmp") $debchroot__initd escaping"
+			echo >&2 "E: mountpoint $(debchroot__e "$debchroot__mpt") $debchroot__initd escaping"
 			debchroot__initrv=1
 			;;
 		esac
 	done
-	eval "$2=\$debchroot__initmp"
-	unset debchroot__initd debchroot__initmp
+	unset debchroot__initd
 	eval "unset debchroot__initrv; return $debchroot__initrv"
 }
 
