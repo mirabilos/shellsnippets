@@ -163,8 +163,10 @@ debchroot_run() (
 debchroot_rpi() (
 	set +eu
 	debchroot__P=
-	while getopts "P:" debchroot__ch; do
+	debchroot_rpiname=
+	while getopts "n:P:" debchroot__ch; do
 		case $debchroot__ch in
+		(n) debchroot_rpiname=$OPTARG ;;
 		(P) debchroot__P=$OPTARG ;;
 		(*) echo >&2 "E: debchroot_rpi: bad options"; exit 1 ;;
 		esac
@@ -175,6 +177,7 @@ debchroot_rpi() (
 		debchroot__P=$1
 		shift
 	fi
+	test -n "$debchroot_rpiname" || debchroot_rpiname=$1
 	set +e
 	debchroot__quiet=1
 	case $debchroot__P in
@@ -261,7 +264,7 @@ debchroot_rpi() (
 	fi
 	(
 		debchroot_start "$mpt" || exit 1
-		debchroot_go "$mpt" "$1"
+		debchroot_go "$mpt" "$debchroot_rpiname"
 	)
 	rv=$?
 	echo >&2 "I: umounting and ejecting"
@@ -272,6 +275,8 @@ debchroot_rpi() (
 		echo >&2 "E: not removing mountpoint" \
 		    "$(debchroot__e "$mpt") because it is still in use"
 		re=1
+		# try lazy umount…
+		umount -l "$mpt"
 	else
 		rm -rf "$mpt"
 	fi
