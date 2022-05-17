@@ -770,6 +770,7 @@ fi
 debchroot__debchroot_="$0 "
 command -v "$0" >/dev/null 2>&1 || \
     debchroot__debchroot_="sh $debchroot__debchroot_"
+test -s "$0" || debchroot__debchroot_='sh debchroot.sh '
 
 case $2:$1 in
 (start:/*|stop:/*|go:/*|run:/*|rpi:/*|start:.|stop:.|go:.|run:.)
@@ -811,9 +812,10 @@ case $1 in
 	;;
 (*)
 	case $0 in
-	(*/*) selfpath=$(debchroot__q "$0") ;;
-	(*) selfpath=$(debchroot__q "./$0") ;;
+	(*/*) selfpath=$(debchroot__q "$0") || selfpath= ;;
+	(*) selfpath=$(debchroot__q "./$0") || selfpath= ;;
 	esac
+	test -s "$0" || selfpath=
 	cat >&2 <<EOF
 Usage: (you may also give the chroot directory before the command)
 	# set up policy-rc.d and mounts
@@ -826,7 +828,7 @@ Usage: (you may also give the chroot directory before the command)
 	# mount RPi SD and enter it (p1 assumed firmware/boot, p2 root)
 	${debchroot__debchroot_}rpi /dev/mmcblk0|/path/to/image [chroot-name]
 	# make the debchroot_* functions available
-	debchroot_embed=1; . $selfpath
+	debchroot_embed=1; . ${selfpath:-./debchroot.sh}
 EOF
 	case $1 in
 	(help|-h|-\?|--help) exit 0 ;;
