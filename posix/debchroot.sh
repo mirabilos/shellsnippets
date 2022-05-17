@@ -400,8 +400,6 @@ debchroot__init() {
 }
 
 debchroot__prep() {
-	local x rv tdev cdev
-
 	# unless mounted, mount basic filesystems first; assume workable /dev though
 	test -f "$1/proc/cmdline" || \
 	    if ! mount -t proc proc "$1/proc"; then
@@ -426,46 +424,55 @@ debchroot__prep() {
 	fi
 
 	# chroot job response file
-	x=$(mktemp "$1/tmp/tf.XXXXXXXXXX") || {
-		echo >&2 "E: cannot create temporary file"
-		return 1
-	}
+	debchroot__prepj=$(mktemp "$1/tmp/tf.XXXXXXXXXX") || debchroot__prepj="<ERROR:$?>$debchroot__prepj"
+	case $debchroot__prepj in
+	("$1/tmp/"*) ;;
+	(*)
+		echo >&2 "E: cannot create temporary file $(debchroot__e "$debchroot__prepj")"
+		test -z "$debchroot__prepj" || rm -f "$debchroot__prepj"
+		return 1 ;;
+	esac
 
 	# /dev is tricky, consider uid/gid mismatch between host and chroot
 	if ! mountpoint -q "$1/dev"; then
-		if ! tdev=$(mktemp -d "$1/tmp/mnt.XXXXXXXXXX"); then
-			echo >&2 "E: cannot create temporary mountpoint"
-			return 1
-		fi
-		case $tdev in
+		debchroot__prept=$(mktemp -d "$1/tmp/mnt.XXXXXXXXXX") || debchroot__prept="<ERROR:$?>$debchroot__prept"
+		case $debchroot__prept in
 		("$1/tmp/"*) ;;
 		(*)
-			echo >&2 "E: temporary mountpoint improper"
+			echo >&2 "E: cannot create temporary mountpoint $(debchroot__e "$debchroot__prept")"
+			test -z "$debchroot__prept" || rmdir "$debchroot__prept"
+			rm "$debchroot__prepj"
 			return 1 ;;
 		esac
-		if ! mount -t tmpfs -o mode=0755,uid=0,gid=0 sdev "$tdev"; then
-			echo >&2 "E: cannot mount temporary tmpfs"
+		if ! mount -t tmpfs -o mode=0755,uid=0,gid=0 sdev "$debchroot__prept"; then
+			echo >&2 "E: cannot mount temporary tmpfs on $(debchroot__e "$debchroot__prept")"
+			rm -r "$debchroot__prept" "$debchroot__prepj"
 			return 1
 		fi
-		mkdir "$tdev/dev"
-		if ! mount -t tmpfs -o mode=0755,uid=0,gid=0 sdev "$tdev/dev"; then
+		mkdir "$debchroot__prept/dev"
+		if ! mount -t tmpfs -o mode=0755,uid=0,gid=0 sdev "$debchroot__prept/dev"; then
 			echo >&2 "E: cannot mount target /dev tmpfs"
+			umount "$debchroot__prept"
+			rm -r "$debchroot__prept" "$debchroot__prepj"
 			return 1
 		fi
 		(
 			set -e
 			cd /dev
 			tar -cf - -b 1 --one-file-system --warning=no-file-ignored .
-		) >"$tdev/dev/.archive" || {
+		) >"$debchroot__prept/dev/.archive" || {
 			echo >&2 "E: cannot pack up /dev"
+			umount "$debchroot__prept/dev"
+			umount "$debchroot__prept"
+			rm -r "$debchroot__prept" "$debchroot__prepj"
 			return 1
 		}
-		cdev=${tdev#"$1"}/dev
-		export cdev
-		chroot "$1" /bin/sh 7>"$x" <<\EOCHR
+		debchroot__prepd=${debchroot__prept#"$1"}/dev
+		export debchroot__prepd
+		chroot "$1" /bin/sh 7>"$debchroot__prepj" <<\EOCHR
 			LC_ALL=C; export LC_ALL; LANGUAGE=C; unset LANGUAGE
 			set -e
-			cd "$cdev"
+			cd "$debchroot__prepd"
 			exec 6<.archive
 			rm .archive
 			tar -xf - --same-permissions --same-owner <&6
@@ -478,52 +485,70 @@ debchroot__prep() {
 			fi
 			echo klaar >&7
 EOCHR
-		rv=$?
-		rv=$rv,"$(cat "$x")"
-		test x"$rv" = x"0,klaar" || {
+		debchroot__preprv=$?
+		unset debchroot__prepd
+		debchroot__preprv=$debchroot__preprv,"$(cat "$debchroot__prepj")"
+		test x"$debchroot__preprv" = x"0,klaar" || {
 			echo >&2 "E: cannot set up target /dev"
+			umount "$debchroot__prept/dev"
+			umount "$debchroot__prept"
+			rm -r "$debchroot__prept" "$debchroot__prepj"
 			return 1
 		}
 		(
 			set -e
 			cd /dev
 			find . -type s -print0
-		) >"$x" || {
+		) >"$debchroot__prepj" || {
 			echo >&2 "E: cannot discover /dev sockets"
+			umount "$debchroot__prept/dev"
+			umount "$debchroot__prept"
+			rm -r "$debchroot__prept" "$debchroot__prepj"
 			return 1
 		}
 		(
 			set -e
-			cd "$tdev/dev"
-			<"$x" xargs -0rI @@ touch @@
-			<"$x" xargs -0rI @@ mount --bind /dev/@@ @@
+			cd "$debchroot__prept/dev"
+			<"$debchroot__prepj" xargs -0rI @@ touch @@
+			<"$debchroot__prepj" xargs -0rI @@ mount --bind /dev/@@ @@
 		) || {
 			echo >&2 "E: cannot set up /dev sockets"
+			umount "$debchroot__prept/dev"
+			umount "$debchroot__prept"
+			rm -r "$debchroot__prept" "$debchroot__prepj"
 			return 1
 		}
-		mount --make-private "$tdev"
-		if ! mount --move "$tdev/dev" "$1/dev"; then
+		mount --make-private "$debchroot__prept"
+		if ! mount --move "$debchroot__prept/dev" "$1/dev"; then
 			echo >&2 "E: cannot finalise target /dev"
+			umount "$debchroot__prept/dev"
+			umount "$debchroot__prept"
+			rm -r "$debchroot__prept" "$debchroot__prepj"
 			return 1
 		fi
-		umount "$tdev" && rmdir "$tdev" || :
+		umount "$debchroot__prept" && rmdir "$debchroot__prept" || :
+		unset debchroot__prept
 	fi
 	# /dev/pts is a bit tricky… consider /dev might not be from us
-	if ! mountpoint -q "$1/dev/pts"; then
-		test -h "$1/dev/pts" && if ! rm "$1/dev/pts"; then
+	if ! mountpoint --nofollow -q "$1/dev/pts"; then
+		test ! -h "$1/dev/pts" || if ! rm "$1/dev/pts"; then
 			echo >&2 "E: target has /dev/pts as symlink"
+			rm "$debchroot__prepj"
 			return 3
 		fi
 		test -d "$1/dev/pts" || if ! rm "$1/dev/pts"; then
 			echo >&2 "E: target has /dev/pts as nōn-directory"
+			rm "$debchroot__prepj"
 			return 3
 		fi
 		test -d "$1/dev/pts" || if ! mkdir "$1/dev/pts"; then
 			echo >&2 "E: cannot mkdir $(debchroot__e "$1")/dev/pts"
+			rm "$debchroot__prepj"
 			return 2
 		fi
 		if ! mount --bind /dev/pts "$1/dev/pts"; then
 			echo >&2 "E: cannot mount $(debchroot__e "$1")/dev/pts"
+			rm "$debchroot__prepj"
 			return 1
 		fi
 	fi
@@ -533,6 +558,7 @@ EOCHR
 		echo >&2 "W: $(debchroot__e "$1")/run/udev weird, not mounted"
 	elif ! mount --bind /run/udev "$1/run/udev"; then
 		echo >&2 "E: cannot mount $(debchroot__e "$1")/run/udev"
+		rm "$debchroot__prepj"
 		return 1
 	fi
 	# /dev/shm is hardest, can be /run/shm with symlinks in either direction
@@ -546,6 +572,7 @@ EOCHR
 	if test -h "$1/usr/sbin/policy-rc.d" || \
 	   test -e "$1/usr/sbin/policy-rc.d"; then
 		echo >&2 "E: cannot clear pre-existing policy-rc.d script"
+		rm "$debchroot__prepj"
 		return 1
 	fi
 	cat >"$1/usr/sbin/policy-rc.d" <<-\EOF
@@ -555,12 +582,13 @@ EOCHR
 	chmod 0755 "$1/usr/sbin/policy-rc.d"
 	test -x "$1/usr/sbin/policy-rc.d" || {
 		echo >&2 "E: cannot install policy-rc.d deny script"
+		rm "$debchroot__prepj"
 		return 1
 	}
 
-	cdev="$(debchroot__e "$1")"
-	export cdev
-	chroot "$1" /bin/sh 7>"$x" <<\EOCHR
+	debchroot__prepd="$(debchroot__e "$1")"
+	export debchroot__prepd
+	chroot "$1" /bin/sh 7>"$debchroot__prepj" <<\EOCHR
 		LC_ALL=C; export LC_ALL; LANGUAGE=C; unset LANGUAGE
 		mountpoint -q /dev/shm || {
 			test -d /dev/shm || rm -f /dev/shm
@@ -568,7 +596,7 @@ EOCHR
 			mount -t tmpfs swap /dev/shm
 		}
 		mountpoint -q /dev/shm || {
-			echo >&2 "E: cannot mount $cdev/dev/shm"
+			echo >&2 "E: cannot mount $debchroot__prepd/dev/shm"
 			exit 1
 		}
 
@@ -631,10 +659,11 @@ EOCHR
 
 		echo dobro >&7
 EOCHR
-	rv=$?
-	rv=$rv,"$(cat "$x")"
-	rm -f "$x"
-	test x"$rv" = x"0,dobro" || return 1
+	debchroot__preprv=$?
+	unset debchroot__prepd
+	debchroot__preprv=$debchroot__preprv,"$(cat "$debchroot__prepj")"
+	rm -f "$debchroot__prepj"
+	test x"$debchroot__preprv" = x"0,dobro" || return 1
 
 	# everything should be set up now
 	return 0
