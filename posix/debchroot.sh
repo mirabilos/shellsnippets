@@ -59,7 +59,7 @@ debchroot_start() (
 		sed -e 's/[^[:print:]]/[7m?[0m/g' >&2 <<-EOF
 		I: done, enter with one of:
 		N: ${debchroot__debchroot_}go $(debchroot__q "$debchroot__mpt") [name]
-		N: ${debchroot__debchroot_}run [-n name] $(debchroot__q "$debchroot__mpt") command ...
+		N: ${debchroot__debchroot_}run [-n name] [-w cmd] $(debchroot__q "$debchroot__mpt") command ...
 		I: finally, undo and umount everything under the directory with:
 		N: ${debchroot__debchroot_}stop $(debchroot__q "$debchroot__mpt")
 		EOF
@@ -126,10 +126,12 @@ debchroot_run() (
 	set +aeu
 	debchroot__name=
 	debchroot__P=
-	while getopts "n:P:" debchroot__ch; do
+	debchroot__ccmd='exec chroot'
+	while getopts "n:P:w:" debchroot__ch; do
 		case $debchroot__ch in
 		(n) debchroot__name=$OPTARG ;;
 		(P) debchroot__P=$OPTARG ;;
+		(w) debchroot__ccmd=$OPTARG ;;
 		(*) echo >&2 "E: debchroot_run: bad options"; exit 1 ;;
 		esac
 	done
@@ -164,7 +166,7 @@ debchroot_run() (
 		echo >&2 "I: entering chroot $(debchroot__e "$debchroot__mpt")" \
 		    "as $(debchroot__e "$debchroot__name")"
 	fi
-	exec chroot "$debchroot__mpt" "$@"
+	eval "$debchroot__ccmd"' "$debchroot__mpt" "$@"'
 )
 
 debchroot_rpi() (
@@ -970,7 +972,8 @@ Usage: (you may also give the chroot directory before the command)
 	# opts can be: -s dir to skip [$(debchroot__skip q)]
 	# run a shell or things in a started chroot
 	${debchroot__debchroot_}go /path/to/chroot [chroot-name]
-	${debchroot__debchroot_}run [-n chroot-name] /path/to/chroot cmd args...
+	${debchroot__debchroot_}run [-n chroot-name] [-w cmd] /p/t/chroot cmd args...
+	# cmd is the chroot wrapper, "exec chroot" by default
 	# disband policy-rc.d and all sub-mounts
 	${debchroot__debchroot_}stop /path/to/chroot
 	# mount RPi SD and enter it (p1 assumed firmware/boot, p2 root)
