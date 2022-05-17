@@ -29,9 +29,10 @@
 # possible; it tries to lazily umount those in use and warns.
 
 debchroot__debchroot_='debchroot_'
+debchroot__quiet=
 
 debchroot_start() (
-	set +eu
+	set +aeu
 	debchroot__P=
 	while getopts "P:" debchroot__ch; do
 		case $debchroot__ch in
@@ -47,24 +48,24 @@ debchroot_start() (
 	fi
 	set +e
 	debchroot__init "$debchroot__P"
-	rv=$?
-	test x"$rv" = x"0" || exit "$rv"
+	debchroot__rv=$?
+	test x"$debchroot__rv" = x"0" || exit "$debchroot__rv"
 	echo >&2 "I: preparing chroot directory $(debchroot__e "$debchroot__mpt")..."
 	debchroot__prep "$debchroot__mpt"
-	rv=$?
-	test -n "$debchroot__quiet" || if test x"$rv" = x"0"; then
+	debchroot__rv=$?
+	test -n "$debchroot__quiet" || if test x"$debchroot__rv" = x"0"; then
 		echo >&2 "I: done, enter with one of:"
 		echo >&2 "N: ${debchroot__debchroot_}go $(debchroot__q "$debchroot__mpt") [name]"
 		echo >&2 "N: ${debchroot__debchroot_}run [-n name] $(debchroot__q "$debchroot__mpt") command …"
 		echo >&2 "I: finally, undo and umount everything under the directory with:"
 		echo >&2 "N: ${debchroot__debchroot_}stop $(debchroot__q "$debchroot__mpt")"
 	fi
-	test x"$rv" = x"0" || debchroot__undo "$debchroot__mpt"
-	exit "$rv"
+	test x"$debchroot__rv" = x"0" || debchroot__undo "$debchroot__mpt"
+	exit "$debchroot__rv"
 )
 
 debchroot_stop() (
-	set +eu
+	set +aeu
 	debchroot__P=
 	while getopts "P:" debchroot__ch; do
 		case $debchroot__ch in
@@ -80,15 +81,15 @@ debchroot_stop() (
 	fi
 	set +e
 	debchroot__init "$debchroot__P"
-	rv=$?
-	test x"$rv" = x"0" || exit "$rv"
+	debchroot__rv=$?
+	test x"$debchroot__rv" = x"0" || exit "$debchroot__rv"
 	debchroot__undo "$debchroot__mpt"
-	rv=$?
-	test -n "$debchroot__quiet" || if test x"$rv" = x"0"; then
+	debchroot__rv=$?
+	test -n "$debchroot__quiet" || if test x"$debchroot__rv" = x"0"; then
 		echo >&2 "I: retracted chroot directory $(debchroot__e "$debchroot__mpt")"
 		echo >&2 "N: everything mounted below was umounted as well!"
 	fi
-	exit "$rv"
+	exit "$debchroot__rv"
 )
 
 debchroot_go() {
@@ -110,13 +111,15 @@ debchroot_go() {
 	elif test -z "$debchroot__name"; then
 		debchroot__name=${1:-}
 	fi
-	debchroot_run -P "$debchroot__P" -n "$debchroot__name" \
+	set -- -P "$debchroot__P" -n "$debchroot__name" \
 	    -- su -l -w \
 	    debian_chroot,LANG,LC_CTYPE,LC_ALL,TERM,TERMCAP
+	unset debchroot__ch debchroot__P debchroot__name
+	debchroot_run "$@"
 }
 
 debchroot_run() (
-	set +eu
+	set +aeu
 	debchroot__name=
 	debchroot__P=
 	while getopts "n:P:" debchroot__ch; do
@@ -161,7 +164,7 @@ debchroot_run() (
 )
 
 debchroot_rpi() (
-	set +eu
+	set +aeu
 	debchroot__P=
 	debchroot_rpiname=
 	while getopts "n:P:" debchroot__ch; do
@@ -272,7 +275,7 @@ debchroot_rpi() (
 		debchroot_start "$debchroot__rpimpt" || exit 1
 		debchroot_go "$debchroot__rpimpt" "$debchroot_rpiname"
 	)
-	rv=$?
+	debchroot__rv=$?
 	echo >&2 "I: umounting and ejecting"
 	re=
 	debchroot_stop "$debchroot__rpimpt" || re=1
@@ -288,11 +291,11 @@ debchroot_rpi() (
 	fi
 	kpartx -d -f -v -p p -t dos -s "$dvname" || re=1
 	debchroot__lounsetup "$loopdev" || re=1
-	case $rv,$re in
-	(0,1) rv=1 ;;
+	case $debchroot__rv,$re in
+	(0,1) debchroot__rv=1 ;;
 	esac
 	test -n "$re" || echo >&2 "I: retracted image $(debchroot__e "$debchroot__P")"
-	exit $rv
+	exit $debchroot__rv
 )
 
 debchroot__e() {
