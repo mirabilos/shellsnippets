@@ -609,31 +609,34 @@ EOCHR
 			trydivert1 "$@" </dev/null && trydivert2 "$@"
 		}
 		trydivert1() {
-			local T p=false
+			debchroot__tdp=false
 
 			if exists $1.REAL; then
-				exists $1 && p=true
+				exists $1 && debchroot__tdp=true
 			elif exists $1; then
 				mv $1 $1.REAL || exit 1
 			fi
-			T=$(mktemp "/tmp/tf.XXXXXXXXXX") || {
+			debchroot__tdT=$(mktemp "/tmp/tf.XXXXXXXXXX") || {
 				echo >&2 "E: cannot create temporary file"
 				exit 1
 			}
 			dpkg-divert --local --quiet --rename \
-			    --divert $1.REAL --add $1 2>"$T"
-			rv=$?
+			    --divert $1.REAL --add $1 2>"$debchroot__tdT"
+			debchroot__tdE=$?
 			grep -v \
 			    -e 'Essential.*no-rename' \
 			    -e 'no-rename.*Essential' \
-			    <"$T" >&2
-			rm -f "$T"
-			test x"$rv" != x"0" && \
-			    command -v dpkg-divert >/dev/null 2>&1 && exit $rv
-			$p || if exists $1; then
+			    <"$debchroot__tdT" >&2
+			rm -f "$debchroot__tdT"
+			unset debchroot__tdT
+			test x"$debchroot__tdE" != x"0" && \
+			    command -v dpkg-divert >/dev/null 2>&1 && exit $debchroot__tdE
+			unset debchroot__tdE
+			$debchroot__tdp || if exists $1; then
 				echo >&2 "E: cannot clear pre-existing $2"
 				exit 1
 			fi
+			unset debchroot__tdp
 		}
 		trydivert2() {
 			cat >$1
