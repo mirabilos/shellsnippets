@@ -54,11 +54,13 @@ debchroot_start() (
 	debchroot__prep "$debchroot__mpt"
 	debchroot__rv=$?
 	test -n "$debchroot__quiet" || if test x"$debchroot__rv" = x"0"; then
-		echo >&2 "I: done, enter with one of:"
-		echo >&2 "N: ${debchroot__debchroot_}go $(debchroot__q "$debchroot__mpt") [name]"
-		echo >&2 "N: ${debchroot__debchroot_}run [-n name] $(debchroot__q "$debchroot__mpt") command …"
-		echo >&2 "I: finally, undo and umount everything under the directory with:"
-		echo >&2 "N: ${debchroot__debchroot_}stop $(debchroot__q "$debchroot__mpt")"
+		sed -e 's/[^[:print:]]/[7m?[0m/g' >&2 <<-EOF
+		I: done, enter with one of:
+		N: ${debchroot__debchroot_}go $(debchroot__q "$debchroot__mpt") [name]
+		N: ${debchroot__debchroot_}run [-n name] $(debchroot__q "$debchroot__mpt") command …
+		I: finally, undo and umount everything under the directory with:
+		N: ${debchroot__debchroot_}stop $(debchroot__q "$debchroot__mpt")
+		EOF
 	fi
 	test x"$debchroot__rv" = x"0" || debchroot__undo "$debchroot__mpt"
 	exit "$debchroot__rv"
@@ -218,14 +220,15 @@ debchroot_rpi() (
 	debchroot__rpixd=/dev/mapper/${debchroot__rpidv##*/}
 	if ! kpartx -a -f -v -p p -t dos -s "$debchroot__rpidv"; then
 		echo >&2 "E: kpartx failed"
-		debchroot__lounsetup "$debchroot__rpilo"
+		debchroot__lounsetup
 		exit 1
 	fi
 	if ! test -b "${debchroot__rpixd}p2"; then
 		echo >&2 "E: kpartx did not map expected partition"
-		ls -l "${debchroot__rpixd}"* | sed 's/^/N: /' >&2
+		ls -l "${debchroot__rpixd}"* | sed \
+		    -e 's/[^[:print:]]/[7m?[0m/g' -e 's/^/N: /' >&2
 		kpartx -d -f -v -p p -t dos -s "$debchroot__rpidv"
-		debchroot__lounsetup "$debchroot__rpilo"
+		debchroot__lounsetup
 		exit 1
 	fi
 	if ! e2fsck -p "${debchroot__rpixd}p2"; then
@@ -242,7 +245,7 @@ debchroot_rpi() (
 		echo >&2 "E: could not create mountpoint"
 		test -z "$debchroot__rpiT" || rm -rf "$debchroot__rpiT"
 		kpartx -d -f -v -p p -t dos -s "$debchroot__rpidv"
-		debchroot__lounsetup "$debchroot__rpilo"
+		debchroot__lounsetup
 		exit 1
 	fi
 	debchroot__rpimpt=$debchroot__rpiT/mpt
@@ -250,7 +253,7 @@ debchroot_rpi() (
 		echo >&2 "E: could not mount image root filesystem"
 		rm -rf "$debchroot__rpiT"
 		kpartx -d -f -v -p p -t dos -s "$debchroot__rpidv"
-		debchroot__lounsetup "$debchroot__rpilo"
+		debchroot__lounsetup
 		exit 1
 	fi
 	if test -h "$debchroot__rpimpt/boot"; then
@@ -297,7 +300,7 @@ debchroot_rpi() (
 		rm -rf "$debchroot__rpiT"
 	fi
 	kpartx -d -f -v -p p -t dos -s "$debchroot__rpidv" || debchroot__rpiE=1
-	debchroot__lounsetup "$debchroot__rpilo" || debchroot__rpiE=1
+	debchroot__lounsetup || debchroot__rpiE=1
 	case $debchroot__rv,$debchroot__rpiE in
 	(0,1) debchroot__rv=1 ;;
 	esac
@@ -643,7 +646,8 @@ EOCHR
 			grep -v \
 			    -e 'Essential.*no-rename' \
 			    -e 'no-rename.*Essential' \
-			    <"$debchroot__tdT" >&2
+			    <"$debchroot__tdT" | sed \
+			    -e 's/[^[:print:]]/[7m?[0m/g' >&2
 			rm -f "$debchroot__tdT"
 			unset debchroot__tdT
 			test x"$debchroot__tdE" != x"0" && \
@@ -815,10 +819,10 @@ EOF
 }
 
 debchroot__lounsetup() {
-	test -n "$1" || return 0
-	losetup -d "$1"
-	if losetup "$1" >/dev/null 2>&1; then
-		echo >&2 "W: $1 still in use"
+	test -n "$debchroot__rpilo" || return 0
+	losetup -d "$debchroot__rpilo"
+	if losetup "$debchroot__rpilo" >/dev/null 2>&1; then
+		echo >&2 "W: $debchroot__rpilo still in use"
 		return 1
 	fi
 	return 0
@@ -878,7 +882,10 @@ case $1 in
 	(*) selfpath=$(debchroot__q "./$0") || selfpath= ;;
 	esac
 	test -s "$0" || selfpath=
-	cat >&2 <<EOF
+	if test -t 2; then
+		echo '[0m' | tr -d '\n' >&2
+	fi
+	sed -e 's/[^	[:print:]]/[7m?[0m/g' >&2 <<EOF
 Usage: (you may also give the chroot directory before the command)
 	# set up policy-rc.d and mounts
 	${debchroot__debchroot_}start /path/to/chroot	# or “.” for cwd
