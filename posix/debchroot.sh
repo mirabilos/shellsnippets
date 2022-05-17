@@ -465,7 +465,8 @@ debchroot__prep() {
 	# only if not symlinked, e.g. to var/tmp
 	test -h "$1/tmp" || mountpoint -q "$1/tmp" || \
 	    if test x"$debchroot__skip_tmp" = x"1"; then
-		echo >&2 "W: skipping /tmp mount as requested"
+		test -n "$debchroot__quiet" || \
+		    echo >&2 "W: skipping /tmp mount as requested"
 	elif ! mount -t tmpfs swap "$1/tmp"; then
 		echo >&2 "E: cannot mount $(debchroot__e "$1")/tmp"
 		return 1
@@ -485,7 +486,8 @@ debchroot__prep() {
 	# /dev is tricky, consider uid/gid mismatch between host and chroot
 	mountpoint -q "$1/dev" || \
 	    if test x"$debchroot__skip_dev" = x"1"; then
-		echo >&2 "W: skipping /dev{,/pts,/shm} mounts as requested"
+		test -n "$debchroot__quiet" || \
+		    echo >&2 "W: skipping /dev{,/pts,/shm} mounts as requested"
 	else
 		debchroot__prept=$(mktemp -d "$1/tmp/mnt.XXXXXXXXXX") || debchroot__prept="<ERROR:$?>$debchroot__prept"
 		case $debchroot__prept in
@@ -593,7 +595,8 @@ EOCHR
 	# /dev/pts is a bit tricky… consider /dev might not be from us
 	mountpoint --nofollow -q "$1/dev/pts" || \
 	    if test x"$debchroot__skip_devpts" = x"1"; then
-		echo >&2 "W: skipping /dev/pts mount as requested"
+		test -n "$debchroot__quiet" || \
+		    echo >&2 "W: skipping /dev/pts mount as requested"
 	else
 		test ! -h "$1/dev/pts" || if ! rm "$1/dev/pts"; then
 			echo >&2 "E: target has /dev/pts as symlink"
@@ -623,7 +626,8 @@ EOCHR
 	# tricky but needed only sometimes
 	test -d /run/udev && test -d "$1/run/udev" && \
 	    if x"$debchroot__skip_runudev" = x"1"; then
-		echo >&2 "W: skipping /run/udev mount as requested"
+		test -n "$debchroot__quiet" || \
+		    echo >&2 "W: skipping /run/udev mount as requested"
 	elif x"$(readlink -f "$1/run/udev" || echo ERR)" != x"$1/run/udev"; then
 		echo >&2 "W: $(debchroot__e "$1")/run/udev weird, not mounted"
 	elif ! mount --bind /run/udev "$1/run/udev"; then
@@ -661,7 +665,12 @@ EOCHR
 
 	debchroot__prepd="$(debchroot__e "$1")"
 	export debchroot__prepd
-	debchroot__prepnoshm=$debchroot__skip_devshm
+	case $debchroot__skip_devshm$debchroot__quiet in
+	(0) debchroot__prepnoshm=0 ;;
+	(1) debchroot__prepnoshm=1 ;;
+	(1*) debchroot__prepnoshm=2 ;;
+	(*) debchroot__prepnoshm=0 ;;
+	esac
 	export debchroot__prepnoshm
 	chroot "$1" /bin/sh 7>"$debchroot__prepj" <<\EOCHR
 		LC_ALL=C; export LC_ALL; LANGUAGE=C; unset LANGUAGE
@@ -669,7 +678,7 @@ EOCHR
 		if test x"$debchroot__prepnoshm" = x"1"; then
 			mountpoint -q /dev/shm || \
 			    echo >&2 "W: skipping /dev/shm mount as requested"
-		else
+		elif test x"$debchroot__prepnoshm" = x"0"; then
 			mountpoint -q /dev/shm || {
 				test -d /dev/shm || rm -f /dev/shm
 				test -d /dev/shm || mkdir -p /dev/shm
