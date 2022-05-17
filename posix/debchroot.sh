@@ -33,10 +33,12 @@ debchroot__quiet=
 
 debchroot_start() (
 	set +aeu
+	debchroot__skip 0
 	debchroot__P=
-	while getopts "P:" debchroot__ch; do
+	while getopts "P:s:" debchroot__ch; do
 		case $debchroot__ch in
 		(P) debchroot__P=$OPTARG ;;
+		(s) debchroot__skip start "$OPTARG" || exit 1 ;;
 		(*) echo >&2 "E: debchroot_start: bad options"; exit 1 ;;
 		esac
 	done
@@ -167,12 +169,14 @@ debchroot_run() (
 
 debchroot_rpi() (
 	set +aeu
+	debchroot__skip 0
 	debchroot__P=
 	debchroot_rpiname=
-	while getopts "n:P:" debchroot__ch; do
+	while getopts "n:P:s:" debchroot__ch; do
 		case $debchroot__ch in
 		(n) debchroot_rpiname=$OPTARG ;;
 		(P) debchroot__P=$OPTARG ;;
+		(s) debchroot__skip rpi "$OPTARG" || exit 1 ;;
 		(*) echo >&2 "E: debchroot_rpi: bad options"; exit 1 ;;
 		esac
 	done
@@ -282,6 +286,7 @@ debchroot_rpi() (
 		echo >&2 "W: not mounting firmware/boot: attempt failed"
 	fi
 	(
+		debchroot__skipinit=2
 		debchroot_start "$debchroot__rpimpt" || exit 1
 		debchroot_go "$debchroot__rpimpt" "$debchroot_rpiname"
 	)
@@ -402,6 +407,44 @@ debchroot__init() {
 	eval "unset debchroot__initrv; return $debchroot__initrv"
 }
 
+debchroot__skipinit=0
+debchroot__skip() {
+	if test x"$1" = x"q"; then
+		echo "tmp|dev|devpts|devshm|runudev"
+		return 0
+	fi
+	if test x"$1" = x"0"; then
+		test x"$debchroot__skipinit" = x"2" || {
+			debchroot__skip_tmp=0
+			debchroot__skip_dev=0
+			debchroot__skip_devpts=0
+			debchroot__skip_devshm=0
+			debchroot__skip_runudev=0
+		}
+		debchroot__skipinit=1
+		return 0
+	fi
+	case $2 in
+	(tmp)
+		debchroot__skip_tmp=1 ;;
+	(dev)
+		debchroot__skip_dev=1
+		debchroot__skip_devpts=1
+		debchroot__skip_devshm=1
+		;;
+	(devpts)
+		debchroot__skip_devpts=1 ;;
+	(devshm)
+		debchroot__skip_devshm=1 ;;
+	(runudev)
+		debchroot__skip_runudev=1 ;;
+	(*)
+		echo >&2 "E: debchroot_$1: bad -s option argument"
+		return 1 ;;
+	esac
+	return 0
+}
+
 debchroot__prep() {
 	# unless mounted, mount basic filesystems first; assume workable /dev though
 	test -f "$1/proc/cmdline" || \
@@ -421,7 +464,9 @@ debchroot__prep() {
 	fi
 	# only if not symlinked, e.g. to var/tmp
 	test -h "$1/tmp" || mountpoint -q "$1/tmp" || \
-	    if ! mount -t tmpfs swap "$1/tmp"; then
+	    if test x"$debchroot__skip_tmp" = x"1"; then
+		echo >&2 "W: skipping /tmp mount as requested"
+	elif ! mount -t tmpfs swap "$1/tmp"; then
 		echo >&2 "E: cannot mount $(debchroot__e "$1")/tmp"
 		return 1
 	fi
@@ -438,7 +483,10 @@ debchroot__prep() {
 	esac
 
 	# /dev is tricky, consider uid/gid mismatch between host and chroot
-	if ! mountpoint -q "$1/dev"; then
+	mountpoint -q "$1/dev" || \
+	    if test x"$debchroot__skip_dev" = x"1"; then
+		echo >&2 "W: skipping /dev{,/pts,/shm} mounts as requested"
+	else
 		debchroot__prept=$(mktemp -d "$1/tmp/mnt.XXXXXXXXXX") || debchroot__prept="<ERROR:$?>$debchroot__prept"
 		case $debchroot__prept in
 		("$1/tmp/"*) ;;
@@ -543,7 +591,10 @@ EOCHR
 		unset debchroot__prept
 	fi
 	# /dev/pts is a bit tricky… consider /dev might not be from us
-	if ! mountpoint --nofollow -q "$1/dev/pts"; then
+	mountpoint --nofollow -q "$1/dev/pts" || \
+	    if test x"$debchroot__skip_devpts" = x"1"; then
+		echo >&2 "W: skipping /dev/pts mount as requested"
+	else
 		test ! -h "$1/dev/pts" || if ! rm "$1/dev/pts"; then
 			echo >&2 "E: target has /dev/pts as symlink"
 			rm "$debchroot__prepj"
@@ -571,7 +622,9 @@ EOCHR
 	fi
 	# tricky but needed only sometimes
 	test -d /run/udev && test -d "$1/run/udev" && \
-	    if x"$(readlink -f "$1/run/udev" || echo ERR)" != x"$1/run/udev"; then
+	    if x"$debchroot__skip_runudev" = x"1"; then
+		echo >&2 "W: skipping /run/udev mount as requested"
+	elif x"$(readlink -f "$1/run/udev" || echo ERR)" != x"$1/run/udev"; then
 		echo >&2 "W: $(debchroot__e "$1")/run/udev weird, not mounted"
 	elif ! mount --bind /run/udev "$1/run/udev"; then
 		echo >&2 "E: cannot mount $(debchroot__e "$1")/run/udev"
@@ -608,18 +661,25 @@ EOCHR
 
 	debchroot__prepd="$(debchroot__e "$1")"
 	export debchroot__prepd
+	debchroot__prepnoshm=$debchroot__skip_devshm
+	export debchroot__prepnoshm
 	chroot "$1" /bin/sh 7>"$debchroot__prepj" <<\EOCHR
 		LC_ALL=C; export LC_ALL; LANGUAGE=C; unset LANGUAGE
 		# note mountpoint, test -d follow; rm+mkdir is ephemeral
-		mountpoint -q /dev/shm || {
-			test -d /dev/shm || rm -f /dev/shm
-			test -d /dev/shm || mkdir -p /dev/shm
-			mount -t tmpfs swap /dev/shm
-		}
-		mountpoint -q /dev/shm || {
-			echo >&2 "E: cannot mount $debchroot__prepd/dev/shm"
-			exit 1
-		}
+		if test x"$debchroot__prepnoshm" = x"1"; then
+			mountpoint -q /dev/shm || \
+			    echo >&2 "W: skipping /dev/shm mount as requested"
+		else
+			mountpoint -q /dev/shm || {
+				test -d /dev/shm || rm -f /dev/shm
+				test -d /dev/shm || mkdir -p /dev/shm
+				mount -t tmpfs swap /dev/shm
+			}
+			mountpoint -q /dev/shm || {
+				echo >&2 "E: cannot mount $debchroot__prepd/dev/shm"
+				exit 1
+			}
+		fi
 
 		exists() {
 			test -h "$1" || test -e "$1"
@@ -888,14 +948,15 @@ case $1 in
 	sed -e 's/[^	[:print:]]/[7m?[0m/g' >&2 <<EOF
 Usage: (you may also give the chroot directory before the command)
 	# set up policy-rc.d and mounts
-	${debchroot__debchroot_}start /path/to/chroot	# or “.” for cwd
+	${debchroot__debchroot_}start [opts] /path/to/chroot	# or “.” for cwd
+	# opts can be: -s dir to skip [$(debchroot__skip q)]
 	# run a shell or things in a started chroot
 	${debchroot__debchroot_}go /path/to/chroot [chroot-name]
 	${debchroot__debchroot_}run [-n chroot-name] /path/to/chroot cmd args…
 	# disband policy-rc.d and all sub-mounts
 	${debchroot__debchroot_}stop /path/to/chroot
 	# mount RPi SD and enter it (p1 assumed firmware/boot, p2 root)
-	${debchroot__debchroot_}rpi /dev/mmcblk0|/path/to/image [chroot-name]
+	${debchroot__debchroot_}rpi [opts] /dev/mmcblk0|/path/to/image [chroot-name]
 	# make the debchroot_* functions available
 	debchroot_embed=1; . ${selfpath:-./debchroot.sh}
 EOF
