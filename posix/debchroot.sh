@@ -355,11 +355,20 @@ debchroot__init() {
 		return 1 ;;
 	esac
 
-	if ! debchroot__mpt=$(readlink -f "$1"); then
-		echo >&2 "E: cannot canonicalise mountpoint $(debchroot__e "$1")"
+	debchroot__mpt=$(readlink -f "$1") || debchroot__mpt="<ERROR:$?>$debchroot__mpt"
+	case $debchroot__mpt in
+	(//*)
+		echo >&2 "E: canonical mountpoint $(debchroot__e "$1") is UNC path $(debchroot__e "$debchroot__mpt")"
 		unset debchroot__initd debchroot__mpt
-		return 2
-	fi
+		return 1 ;;
+	(/*)
+		# ///* also ends up here or canonicalisation failed
+		;;
+	(*)
+		echo >&2 "E: canonical mountpoint $(debchroot__e "$1") bad $(debchroot__e "$debchroot__mpt")"
+		unset debchroot__initd debchroot__mpt
+		return 2 ;;
+	esac
 
 	debchroot__initrv=0
 	for debchroot__initd in /bin /dev /etc /proc /sbin /sys /tmp /usr/sbin; do
