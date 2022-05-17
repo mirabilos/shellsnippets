@@ -754,7 +754,7 @@ case $2:$1 in
 (start:/*|stop:/*|go:/*|rpi:/*|start:.|stop:.|go:.)
 	p=$1 cmd=$2
 	shift; shift
-	set -- "$cmd" "$p" "$@"
+	set -- "$cmd" -P "$p" "$@"
 	;;
 (run:/*|run:.)
 	p=$1 cmd=$2
@@ -762,9 +762,9 @@ case $2:$1 in
 	if test x"$1" = x"-n"; then
 		n=$2
 		shift; shift
-		set -- "$cmd" -n "$n" "$p" "$@"
+		set -- "$cmd" -n "$n" -P "$p" "$@"
 	else
-		set -- "$cmd" "$p" "$@"
+		set -- "$cmd" -P "$p" "$@"
 	fi
 	;;
 esac
