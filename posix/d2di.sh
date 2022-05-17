@@ -29,32 +29,109 @@ LANGUAGE=C
 LC_ALL=C
 export LC_ALL
 
-debchroot__mpt=
 die() {
 	echo >&2 "E: ${0##*/}: $*"
-	test -z "$debchroot__mpt" || debchroot_stop -P "$debchroot__mpt"
 	exit 1
 }
 
+getslist() {
+	case $relse in
+	(buster) cat <<-'EOF'
+deb http://deb.debian.org/debian/ buster main non-free contrib
+deb http://deb.debian.org/debian-security/ buster/updates main non-free contrib
+deb http://deb.debian.org/debian/ buster-updates main non-free contrib
+deb http://deb.debian.org/debian/ buster-backports main non-free contrib
+#deb http://deb.debian.org/debian/ buster-backports-sloppy main non-free contrib
+		EOF
+		;;
+	(bullseye) cat <<-'EOF'
+deb http://deb.debian.org/debian/ bullseye main non-free contrib
+deb http://deb.debian.org/debian-security/ bullseye-security main non-free contrib
+deb http://deb.debian.org/debian/ bullseye-updates main non-free contrib
+deb http://deb.debian.org/debian/ bullseye-backports main non-free contrib
+#deb http://deb.debian.org/debian/ bullseye-backports-sloppy main non-free contrib
+		EOF
+		;;
+	(bookworm) cat <<-'EOF'
+deb http://deb.debian.org/debian/ bookworm main non-free contrib
+deb http://deb.debian.org/debian-security/ bookworm-security main non-free contrib
+deb http://deb.debian.org/debian/ bookworm-updates main non-free contrib
+#deb http://deb.debian.org/debian/ bookworm-backports main non-free contrib
+#deb http://deb.debian.org/debian/ bookworm-backports-sloppy main non-free contrib
+		EOF
+		;;
+	(testing) cat <<-'EOF'
+deb http://deb.debian.org/debian/ testing main non-free contrib
+deb http://deb.debian.org/debian-security/ testing-security main non-free contrib
+deb http://deb.debian.org/debian/ testing-updates main non-free contrib
+		EOF
+		;;
+	(sid) cat <<-'EOF'
+deb http://deb.debian.org/debian/ sid main non-free contrib
+		EOF
+		;;
+	(dpo) cat <<-'EOF'
+deb http://deb.debian.org/debian-ports/ unstable main
+deb http://deb.debian.org/debian-ports/ unreleased main
+		EOF
+		;;
+	(*)
+		die unknown release
+		;;
+	esac
+}
+
+defpkgs='bc etckeeper ifupdown iproute2 jupp lynx mc molly-guard net-tools netcat-openbsd openssh-client openssh-server rsync screen sharutils'
 usage() {
-	echo >&2 "E: Usage: ${0##*/} [-p prio] /path/to/chroot"
-	echo >&2 "N: prio for debconf [low|medium|high|critical]"
+	cat >&2 <<EOF
+Usage:	${0##*/} -I initsystem [-k kernelpackage] -n hostname [-P pkgs]
+	[-p prio] -r release [-u user] /path/to/chroot
+N: initsystem = systemd or sysv | release e.g. bullseye or sid
+N: default kernelpackage: linux-image-\$dpkgarch
+N: default pkgs: $defpkgs
+N: prio for debconf [low|medium|high|critical]
+N: without -u no admin user is created (not recommended)
+EOF
 	exit ${1:-1}
 }
 
+isys=
+kpkg='linux-image-@'
+hostn=
+xpkgs=
 setp=no
-while getopts "hp:" ch; do
+relse=
+mkuser=
+while getopts "hI:k:n:P:p:r:u:" ch; do
 	case $ch in
 	(h) usage 0 ;;
+	(I) isys=$OPTARG ;;
+	(k) kpkg=$OPTARG ;;
+	(n) hostn=$OPTARG ;;
+	(P) xpkgs=$OPTARG ;;
 	(p) setp=$OPTARG ;;
+	(r) relse=$OPTARG ;;
+	(u) mkuser=$OPTARG ;;
 	(*) usage ;;
 	esac
 done
 shift $(($OPTIND - 1))
+case $isys in
+# file-rc or openrc could, runit could, etc.
+(systemd|sysv) ;;
+(*) usage ;;
+esac
+case x$hostn in
+(x.*|*.) usage ;;
+(x-*|*-) usage ;;
+(*[!A-Za-z0-9.-]*) usage ;;
+(x) usage ;;
+esac
 case $setp in
 (no|low|medium|high|critical) ;;
 (*) usage ;;
 esac
+getslist >/dev/null # to check $relse validity
 
 mp=$1
 case $mp in
@@ -73,126 +150,157 @@ debchroot_embed=1
 debchroot__quiet=1
 debchroot_start -P "$mp" -s dev || die could not initialise chroot
 debchroot__quiet=
+die() {
+	echo >&2 "E: ${0##*/}: $*"
+	test -z "$mp" || debchroot_stop -P "$mp"
+	exit 1
+}
 
 debchroot_umtree "$mp/dev" || die something was sitting below chroot/dev/
-chroot "$debchroot__mpt" /bin/sh -c '
+chroot "$mp" /bin/sh -c '
 	(cd /dev && exec MAKEDEV std consoleonly ttyS0)
     ' || die could not create initial device nodes
 debchroot__quiet=1
 debchroot_start -P "$mp" || die could not reload chroot
 debchroot__quiet=
 
-# as set by d-i
-printf '%s\n' '0.0 0 0.0' 0 UTC >"$mp/etc/adjtime"
-#XXX TODO: /etc/apt/sources.list
-# from console-setup (1.193) config/keyboard (d-i)
-cat >"$mp/etc/default/keyboard" <<-'EOF'
-	# KEYBOARD CONFIGURATION FILE
-
-	# Consult the keyboard(5) manual page.
-
-	XKBMODEL=pc105
-	XKBLAYOUT=us
-	XKBVARIANT=
-	XKBOPTIONS=
-
-	BACKSPACE=guess
-EOF
-# avoids early errors, configured properly later
-: >"$mp/etc/default/locale"
-#XXX TODO /etc/fstab
-#XXX TODO ask for $myfqdn
-# hostname and hosts (generic)
-case $myfqdn in
-(*.*)	myhost="$myfqdn ${myfqdn%%.*}" ;;
-(*)	myhost=$myfqdn ;;
-esac
-printf '%s\n' "$myfqdn" >"$mp/etc/hostname"
-cat >"$mp/etc/hosts" <<-EOF
-	127.0.0.1	$myhost localhost localhost.localdomain
-
-	::1     ip6-localhost ip6-loopback localhost6 localhost6.localdomain6
-	fe00::0 ip6-localnet
-	ff00::0 ip6-mcastprefix
-	ff02::1 ip6-allnodes
-	ff02::2 ip6-allrouters
-	ff02::3 ip6-allhosts
-EOF
-# like d-i
-rm -f "$mp/etc/mtab"
-ln -sfT /proc/self/mounts "$mp/etc/mtab"
-cat >>"$mp/etc/network/interfaces" <<-'EOF'
-
-	# The loopback network interface
-	auto lo
-	iface lo inet loopback
-EOF
-# for bootstrapping in chroot
-cat /etc/resolv.conf >"$mp/etc/resolv.conf"
-#XXX TODO rnd
-	rnd=/var/lib/systemd/random-seed
-	rnd=/var/lib/urandom/random-seed
-# base directory, init system-dependent but identical
-mkdir -p "$mp${rnd%/*}"
-test -d "$mp${rnd%/*}"/.
-chown 0:0 "$mp${rnd%/*}"
-chmod 755 "$mp${rnd%/*}"
 (
 	set -e
 	# beginning
-	cat <<-'EOF'
+	cat <<-'EOS'
 		#!/bin/sh
 		eval '(set -o pipefail)' >/dev/null 2>&1 && set -o pipefail || :
 		set -e
 		# reset environment so we can work
-		HOME=/root LC_ALL=C PATH=/usr/sbin:/usr/bin:/sbin:/bin
-		export HOME LC_ALL PATH
-		LANGUAGE="C"; unset LANGUAGE
+		DEBIAN_FRONTEND=teletype HOME=/root LANGUAGE=C LC_ALL=C
+		PATH=/usr/sbin:/usr/bin:/sbin:/bin
+		export DEBIAN_FRONTEND HOME LC_ALL PATH
+		unset LANGUAGE
+		cd /
 		# for etckeeper
 		SUDO_USER=root USER=root
 		export SUDO_USER USER
 		# go on
+	EOS
+	for k in isys kpkg hostn xpkgs setp relse mkuser; do
+		eval "v=\$$k"
+		echo "$k=$(debchroot__q "$v")"
+	done
+	cat <<-'EOS'
+		case $isys in
+		(systemd)
+			rnd=/var/lib/systemd/random-seed ;;
+		(*)
+			rnd=/var/lib/urandom/random-seed ;;
+		esac
+		case $setp in
+		(no) unset DEBIAN_PRIORITY ;;
+		(*) DEBIAN_PRIORITY=$setp; export DEBIAN_PRIORITY ;;
+		esac
 		set -x
+		# as set by d-i
+		printf '%s\n' '0.0 0 0.0' 0 UTC >/etc/adjtime
+		cat >/etc/apt/sources.list <<\EOF
+	EOS
+	getslist
+	cat <<-'EOS'
+		EOF
+		# from console-setup (1.193) config/keyboard (d-i)
+		cat >/etc/default/keyboard <<-'EOF'
+			# KEYBOARD CONFIGURATION FILE
+
+			# Consult the keyboard(5) manual page.
+
+			XKBMODEL=pc105
+			XKBLAYOUT=us
+			XKBVARIANT=
+			XKBOPTIONS=
+
+			BACKSPACE=guess
+		EOF
+		# avoids early errors, configured properly later
+		:>/etc/default/locale
+#XXX TODO /etc/fstab
 		# because this is picked up by packages, e.g. postfix
-		HOSTNAME=$(cat /etc/hostname)
+		HOSTNAME=$hostn
 		hostname "$HOSTNAME"
+		case $HOSTNAME in
+		(*.*)	hostn="$HOSTNAME ${HOSTNAME%%.*}" ;;
+		esac
+		printf '%s\n' "$HOSTNAME" >/etc/hostname
+		cat >/etc/hosts <<-EOF
+			127.0.0.1	$hostn localhost localhost.localdomain
+
+			::1     ip6-localhost ip6-loopback localhost6 localhost6.localdomain6
+			fe00::0 ip6-localnet
+			ff00::0 ip6-mcastprefix
+			ff02::1 ip6-allnodes
+			ff02::2 ip6-allrouters
+			ff02::3 ip6-allhosts
+		EOF
+		# like d-i
+		rm -f /etc/mtab
+		ln -sfT /proc/self/mounts /etc/mtab
+		cat >>/etc/network/interfaces <<-'EOF'
+
+			# The loopback network interface
+			auto lo
+			iface lo inet loopback
+		EOF
+		# for bootstrapping in chroot
+		base64 -d >/etc/resolv.conf <<'_/'
+	EOS
+	base64 </etc/resolv.conf
+	cat <<-'EOS'
+		_/
+		# init system-dependent path
+		mkdir -p "${rnd%/*}"
+		test -d "${rnd%/*}"/.
+		dd if=/dev/urandom bs=256 count=1 conv=notrunc of="$rnd"
+		chown 0:0 "${rnd%/*}" "$rnd"
+		chmod 755 "${rnd%/*}"
+		chmod 600 "$rnd"
 		# sanitise APT state
 		apt-get clean
 		apt-get update
 		# for debconf (required) and speed
 		apt-get --purge -y install --no-install-recommends \
 		    eatmydata libterm-readline-gnu-perl
+		DEBIAN_FRONTEND=readline
+		# switch to sysvinit?
+		test x"$isys" = systemd || {
+			eatmydata apt-get --purge -y install --no-install-recommends \
+			    sysv-rc sysvinit-core systemd-
+			printf '%s\n' \
+			    'Package: systemd' 'Pin: version *' 'Pin-Priority: -1' '' \
+			    >/etc/apt/preferences.d/systemd
+			# make it suck slightly less, mostly already in sid
+			(: >/etc/init.d/.legacy-bootordering)
+			grep FANCYTTY /etc/lsb-base-logging.sh >/dev/null 2>&1 || \
+			    echo FANCYTTY=0 >>/etc/lsb-base-logging.sh
+		}
+		eatmydata apt-get --purge -y install --no-install-recommends \
+		    whiptail
+		DEBIAN_FRONTEND=dialog
+		rm -f /var/cache/apt/archives/*.deb  # save temp space
 		# just in case there were security uploads
 		eatmydata apt-get --purge -y dist-upgrade
-	EOF
-	# switch to sysvinit?
-	test -n "$dropsd" || cat <<-'EOF'
-		eatmydata apt-get --purge -y install --no-install-recommends \
-		    sysvinit-core systemd-
-		printf '%s\n' \
-		    'Package: systemd' 'Pin: version *' 'Pin-Priority: -1' '' \
-		    >/etc/apt/preferences.d/systemd
-		# make it suck slightly less, mostly already in sid
-		(: >/etc/init.d/.legacy-bootordering)
-		grep FANCYTTY /etc/lsb-base-logging.sh >/dev/null 2>&1 || \
-		    echo FANCYTTY=0 >>/etc/lsb-base-logging.sh
-	EOF
-#XXX TODO query kernel
-kernel=linux-image-amd64
-	# install base packages
-	echo "kernel=$kernel"
-	cat <<-'EOF'
 		rm -f /var/cache/apt/archives/*.deb  # save temp space
 		# kernel, initrd and base firmware
+		case $kpkg in
+		(*'@'*)
+			kpkg=$(printf '%s\n' "$kpkg" | sed \
+			    "s/@/$(dpkg --print-architecture)/g") ;;
+		esac
 		eatmydata apt-get --purge -y install --no-install-recommends \
-		    busybox firmware-linux-free $kernel whiptail
+		    busybox firmware-linux-free $kpkg
 		rm -f /var/cache/apt/archives/*.deb  # save temp space
-		DEBIAN_FRONTEND=dialog; export DEBIAN_FRONTEND
+		# basic configuration
 		dpkg-reconfigure -plow tzdata
 		rm -f /etc/default/locale  # force generation
-		DEBIAN_PRIORITY=low \
-		    eatmydata apt-get --purge -y install --no-install-recommends \
-		    console-{common,data,setup} locales
+		DEBIAN_PRIORITY=low; export DEBIAN_PRIORITY
+		eatmydata apt-get --purge -y install --no-install-recommends \
+		    --reinstall locales
 		# whether the user just hit Enter
 		case $(cat /etc/default/locale) in
 		(''|'#  File generated by update-locale')
@@ -202,6 +310,12 @@ kernel=linux-image-amd64
 		esac
 		: remaining user configuration may error out intermittently
 		set +e
+		eatmydata apt-get --purge -y install --no-install-recommends \
+		    console-common console-data console-setup
+		case $setp in
+		(no) unset DEBIAN_PRIORITY ;;
+		(*) DEBIAN_PRIORITY=$setp; export DEBIAN_PRIORITY ;;
+		esac
 		: 'make man-db faster at cost of no apropos(1) lookup database'
 		debconf-set-selections <<-'EODB'
 			man-db man-db/build-database boolean false
@@ -209,32 +323,29 @@ kernel=linux-image-amd64
 		EODB
 		: install basic packages
 		eatmydata apt-get --purge -y install --no-install-recommends \
-		    adduser ca-certificates ed ifupdown iproute2 less \
-		    lsb-release man-db net-tools netcat-openbsd \
-		    openssh-client popularity-contest procps sudo
+		    adduser ca-certificates ed less lsb-release man-db \
+		    popularity-contest procps sudo $(case $relse in
+			(buster) echo bsdmainutils ;;
+			(*) echo bsdextrautils ;;
+		    esac)
 		rm -f /var/cache/apt/archives/*.deb  # save temp space
-	EOF
-#XXX TODO
-pkgs='bc etckeeper jupp lynx mc molly-guard openssh-server rsync screen sharutils'
-userid=user
-	cat <<-EOF
 		: install extra packages
-		eatmydata apt-get --purge install --no-install-recommends $pkgs
+		eatmydata apt-get --purge install --no-install-recommends $xpkgs
 		rm -f /var/cache/apt/archives/*.deb  # save temp space
 		: create initial user account, asking for password
-		adduser '$userid'
-		# groups from d-i plus adm and sudo (d-i does sudo, too?)
-		: ignore errors for nonexisting groups, please
-		for group in audio bluetooth cdrom debian-tor dip floppy \
-		    lpadmin netdev plugdev scanner video adm sudo; do
-			adduser '$userid' \$group
-		done
+		if test -n "$mkuser" && adduser -- "$mkuser"; then
+			# groups from d-i plus adm and sudo (d-i does sudo, too?)
+			: ignore errors for nonexisting groups, please
+			for group in audio bluetooth cdrom debian-tor dip floppy \
+			    lpadmin netdev plugdev scanner video adm sudo; do
+				adduser -- "$mkuser" $group
+			done
+		else
+			passwd root
+		fi
 		: end of pre-scripted post-bootstrap steps
-		set +x
 		# prepare for manual steps as desired
-		userid='$userid'
-	EOF
-	cat <<-'EOF'
+		set +x
 		# instruct the user what they can do now
 		whiptail --backtitle 'd2di.sh' \
 		    --msgbox "We will now (chrooted into the target system, under emulation, so it will be really slooooow…) run a login shell as the user account we just created ($userid), so you can do any manual post-installation steps desired.
@@ -243,7 +354,6 @@ Please use “sudo -S command” to run things as root, if necessary.
 
 Press Enter to continue; exit the emulation with the “exit” command." 14 72
 		# clean environment for interactive use
-		unset DEBIAN_FRONTEND POSIXLY_CORRECT
 		export HOME=/  # later overridden by su
 		# create an initial entry in syslog
 		>>/var/log/syslog print -r -- "$(date +"%b %d %T")" \
@@ -282,15 +392,9 @@ Press Enter to continue; exit the emulation with the “exit” command." 14 72
 		>>/var/log/syslog print -r -- "$(date +"%b %d %T")" \
 		    "${HOSTNAME%%.*} d2di.sh[$$]:" \
 		    finishing up post-installation
-	EOF
+		dd if=/dev/urandom bs=256 count=1 seek=1 conv=notrunc of="$rnd"
+	EOS
 ) >"$mp/root/munge-it.sh" || die 'post-installation script creation failure'
-
-# now place initial random seed in the target location
-mv rnd "$mp$rnd" || die 'mv rnd failed'
-chown 0:0 "$mp$rnd" || die 'chown rnd failed'
-chmod 600 "$mp$rnd" || die 'chmod rnd failed'
-# second half (collected from host’s CSPRNG now)
-dd if=/dev/urandom bs=256 count=1 >>"$mp$rnd" || die 'dd rnd2 failed'
 
 debchroot_run -P "$mp" -w 'exec unshare --uts chroot' \
     /usr/bin/env -i TERM="$TERM" /bin/sh /root/munge-it.sh || die 'post-bootstrap failed'
