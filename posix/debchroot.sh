@@ -775,10 +775,7 @@ debchroot__rev_mounts_do() (
 )
 
 debchroot__undo() {
-	debchroot__base=$1
-	export debchroot__base
-
-	chroot "$debchroot__base" /bin/sh <<\EOCHR
+	chroot "$1" /bin/sh <<\EOCHR
 		LC_ALL=C; export LC_ALL; LANGUAGE=C; unset LANGUAGE
 		rv=0
 
@@ -832,15 +829,29 @@ debchroot__undo() {
 EOCHR
 	debchroot__undoE=$?
 
+	debchroot_umtree "$1" || {
+		echo >&2 'N: perhaps some process still has it open?'
+		debchroot__undoE=1
+	}
+
+	eval "unset debchroot__undoE; return $debchroot__undoE"
+}
+
+debchroot_umtree() {
+	debchroot__umbase=$1
+	export debchroot__umbase
+
 	debchroot__rev_mounts_do xargs -0r sh -c '
 		for mpt in "$@"; do
 			case $mpt in
-			("$debchroot__base"/*) umount "$mpt" ;;
+			("$debchroot__umbase"/*) umount "$mpt" ;;
 			esac
 		done
-	' sh
+	' sh || :
+
 	sleep 1
 
+	debchroot__umres=0
 	debchroot__rev_mounts_do xargs -0r sh -c '
 		debchroot__e() {
 			debchroot__esc <<EOF
@@ -859,7 +870,7 @@ EOF
 		rv=0
 		for mpt in "$@"; do
 			case $mpt in
-			("$debchroot__base"/*)
+			("$debchroot__umbase"/*)
 				rv=1
 				echo >&2 "W: could not umount" \
 				    "$(debchroot__e "$mpt")"
@@ -869,13 +880,10 @@ EOF
 			esac
 		done
 		exit $rv
-	' sh || {
-		echo >&2 'N: perhaps some process still has it open?'
-		debchroot__undoE=1
-	}
+	' sh || debchroot__umres=1
 
-	unset debchroot__base
-	eval "unset debchroot__undoE; return $debchroot__undoE"
+	unset debchroot__umbase
+	eval "unset debchroot__umres; return $debchroot__umres"
 }
 
 debchroot__lounsetup() {
