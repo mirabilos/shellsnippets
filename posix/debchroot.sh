@@ -59,7 +59,7 @@ debchroot_start() (
 		sed -e 's/[^[:print:]]/[7m?[0m/g' >&2 <<-EOF
 		I: done, enter with one of:
 		N: ${debchroot__debchroot_}go $(debchroot__q "$debchroot__mpt") [name]
-		N: ${debchroot__debchroot_}run [-n name] $(debchroot__q "$debchroot__mpt") command …
+		N: ${debchroot__debchroot_}run [-n name] $(debchroot__q "$debchroot__mpt") command ...
 		I: finally, undo and umount everything under the directory with:
 		N: ${debchroot__debchroot_}stop $(debchroot__q "$debchroot__mpt")
 		EOF
@@ -602,7 +602,7 @@ EOCHR
 			return 3
 		fi
 		test -d "$1/dev/pts" || if ! rm "$1/dev/pts"; then
-			echo >&2 "E: target has /dev/pts as nōn-directory"
+			echo >&2 "E: target has /dev/pts as non-directory"
 			rm "$debchroot__prepj"
 			unset debchroot__prepj
 			return 3
@@ -957,11 +957,11 @@ case $1 in
 	sed -e 's/[^	[:print:]]/[7m?[0m/g' >&2 <<EOF
 Usage: (you may also give the chroot directory before the command)
 	# set up policy-rc.d and mounts
-	${debchroot__debchroot_}start [opts] /path/to/chroot	# or “.” for cwd
+	${debchroot__debchroot_}start [opts] /path/to/chroot	# or "." for cwd
 	# opts can be: -s dir to skip [$(debchroot__skip q)]
 	# run a shell or things in a started chroot
 	${debchroot__debchroot_}go /path/to/chroot [chroot-name]
-	${debchroot__debchroot_}run [-n chroot-name] /path/to/chroot cmd args…
+	${debchroot__debchroot_}run [-n chroot-name] /path/to/chroot cmd args...
 	# disband policy-rc.d and all sub-mounts
 	${debchroot__debchroot_}stop /path/to/chroot
 	# mount RPi SD and enter it (p1 assumed firmware/boot, p2 root)
