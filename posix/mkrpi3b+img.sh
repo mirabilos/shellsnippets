@@ -897,7 +897,7 @@ swap                /tmp            tmpfs  defaults,relatime,nosuid,nodev  0  0
 		# necessary to avoid leaking the host’s /dev
 		print -ru2 -- 'I: the MAKEDEV step is extremely slow…'
 		set -x
-		(cd /dev && exec MAKEDEV std sd console ttyS0)
+		(cd /dev && exec MAKEDEV std sd consoleonly ttyS0)
 		# because this is picked up by packages, e.g. postfix
 		hostname "$(</etc/hostname)"
 		# sanitise APT state
