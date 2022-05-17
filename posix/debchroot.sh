@@ -177,8 +177,8 @@ debchroot_rpi() (
 		debchroot__P=$1
 		shift
 	fi
-	test -n "$debchroot_rpiname" || debchroot_rpiname=$1
 	set +e
+	test -n "$debchroot_rpiname" || debchroot_rpiname=$1
 	debchroot__quiet=1
 	case $debchroot__P in
 	(/*) ;;
@@ -224,15 +224,21 @@ debchroot_rpi() (
 	if ! fsck.fat -p "${kpx}p1"; then
 		echo >&2 "W: firmware/boot filesystem check failed"
 	fi
-	if ! mpt=$(mktemp -d /tmp/debchroot.XXXXXXXXXX); then
+	if ! tdir=$(mktemp -d /tmp/debchroot.XXXXXXXXXX) || \
+	   test -z "$tdir" || \
+	   ! chown 0:0 "$tdir" || \
+	   ! chmod 0700 "$tdir" || \
+	   ! mkdir "$tdir/mpt"; then
 		echo >&2 "E: could not create mountpoint"
+		test -z "$tdir" || rm -rf "$tdir"
 		kpartx -d -f -v -p p -t dos -s "$dvname"
 		debchroot__lounsetup "$loopdev"
 		exit 1
 	fi
+	mpt=$tdir/mpt
 	if ! mount -t ext4 -o noatime,discard "${kpx}p2" "$mpt"; then
 		echo >&2 "E: could not mount image root filesystem"
-		rm -rf "$mpt"
+		rm -rf "$tdir"
 		kpartx -d -f -v -p p -t dos -s "$dvname"
 		debchroot__lounsetup "$loopdev"
 		exit 1
@@ -278,7 +284,7 @@ debchroot_rpi() (
 		# try lazy umount…
 		umount -l "$mpt"
 	else
-		rm -rf "$mpt"
+		rm -rf "$tdir"
 	fi
 	kpartx -d -f -v -p p -t dos -s "$dvname" || re=1
 	debchroot__lounsetup "$loopdev" || re=1
