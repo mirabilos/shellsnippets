@@ -897,6 +897,7 @@ debchroot__debchroot_="$0 "
 command -v "$0" >/dev/null 2>&1 || \
     debchroot__debchroot_="sh $debchroot__debchroot_"
 test -s "$0" || debchroot__debchroot_='sh debchroot.sh '
+test -z "$SUDO_UID" || debchroot__debchroot_="sudo $debchroot__debchroot_"
 
 case $2:$1 in
 (start:/*|stop:/*|go:/*|run:/*|rpi:/*|start:.|stop:.|go:.|run:.)
