@@ -430,6 +430,7 @@ debchroot__prep() {
 	(*)
 		echo >&2 "E: cannot create temporary file $(debchroot__e "$debchroot__prepj")"
 		test -z "$debchroot__prepj" || rm -f "$debchroot__prepj"
+		unset debchroot__prepj
 		return 1 ;;
 	esac
 
@@ -442,11 +443,13 @@ debchroot__prep() {
 			echo >&2 "E: cannot create temporary mountpoint $(debchroot__e "$debchroot__prept")"
 			test -z "$debchroot__prept" || rmdir "$debchroot__prept"
 			rm "$debchroot__prepj"
+			unset debchroot__prepj debchroot__prept
 			return 1 ;;
 		esac
 		if ! mount -t tmpfs -o mode=0755,uid=0,gid=0 sdev "$debchroot__prept"; then
 			echo >&2 "E: cannot mount temporary tmpfs on $(debchroot__e "$debchroot__prept")"
 			rm -r "$debchroot__prept" "$debchroot__prepj"
+			unset debchroot__prepj debchroot__prept
 			return 1
 		fi
 		mkdir "$debchroot__prept/dev"
@@ -454,6 +457,7 @@ debchroot__prep() {
 			echo >&2 "E: cannot mount target /dev tmpfs"
 			umount "$debchroot__prept"
 			rm -r "$debchroot__prept" "$debchroot__prepj"
+			unset debchroot__prepj debchroot__prept
 			return 1
 		fi
 		(
@@ -465,6 +469,7 @@ debchroot__prep() {
 			umount "$debchroot__prept/dev"
 			umount "$debchroot__prept"
 			rm -r "$debchroot__prept" "$debchroot__prepj"
+			unset debchroot__prepj debchroot__prept
 			return 1
 		}
 		debchroot__prepd=${debchroot__prept#"$1"}/dev
@@ -493,8 +498,10 @@ EOCHR
 			umount "$debchroot__prept/dev"
 			umount "$debchroot__prept"
 			rm -r "$debchroot__prept" "$debchroot__prepj"
+			unset debchroot__prepj debchroot__prept debchroot__preprv
 			return 1
 		}
+		unset debchroot__preprv
 		(
 			set -e
 			cd /dev
@@ -504,6 +511,7 @@ EOCHR
 			umount "$debchroot__prept/dev"
 			umount "$debchroot__prept"
 			rm -r "$debchroot__prept" "$debchroot__prepj"
+			unset debchroot__prepj debchroot__prept
 			return 1
 		}
 		(
@@ -516,6 +524,7 @@ EOCHR
 			umount "$debchroot__prept/dev"
 			umount "$debchroot__prept"
 			rm -r "$debchroot__prept" "$debchroot__prepj"
+			unset debchroot__prepj debchroot__prept
 			return 1
 		}
 		mount --make-private "$debchroot__prept"
@@ -524,6 +533,7 @@ EOCHR
 			umount "$debchroot__prept/dev"
 			umount "$debchroot__prept"
 			rm -r "$debchroot__prept" "$debchroot__prepj"
+			unset debchroot__prepj debchroot__prept
 			return 1
 		fi
 		umount "$debchroot__prept" && rmdir "$debchroot__prept" || :
@@ -534,21 +544,25 @@ EOCHR
 		test ! -h "$1/dev/pts" || if ! rm "$1/dev/pts"; then
 			echo >&2 "E: target has /dev/pts as symlink"
 			rm "$debchroot__prepj"
+			unset debchroot__prepj
 			return 3
 		fi
 		test -d "$1/dev/pts" || if ! rm "$1/dev/pts"; then
 			echo >&2 "E: target has /dev/pts as nōn-directory"
 			rm "$debchroot__prepj"
+			unset debchroot__prepj
 			return 3
 		fi
 		test -d "$1/dev/pts" || if ! mkdir "$1/dev/pts"; then
 			echo >&2 "E: cannot mkdir $(debchroot__e "$1")/dev/pts"
 			rm "$debchroot__prepj"
+			unset debchroot__prepj
 			return 2
 		fi
 		if ! mount --bind /dev/pts "$1/dev/pts"; then
 			echo >&2 "E: cannot mount $(debchroot__e "$1")/dev/pts"
 			rm "$debchroot__prepj"
+			unset debchroot__prepj
 			return 1
 		fi
 	fi
@@ -559,6 +573,7 @@ EOCHR
 	elif ! mount --bind /run/udev "$1/run/udev"; then
 		echo >&2 "E: cannot mount $(debchroot__e "$1")/run/udev"
 		rm "$debchroot__prepj"
+		unset debchroot__prepj
 		return 1
 	fi
 	# /dev/shm is hardest, can be /run/shm with symlinks in either direction
@@ -573,6 +588,7 @@ EOCHR
 	   test -e "$1/usr/sbin/policy-rc.d"; then
 		echo >&2 "E: cannot clear pre-existing policy-rc.d script"
 		rm "$debchroot__prepj"
+		unset debchroot__prepj
 		return 1
 	fi
 	cat >"$1/usr/sbin/policy-rc.d" <<-\EOF
@@ -583,6 +599,7 @@ EOCHR
 	test -x "$1/usr/sbin/policy-rc.d" || {
 		echo >&2 "E: cannot install policy-rc.d deny script"
 		rm "$debchroot__prepj"
+		unset debchroot__prepj
 		return 1
 	}
 
@@ -667,7 +684,12 @@ EOCHR
 	unset debchroot__prepd
 	debchroot__preprv=$debchroot__preprv,"$(cat "$debchroot__prepj")"
 	rm -f "$debchroot__prepj"
-	test x"$debchroot__preprv" = x"0,dobro" || return 1
+	unset debchroot__prepj
+	test x"$debchroot__preprv" = x"0,dobro" || {
+		unset debchroot__preprv
+		return 1
+	}
+	unset debchroot__preprv
 
 	# everything should be set up now
 	return 0
