@@ -190,85 +190,92 @@ debchroot_rpi() (
 		exit 1 ;;
 	esac
 	if test -b "$debchroot__P"; then
-		dvname=$debchroot__P
-		echo >&2 "I: preparing image device $(debchroot__e "$dvname")"
-		loopdev=
+		debchroot__rpidv=$debchroot__P
+		echo >&2 "I: preparing image device $(debchroot__e "$debchroot__rpidv")"
+		debchroot__rpilo=
 	elif test -f "$debchroot__P"; then
-		dvname=$(losetup -f) || dvname='<ERROR>'
-		echo >&2 "I: preparing image device $(debchroot__e "$dvname")" \
-		    "for image file $(debchroot__e "$debchroot__P")"
-		case $dvname in
+		debchroot__rpidv=$(losetup -f) || debchroot__rpidv="<ERROR:$?>$debchroot__rpidv"
+		case $debchroot__rpidv in
 		(/dev/loop*[!0-9]*)
-			echo >&2 "E: losetup -f failed"
+			echo >&2 "E: losetup -f failed: $(debchroot__e "$debchroot__rpidv")"
 			exit 1 ;;
 		(/dev/loop*) ;;
 		(*)
-			echo >&2 "E: losetup -f failed"
+			echo >&2 "E: losetup -f failed: $(debchroot__e "$debchroot__rpidv")"
 			exit 1 ;;
 		esac
-		loopdev=$dvname
-		if ! losetup "$loopdev" "$debchroot__P"; then
+		echo >&2 "I: preparing image device $(debchroot__e "$debchroot__rpidv")" \
+		    "for image file $(debchroot__e "$debchroot__P")"
+		debchroot__rpilo=$debchroot__rpidv
+		if ! losetup "$debchroot__rpilo" "$debchroot__P"; then
 			echo >&2 "E: losetup failed"
 			exit 1
 		fi
 	else
-		echo >&2 "E: not a device or image file: $(debchroot__e "$debchroot__P")"
+		echo >&2 "E: not a block device or image file: $(debchroot__e "$debchroot__P")"
 		exit 1
 	fi
-	kpx=/dev/mapper/${dvname##*/}
-	if ! kpartx -a -f -v -p p -t dos -s "$dvname"; then
+	debchroot__rpixd=/dev/mapper/${debchroot__rpidv##*/}
+	if ! kpartx -a -f -v -p p -t dos -s "$debchroot__rpidv"; then
 		echo >&2 "E: kpartx failed"
-		debchroot__lounsetup "$loopdev"
+		debchroot__lounsetup "$debchroot__rpilo"
 		exit 1
 	fi
-	if ! e2fsck -p "${kpx}p2"; then
+	if ! test -b "${debchroot__rpixd}p2"; then
+		echo >&2 "E: kpartx did not map expected partition"
+		ls -l "${debchroot__rpixd}"* | sed 's/^/N: /' >&2
+		kpartx -d -f -v -p p -t dos -s "$debchroot__rpidv"
+		debchroot__lounsetup "$debchroot__rpilo"
+		exit 1
+	fi
+	if ! e2fsck -p "${debchroot__rpixd}p2"; then
 		echo >&2 "W: root filesystem check failed"
 	fi
-	if ! fsck.fat -p "${kpx}p1"; then
+	if ! fsck.fat -p "${debchroot__rpixd}p1"; then
 		echo >&2 "W: firmware/boot filesystem check failed"
 	fi
-	if ! tdir=$(mktemp -d /tmp/debchroot.XXXXXXXXXX) || \
-	   test -z "$tdir" || \
-	   ! chown 0:0 "$tdir" || \
-	   ! chmod 0700 "$tdir" || \
-	   ! mkdir "$tdir/mpt"; then
+	if ! debchroot__rpiT=$(mktemp -d /tmp/debchroot.XXXXXXXXXX) || \
+	   test -z "$debchroot__rpiT" || \
+	   ! chown 0:0 "$debchroot__rpiT" || \
+	   ! chmod 0700 "$debchroot__rpiT" || \
+	   ! mkdir "$debchroot__rpiT/mpt"; then
 		echo >&2 "E: could not create mountpoint"
-		test -z "$tdir" || rm -rf "$tdir"
-		kpartx -d -f -v -p p -t dos -s "$dvname"
-		debchroot__lounsetup "$loopdev"
+		test -z "$debchroot__rpiT" || rm -rf "$debchroot__rpiT"
+		kpartx -d -f -v -p p -t dos -s "$debchroot__rpidv"
+		debchroot__lounsetup "$debchroot__rpilo"
 		exit 1
 	fi
-	debchroot__rpimpt=$tdir/mpt
-	if ! mount -t ext4 -o noatime,discard "${kpx}p2" "$debchroot__rpimpt"; then
+	debchroot__rpimpt=$debchroot__rpiT/mpt
+	if ! mount -t ext4 -o noatime,discard "${debchroot__rpixd}p2" "$debchroot__rpimpt"; then
 		echo >&2 "E: could not mount image root filesystem"
-		rm -rf "$tdir"
-		kpartx -d -f -v -p p -t dos -s "$dvname"
-		debchroot__lounsetup "$loopdev"
+		rm -rf "$debchroot__rpiT"
+		kpartx -d -f -v -p p -t dos -s "$debchroot__rpidv"
+		debchroot__lounsetup "$debchroot__rpilo"
 		exit 1
 	fi
 	if test -h "$debchroot__rpimpt/boot"; then
 		echo >&2 "W: not mounting firmware/boot: /boot is a symlink"
-		bmpt=
+		debchroot__rpibmp=
 	elif test -d "$debchroot__rpimpt/boot"; then
 		if test -h "$debchroot__rpimpt/boot/firmware"; then
 			echo >&2 "W: not mounting firmware/boot:" \
 			    "/boot/firmware exists but is a symlink"
-			bmpt=
+			debchroot__rpibmp=
 		elif test -d "$debchroot__rpimpt/boot/firmware"; then
-			bmpt=/boot/firmware
+			debchroot__rpibmp=/boot/firmware
 		elif test -e "$debchroot__rpimpt/boot/firmware"; then
 			echo >&2 "W: not mounting firmware/boot:" \
 			    "/boot/firmware exists but is no directory"
-			bmpt=
+			debchroot__rpibmp=
 		else
-			bmpt=/boot
+			debchroot__rpibmp=/boot
 		fi
 	else
 		echo >&2 "W: not mounting firmware/boot: /boot is missing"
-		bmpt=
+		debchroot__rpibmp=
 	fi
-	test -z "$bmpt" || \
-	    if ! mount -t vfat -o noatime,discard "${kpx}p1" "$debchroot__rpimpt$bmpt"; then
+	test -z "$debchroot__rpibmp" || \
+	    if ! mount -t vfat -o noatime,discard "${debchroot__rpixd}p1" "$debchroot__rpimpt$debchroot__rpibmp"; then
 		echo >&2 "W: not mounting firmware/boot: attempt failed"
 	fi
 	(
@@ -277,24 +284,24 @@ debchroot_rpi() (
 	)
 	debchroot__rv=$?
 	echo >&2 "I: umounting and ejecting"
-	re=
-	debchroot_stop "$debchroot__rpimpt" || re=1
-	umount "$debchroot__rpimpt" || re=1
+	debchroot__rpiE=
+	debchroot_stop "$debchroot__rpimpt" || debchroot__rpiE=1
+	umount "$debchroot__rpimpt" || debchroot__rpiE=1
 	if mountpoint -q "$debchroot__rpimpt"; then
 		echo >&2 "E: not removing mountpoint" \
 		    "$(debchroot__e "$debchroot__rpimpt") because it is still in use"
-		re=1
+		debchroot__rpiE=1
 		# try lazy umount…
 		umount -l "$debchroot__rpimpt"
 	else
-		rm -rf "$tdir"
+		rm -rf "$debchroot__rpiT"
 	fi
-	kpartx -d -f -v -p p -t dos -s "$dvname" || re=1
-	debchroot__lounsetup "$loopdev" || re=1
-	case $debchroot__rv,$re in
+	kpartx -d -f -v -p p -t dos -s "$debchroot__rpidv" || debchroot__rpiE=1
+	debchroot__lounsetup "$debchroot__rpilo" || debchroot__rpiE=1
+	case $debchroot__rv,$debchroot__rpiE in
 	(0,1) debchroot__rv=1 ;;
 	esac
-	test -n "$re" || echo >&2 "I: retracted image $(debchroot__e "$debchroot__P")"
+	test -n "$debchroot__rpiE" || echo >&2 "I: retracted image $(debchroot__e "$debchroot__P")"
 	exit $debchroot__rv
 )
 
