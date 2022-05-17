@@ -751,21 +751,10 @@ command -v "$0" >/dev/null 2>&1 || \
     debchroot__debchroot_="sh $debchroot__debchroot_"
 
 case $2:$1 in
-(start:/*|stop:/*|go:/*|rpi:/*|start:.|stop:.|go:.)
+(start:/*|stop:/*|go:/*|run:/*|rpi:/*|start:.|stop:.|go:.|run:.)
 	p=$1 cmd=$2
 	shift; shift
 	set -- "$cmd" -P "$p" "$@"
-	;;
-(run:/*|run:.)
-	p=$1 cmd=$2
-	shift; shift
-	if test x"$1" = x"-n"; then
-		n=$2
-		shift; shift
-		set -- "$cmd" -n "$n" -P "$p" "$@"
-	else
-		set -- "$cmd" -P "$p" "$@"
-	fi
 	;;
 esac
 
