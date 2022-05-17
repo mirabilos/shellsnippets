@@ -810,6 +810,7 @@ EOF
 				;;
 			esac
 		done
+		exit $rv
 	' sh || {
 		echo >&2 'N: perhaps some process still has it open?'
 		rv=1
