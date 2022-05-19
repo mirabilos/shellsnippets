@@ -25,7 +25,7 @@ exit 255
 # Converts the result of debootstrap into something that d-i (Debian
 # Installer) would have produced.
 
-# TODO: fstab; MAKEDEV considered awful
+# TODO: fstab
 
 LANGUAGE=C
 LC_ALL=C
@@ -160,8 +160,127 @@ die() {
 }
 
 debchroot_umtree "$mp/dev" || die something was sitting below chroot/dev/
-chroot "$mp" /bin/sh -c '
-	(cd /dev && exec MAKEDEV std consoleonly ttyS0)
+debchroot_run -P "$mp" /bin/sh -ec '
+	uit() {
+		ec=$1; shift
+		echo >&2 "$*"
+		exit $ec
+	}
+	test x"$(uname -s)" = x"Linux" || \
+	    uit 0 "I: not stomping on non-Linux /dev"
+	cd /dev || uit 1 "E: cannot cd /dev"
+	if test -c .devfsd; then
+		uit 0 "I: devfs active, not stomping on /dev"
+	fi
+	d=/dev
+	if test -d /dev/.static/dev && mountpoint -q /dev/.static/dev; then
+		echo >&2 "I: udev active, creating in /dev/.static/dev/"
+		d=/dev/.static/dev
+	elif test -d /.dev && mountpoint -q /.dev; then
+		echo >&2 "I: udev active, creating in /.dev/"
+		d=/.dev
+	elif test -d .udevdb || test -d .udev; then
+		uit 0 "I: udev active, not stomping on /dev"
+	fi
+	cd $d || uit 1 "E: cannot cd $d"
+	umask 022 || uit 1 "E: umask error"
+
+	ec=0
+	dvmk() {
+		f=./$1
+		if test -h "$f"; then
+			echo >&2 "W: not stomping on symlink $d/$1"
+			test -e "$f" && return 0 || :
+			rm -f "$f"
+		fi
+		if test -h "$f"; then
+			echo >&1 "E: cannot delete dangling link $d/$1"
+			ec=1
+			return 0
+		fi
+		case $2 in
+		(b|c) test -$2 "$f" || rm -f "$f" ;;
+		esac
+		test -e "$f" || mknod -m0 "$f" "$2" "$3" "$4" || ec=1
+		chown -- "$5" "$f" || ec=1
+		chmod -- "$6" "$f" || ec=1
+	}
+	dlnk() {
+		f=./$1
+
+		if test -h "$f"; then
+			rm -f "$f"
+		elif test -e "$f"; then
+			rm -rf "$f"
+		fi
+		if test -h "$f" || test -e "$f"; then
+			echo >&1 "E: cannot delete dangling $d/$1"
+			ec=1
+			return 0
+		fi
+		ln -s -- "$2" "$1"
+	}
+
+	dvmk mem	c 1 1	0:kmem	0640
+	dvmk kmem	c 1 2	0:kmem	0640
+	dvmk null	c 1 3	0:0	0666
+	dvmk port	c 1 4	0:kmem	0640
+	dvmk zero	c 1 5	0:0	0666
+	dlnk core	/proc/kcore
+	dvmk full	c 1 7	0:0	0666
+	dvmk random	c 1 8	0:0	0666
+	dvmk urandom	c 1 9	0:0	0666
+	dvmk kmsg	c 1 11	0:0	0644
+
+	dvmk ram0	b 1 0	0:disk	0660
+	dvmk ram1	b 1 1	0:disk	0660
+	dvmk initrd	b 1 250	0:disk	0660
+
+	for n in 0 1 2 3 4 5 6 7 8 9 10 11 12; do
+	  dvmk tty$n	c 4 $n	0:tty	0620
+	done
+	dvmk ttyS0	c 4 64	0:dialout 0660
+	dvmk ttyS1	c 4 65	0:dialout 0660
+	dvmk ttyS2	c 4 66	0:dialout 0660
+	dvmk ttyS3	c 4 67	0:dialout 0660
+
+	dvmk tty	c 5 0	0:tty	0666
+	dvmk console	c 5 1	0:tty	0620
+	dvmk ptmx	c 5 2	0:tty	0666
+
+	for n in 0 1 2 3 4 5 6 7; do
+	  dvmk loop$n	b 7 $n	0:disk	0660
+	done
+	dvmk loop-control c 10 237 0:disk 0660
+
+	dvmk ttyACM0	c 166 0	0:dialout 0660
+	dvmk ttyACM1	c 166 1	0:dialout 0660
+	dvmk ttyUSB0	c 168 0	0:dialout 0660
+	dvmk ttyUSB1	c 168 1	0:dialout 0660
+
+	dlnk fd		/proc/self/fd
+	dlnk stdin	fd/0
+	dlnk stdout	fd/1
+	dlnk stderr	fd/2
+
+	test -d pts/. || {
+		rm -f pts
+		mkdir pts || ec=1
+	}
+	chown 0:0 pts || ec=1
+	chmod 755 pts || ec=1
+
+	test -h shm || {
+		test -d shm/. || {
+			rm -f shm
+			mkdir shm || ec=1
+		}
+		chown 0:0 shm || ec=1
+		chmod 755 shm || ec=1
+	}
+
+	test x"$ec" = x"0" || echo >&2 "W: there were errors"
+	exit $ec
     ' || die could not create initial device nodes
 debchroot__quiet=1
 debchroot_start -P "$mp" || die could not reload chroot with /dev from host
