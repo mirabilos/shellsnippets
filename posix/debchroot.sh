@@ -676,6 +676,22 @@ EOCHR
 	export debchroot__prepnoshm
 	chroot "$1" /bin/sh 7>"$debchroot__prepj" <<\EOCHR
 		LC_ALL=C; export LC_ALL; LANGUAGE=C; unset LANGUAGE
+		# ensure /dev/null exists
+		test -e /dev/null || {
+			if test -h /dev/null; then
+				odevnull=$(readlink /dev/null) || odevnull=
+				rm -f /dev/null
+			else
+				odevnull=
+			fi
+			rdevnull() {
+				rm -f /dev/null
+				test -z "$odevnull" || \
+				    ln -s -- "$odevnull" /dev/null
+			}
+			trap rdevnull EXIT
+			mknod -m0666 /dev/null c 1 3
+		}
 		# note mountpoint, test -d follow; rm+mkdir is ephemeral
 		if test x"$debchroot__prepnoshm" = x"1"; then
 			mountpoint -q /dev/shm || \
