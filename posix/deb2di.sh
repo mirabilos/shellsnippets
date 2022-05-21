@@ -473,7 +473,7 @@ esac
 		# prepare for manual steps as desired
 		set +x
 		# instruct the user what they can do now
-		whiptail --backtitle 'd2di.sh' \
+		whiptail --backtitle 'deb2di.sh' \
 		    --msgbox "A login shell will now be run inside the chroot for any manual post-installation steps desired.
 
 Please use “sudo -S command” to run things as root, if necessary.
@@ -483,7 +483,7 @@ Press Enter to continue; use the “exit” command to quit." 12 69
 		HOME=/  # later overridden by su
 		# create an initial entry in syslog
 		>>/var/log/syslog echo "$(date +"%b %d %T")" \
-		    "${HOSTNAME%%.*} d2di.sh[$$]:" \
+		    "${HOSTNAME%%.*} deb2di.sh[$$]:" \
 		    soliciting manual post-installation steps
 		chown 0:adm /var/log/syslog
 		chmod 640 /var/log/syslog
@@ -517,7 +517,7 @@ Press Enter to continue; use the “exit” command to quit." 12 69
 		# fine𝄐
 		fstrim -v /
 		>>/var/log/syslog echo "$(date +"%b %d %T")" \
-		    "${HOSTNAME%%.*} d2di.sh[$$]:" \
+		    "${HOSTNAME%%.*} deb2di.sh[$$]:" \
 		    finishing up post-installation
 		dd if=/dev/urandom bs=256 count=1 seek=1 conv=notrunc of="$rnd"
 	EOS
