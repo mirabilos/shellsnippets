@@ -25,8 +25,6 @@ exit 255
 # Converts the result of debootstrap into something that d-i (Debian
 # Installer) would have produced.
 
-# TODO: fstab
-
 LANGUAGE=C
 LC_ALL=C
 export LC_ALL
@@ -149,6 +147,9 @@ cd "$(dirname "$0")" || die cannot go to script directory
 test -s debchroot.sh || die debchroot.sh missing in script directory
 debchroot_embed=1
 . ./debchroot.sh
+test -s debfstab.sh || die debfstab.sh missing in script directory
+debfstab_embed=1
+. ./debfstab.sh
 
 debchroot__quiet=1
 debchroot_start -P "$mp" -s dev || die could not initialise chroot
@@ -344,7 +345,11 @@ esac
 		EOF
 		# avoids early errors, configured properly later
 		:>/etc/default/locale
-#XXX TODO /etc/fstab
+		base64 -d >/etc/fstab <<'_/'
+	EOS
+	debfstab "$mp" | base64
+	cat <<-'EOS'
+		_/
 		# because this is picked up by packages, e.g. postfix
 		HOSTNAME=$hostn
 		hostname "$HOSTNAME"
@@ -474,7 +479,7 @@ esac
 		set +x
 		# instruct the user what they can do now
 		whiptail --backtitle 'deb2di.sh' \
-		    --msgbox "A login shell will now be run inside the chroot for any manual post-installation steps desired.
+		    --msgbox "A login shell will now be run inside the chroot for any manual post-installation steps desired. Make sure to edit /etc/fstab!
 
 Please use “sudo -S command” to run things as root, if necessary.
 
