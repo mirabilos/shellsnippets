@@ -126,6 +126,7 @@ case x$hostn in
 (*[!A-Za-z0-9.-]*) usage ;;
 (x) usage ;;
 esac
+test -n "$xpkgs" || xpkgs=$defpkgs
 case $setp in
 (no|low|medium|high|critical) ;;
 (*) usage ;;
