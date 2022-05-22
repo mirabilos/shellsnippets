@@ -311,12 +311,20 @@ esac
 		echo "$k=$(debchroot__q "$v")"
 	done
 	cat <<-'EOS'
+		# init system-dependent path
 		case $isys in
 		(systemd)
 			rnd=/var/lib/systemd/random-seed ;;
 		(*)
 			rnd=/var/lib/urandom/random-seed ;;
 		esac
+		mkdir -p "${rnd%/*}"
+		test -d "${rnd%/*}"/.
+		dd if=/dev/urandom bs=256 count=1 conv=notrunc of="$rnd"
+		chown 0:0 "${rnd%/*}" "$rnd"
+		chmod 755 "${rnd%/*}"
+		chmod 600 "$rnd"
+		# from user -p
 		case $setp in
 		(no) unset DEBIAN_PRIORITY ;;
 		(*) DEBIAN_PRIORITY=$setp; export DEBIAN_PRIORITY ;;
@@ -383,13 +391,6 @@ esac
 	base64 </etc/resolv.conf
 	cat <<-'EOS'
 		_/
-		# init system-dependent path
-		mkdir -p "${rnd%/*}"
-		test -d "${rnd%/*}"/.
-		dd if=/dev/urandom bs=256 count=1 conv=notrunc of="$rnd"
-		chown 0:0 "${rnd%/*}" "$rnd"
-		chmod 755 "${rnd%/*}"
-		chmod 600 "$rnd"
 		# sanitise APT state
 		apt-get clean
 		apt-get update
