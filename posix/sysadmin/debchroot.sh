@@ -35,6 +35,7 @@ debchroot_start() (
 	set +aeu
 	debchroot__skip 0
 	debchroot__P=
+	OPTIND=1
 	while getopts "P:s:" debchroot__ch; do
 		case $debchroot__ch in
 		(P) debchroot__P=$OPTARG ;;
@@ -71,6 +72,7 @@ debchroot_start() (
 debchroot_stop() (
 	set +aeu
 	debchroot__P=
+	OPTIND=1
 	while getopts "P:" debchroot__ch; do
 		case $debchroot__ch in
 		(P) debchroot__P=$OPTARG ;;
@@ -99,6 +101,7 @@ debchroot_stop() (
 debchroot_go() {
 	debchroot__name=
 	debchroot__P=
+	OPTIND=1
 	while getopts "n:P:" debchroot__ch; do
 		case $debchroot__ch in
 		(n) debchroot__name=$OPTARG ;;
@@ -127,6 +130,7 @@ debchroot_run() (
 	debchroot__name=
 	debchroot__P=
 	debchroot__ccmd='exec chroot'
+	OPTIND=1
 	while getopts "n:P:w:" debchroot__ch; do
 		case $debchroot__ch in
 		(n) debchroot__name=$OPTARG ;;
@@ -174,6 +178,7 @@ debchroot_rpi() (
 	debchroot__skip 0
 	debchroot__P=
 	debchroot_rpiname=
+	OPTIND=1
 	while getopts "n:P:s:" debchroot__ch; do
 		case $debchroot__ch in
 		(n) debchroot_rpiname=$OPTARG ;;
