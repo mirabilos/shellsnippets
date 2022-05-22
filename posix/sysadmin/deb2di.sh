@@ -493,6 +493,8 @@ esac
 		    esac)
 		rm -f /var/cache/apt/archives/*.deb  # save temp space
 		: install extra packages
+		rm -f /etc/passwd- /etc/group- /etc/shadow- /etc/gshadow- \
+		    /etc/subuid- /etc/subgid- # in case of etckeeper
 		eatmydata apt-get --purge install --no-install-recommends $xpkgs
 		rm -f /var/cache/apt/archives/*.deb  # save temp space
 		: create initial user account, asking for password
