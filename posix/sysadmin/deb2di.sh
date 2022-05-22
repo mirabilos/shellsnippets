@@ -346,6 +346,7 @@ esac
 			BACKSPACE=guess
 		EOF
 		:>/etc/default/locale
+		# contains a /tmp mount superceding RAMTMP in /etc/default/tmpfs
 		base64 -d >/etc/fstab <<'_/'
 	EOS
 	debfstab "$mp" | base64
@@ -527,11 +528,11 @@ esac
 		set +x
 		# instruct the user what they can do now
 		whiptail --backtitle 'deb2di.sh' \
-		    --msgbox 'A login shell will now be run inside the chroot for any manual post-installation steps desired. Make sure to edit /etc/fstab!
+		    --msgbox 'A login shell will now be run inside the chroot for any manual post-installation steps desired. Make sure to edit /etc/fstab and install grub-pc or a different bootloader!
 
 Please use "sudo -S command" to run things as root, if necessary.
 
-Press Enter to continue; use the "exit" command to quit.' 12 69
+Press Enter to continue; use the "exit" command to quit.' 13 69
 		# clean environment for interactive use
 		HOME=/  # later overridden by su
 		# create an initial entry in syslog
