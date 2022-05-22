@@ -673,6 +673,8 @@ EOCHR
 		    echo >&2 "W: skipping /run/udev mount as requested"
 	elif test x"$(readlink -f "$1/run/udev" || echo ERR)" != x"$1/run/udev"; then
 		echo >&2 "W: $(debchroot__e "$1")/run/udev weird, not mounted"
+	elif mountpoint -q "$1/run/udev"; then
+		: nothing
 	elif ! mount --bind /run/udev "$1/run/udev"; then
 		echo >&2 "E: cannot mount $(debchroot__e "$1")/run/udev"
 		rm "$debchroot__prepj"
