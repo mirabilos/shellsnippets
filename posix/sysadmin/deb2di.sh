@@ -407,18 +407,6 @@ esac
 		    whiptail
 		DEBIAN_FRONTEND=dialog
 		rm -f /var/cache/apt/archives/*.deb  # save temp space
-		# just in case there were security uploads
-		eatmydata apt-get --purge -y dist-upgrade
-		rm -f /var/cache/apt/archives/*.deb  # save temp space
-		# kernel, initrd and base firmware
-		case $kpkg in
-		(*'@'*)
-			kpkg=$(printf '%s\n' "$kpkg" | sed \
-			    "s/@/$(dpkg --print-architecture)/g") ;;
-		esac
-		eatmydata apt-get --purge -y install --no-install-recommends \
-		    busybox firmware-linux-free $kpkg
-		rm -f /var/cache/apt/archives/*.deb  # save temp space
 		# basic configuration
 		notinst() {
 			case x$(dpkg-query -Wf '${Status}\n' "$1" 2>/dev/null) in
@@ -454,6 +442,7 @@ esac
 		    --no-install-recommends $toinst
 		LC_ALL=C; export LC_ALL
 		DEBIAN_PRIORITY=low; export DEBIAN_PRIORITY
+		rm -f /var/cache/apt/archives/*.deb  # save temp space
 		toinst=tzdata
 		for pkg in locales console-setup keyboard-configuration \
 		    console-data console-common; do
@@ -485,6 +474,18 @@ esac
 		(no) unset DEBIAN_PRIORITY ;;
 		(*) DEBIAN_PRIORITY=$setp; export DEBIAN_PRIORITY ;;
 		esac
+		# just in case there were security uploads
+		eatmydata apt-get --purge -y dist-upgrade
+		rm -f /var/cache/apt/archives/*.deb  # save temp space
+		# kernel, initrd and base firmware
+		case $kpkg in
+		(*'@'*)
+			kpkg=$(printf '%s\n' "$kpkg" | sed \
+			    "s/@/$(dpkg --print-architecture)/g") ;;
+		esac
+		eatmydata apt-get --purge -y install --no-install-recommends \
+		    busybox firmware-linux-free $kpkg
+		rm -f /var/cache/apt/archives/*.deb  # save temp space
 		: remaining user configuration may error out intermittently
 		set +e
 		: 'make man-db faster at cost of no apropos(1) lookup database'
