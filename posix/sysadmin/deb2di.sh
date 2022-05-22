@@ -1,6 +1,4 @@
 #!/bin/sh
-echo do not call, wip
-exit 255
 #-
 # Copyright © 2020, 2021
 #	mirabilos <m@mirbsd.org>
@@ -428,8 +426,8 @@ esac
 		rm -f /var/cache/apt/archives/*.deb  # save temp space
 		# basic configuration
 		notinst() {
-			case $(dpkg-query -Wf '${Status}\n' "$1" 2>/dev/null) in
-			(|*\ ok\ not-installed)
+			case x$(dpkg-query -Wf '${Status}\n' "$1" 2>/dev/null) in
+			(x|*\ ok\ not-installed)
 				return 0 ;;
 			(*)	return 1 ;;
 			esac
@@ -440,7 +438,7 @@ esac
 			yn=
 			notinst locales-all || yn=--defaultno
 			if whiptail --backtitle 'd2di.sh' $yn \
-			    --yesno "Do you want to install the locales package?" 7 47; then
+			    --yesno 'Do you want to install the locales package?' 7 47; then
 				toinst="$toinst locales"
 			fi
 		else
@@ -449,7 +447,7 @@ esac
 		if notinst console-data && notinst console-setup && \
 		   notinst kbd && notinst keyboard-configuration; then
 			if whiptail --backtitle 'd2di.sh' --defaultno \
-			    --yesno "Do you want to install console/kbd setup?" 7 45; then
+			    --yesno 'Do you want to install kbd/console-setup?' 7 45; then
 				toinst="$toinst console-common console-data console-setup kbd keyboard-configuration"
 			fi
 		else
@@ -512,11 +510,11 @@ esac
 		set +x
 		# instruct the user what they can do now
 		whiptail --backtitle 'deb2di.sh' \
-		    --msgbox "A login shell will now be run inside the chroot for any manual post-installation steps desired. Make sure to edit /etc/fstab!
+		    --msgbox 'A login shell will now be run inside the chroot for any manual post-installation steps desired. Make sure to edit /etc/fstab!
 
-Please use “sudo -S command” to run things as root, if necessary.
+Please use "sudo -S command" to run things as root, if necessary.
 
-Press Enter to continue; use the “exit” command to quit." 12 69
+Press Enter to continue; use the "exit" command to quit.' 12 69
 		# clean environment for interactive use
 		HOME=/  # later overridden by su
 		# create an initial entry in syslog
@@ -528,7 +526,9 @@ Press Enter to continue; use the “exit” command to quit." 12 69
 		# avoids warnings with sudo, cf. Debian #922349
 		find /usr/lib -name libeatmydata.so\* -a -type f -print0 | \
 		    xargs -0r chmod u+s --
-		(unset SUDO_USER USER; exec su - ${mkuser:+"$mkuser"})
+		(unset SUDO_USER USER; exec su \
+		    --whitelist-environment=DEBIAN_FRONTEND,DEBIAN_PRIORITY,debian_chroot \
+		    -l ${mkuser:+"$mkuser"})
 		# revert the above change again
 		find /usr/lib -name libeatmydata.so\* -a -type f -print0 | \
 		    xargs -0r chmod u-s --
