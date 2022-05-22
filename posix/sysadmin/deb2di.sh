@@ -337,20 +337,14 @@ esac
 	getslist
 	cat <<-'EOS'
 		EOF
-		# from console-setup (1.193) config/keyboard (d-i)
+		# avoids early errors, configured properly later
 		cat >/etc/default/keyboard <<-'EOF'
-			# KEYBOARD CONFIGURATION FILE
-
-			# Consult the keyboard(5) manual page.
-
 			XKBMODEL=pc105
 			XKBLAYOUT=us
-			XKBVARIANT=
+			XKBVARIANT=nodeadkeys
 			XKBOPTIONS=
-
 			BACKSPACE=guess
 		EOF
-		# avoids early errors, configured properly later
 		:>/etc/default/locale
 		base64 -d >/etc/fstab <<'_/'
 	EOS
@@ -455,14 +449,29 @@ esac
 			toinst="$toinst console-common console-data console-setup kbd keyboard-configuration"
 		fi
 		DEBIAN_PRIORITY=critical; export DEBIAN_PRIORITY
+		LC_ALL=C.UTF-8; export LC_ALL
 		test -z "$toinst" || eatmydata apt-get --purge -y install \
 		    --no-install-recommends $toinst
+		LC_ALL=C; export LC_ALL
 		DEBIAN_PRIORITY=low; export DEBIAN_PRIORITY
 		toinst=tzdata
 		for pkg in locales console-setup keyboard-configuration \
 		    console-data console-common; do
 			notinst $pkg || toinst="$toinst $pkg"
 		done
+		# from console-setup (1.193) config/keyboard (d-i)
+		cat >/etc/default/keyboard <<-'EOF'
+			# KEYBOARD CONFIGURATION FILE
+
+			# Consult the keyboard(5) manual page.
+
+			XKBMODEL=pc105
+			XKBLAYOUT=us
+			XKBVARIANT=
+			XKBOPTIONS=
+
+			BACKSPACE=guess
+		EOF
 		rm -f /etc/default/locale  # force generation
 		dpkg-reconfigure -plow $toinst
 		# whether the user just hit Enter
