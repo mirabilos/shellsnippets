@@ -412,7 +412,7 @@ debchroot__init() {
 debchroot__skipinit=0
 debchroot__skip() {
 	if test x"$1" = x"q"; then
-		echo "tmp|dev|devpts|devshm|runudev"
+		echo "tmp|dev|devpts|devshm|run|runudev"
 		return 0
 	fi
 	if test x"$1" = x"0"; then
@@ -421,6 +421,7 @@ debchroot__skip() {
 			debchroot__skip_dev=0
 			debchroot__skip_devpts=0
 			debchroot__skip_devshm=0
+			debchroot__skip_run=0
 			debchroot__skip_runudev=0
 		}
 		debchroot__skipinit=1
@@ -438,6 +439,8 @@ debchroot__skip() {
 		debchroot__skip_devpts=1 ;;
 	(devshm)
 		debchroot__skip_devshm=1 ;;
+	(run)
+		debchroot__skip_run=1 ;;
 	(runudev)
 		debchroot__skip_runudev=1 ;;
 	(*)
@@ -484,6 +487,40 @@ debchroot__prep() {
 		unset debchroot__prepj
 		return 1 ;;
 	esac
+
+	# do /run which may (unusually) be a symlink
+	chroot "$1" /usr/bin/env mountpoint -q /run || \
+	    if test x"$debchroot__skip_run" = x"1"; then
+		test -n "$debchroot__quiet" || \
+		    echo >&2 "W: skipping /run mount as requested"
+	elif ! chroot "$1" /bin/sh 7>"$debchroot__prepj" -ec '
+		test -d /run || mkdir /run
+		cd /run
+		tar -cf - -b 1 --one-file-system --warning=no-file-ignored . >&7
+	    '; then
+		echo >&2 "E: cannot pack up old $(debchroot__e "$1")/run"
+		rm "$debchroot__prepj"
+		unset debchroot__prepj
+		return 1
+	elif ! mount -t tmpfs swap "$1/run"; then
+		echo >&2 "E: cannot mount $(debchroot__e "$1")/run"
+		rm "$debchroot__prepj"
+		unset debchroot__prepj
+		return 1
+	elif ! chroot "$1" /bin/sh 7<"$debchroot__prepj" -ec '
+		cd /run
+		tar -xf - --same-permissions --same-owner <&7
+		if test -h /etc/resolv.conf; then
+			test -e resolvconf || mkdir resolvconf
+		fi
+		test -e udev || mkdir udev
+	    '; then
+		echo >&2 "E: cannot restore old $(debchroot__e "$1")/run"
+		umount "$1/run"
+		rm "$debchroot__prepj"
+		unset debchroot__prepj
+		return 1
+	fi
 
 	# /dev is tricky, consider uid/gid mismatch between host and chroot
 	mountpoint -q "$1/dev" || \
