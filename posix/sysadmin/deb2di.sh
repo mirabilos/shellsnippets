@@ -496,15 +496,19 @@ esac
 		eatmydata apt-get --purge install --no-install-recommends $xpkgs
 		rm -f /var/cache/apt/archives/*.deb  # save temp space
 		: create initial user account, asking for password
-		if test -n "$mkuser" && adduser -- "$mkuser"; then
+		if test -n "$mkuser"; then
+			id -- "$mkuser" >/dev/null 2>&1 || \
+			    adduser -- "$mkuser" || passwd root
+		else
+			passwd root
+		fi
+		if test -n "$mkuser" && id -- "$mkuser" >/dev/null 2>&1; then
 			# groups from d-i plus adm and sudo (d-i does sudo, too?)
 			: ignore errors for nonexisting groups, please
 			for group in audio bluetooth cdrom debian-tor dip floppy \
 			    lpadmin netdev plugdev scanner video adm sudo; do
 				adduser -- "$mkuser" $group
 			done
-		else
-			passwd root
 		fi
 		: end of pre-scripted post-bootstrap steps
 		# prepare for manual steps as desired
