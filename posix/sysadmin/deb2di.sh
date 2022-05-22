@@ -286,9 +286,9 @@ debchroot__quiet=1
 debchroot_start -P "$mp" || die could not reload chroot with /dev from host
 debchroot__quiet=
 
-sfn=$(mktemp "$mp/tmp.XXXXXXXXXX") || sfn=
+sfn=$(mktemp "$mp/tmp/deb2di.XXXXXXXXXX") || sfn=
 case $sfn in
-("$mp/tmp."*) ;;
+("$mp/tmp/deb2di."*) ;;
 (*) die unable to create temporary file ;;
 esac
 
@@ -585,7 +585,7 @@ debchroot_run -P "$mp" -w 'exec unshare --uts chroot' /bin/sh -c '
 	PATH=/usr/sbin:/usr/bin:/sbin:/bin \
 	TERM="$TERM" \
 	debian_chroot="$debian_chroot" \
-    /bin/sh '"/${sfn##*/}" || die 'post-bootstrap failed'
+    /bin/sh '$(debchroot__q "/tmp/${sfn##*/}") || die 'post-bootstrap failed'
 # remove the oneshot script
 rm -f "$sfn"
 
