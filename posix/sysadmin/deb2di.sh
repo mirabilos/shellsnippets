@@ -399,7 +399,7 @@ esac
 		    eatmydata libterm-readline-gnu-perl
 		DEBIAN_FRONTEND=readline
 		# switch to sysvinit?
-		test x"$isys" = systemd || {
+		test x"$isys" = x"systemd" || {
 			eatmydata apt-get --purge -y install --no-install-recommends \
 			    sysv-rc sysvinit-core systemd-
 			printf '%s\n' \
