@@ -391,16 +391,20 @@ debchroot__init() {
 	esac
 
 	debchroot__initrv=0
-	for debchroot__initd in /bin /dev /etc /proc /sbin /sys /tmp /usr/sbin; do
-		if ! test -d "$debchroot__mpt$debchroot__initd/."; then
-			echo >&2 "E: mountpoint $(debchroot__e "$1") missing $debchroot__initd"
-			debchroot__initrv=1
-			continue
-		fi
+	for debchroot__initd in /bin /dev /etc /proc /sbin /sys /tmp /usr /usr/sbin; do
+		case $debchroot__initrv:$debchroot__initd in
+		(1:/*/*) continue ;;
+		esac
 		case $(readlink -f "$debchroot__mpt$debchroot__initd") in
 		("$debchroot__mpt"/*) ;;
 		(*)
-			echo >&2 "E: mountpoint $(debchroot__e "$debchroot__mpt") $debchroot__initd escaping"
+			if test -h "$debchroot__mpt$debchroot__initd"; then
+				echo >&2 "E: mountpoint $(debchroot__e "$debchroot__mpt") escaping $debchroot__initd"
+			elif test -e "$debchroot__mpt$debchroot__initd"; then
+				echo >&2 "E: mountpoint $(debchroot__e "$debchroot__mpt") unreal $debchroot__initd"
+			else
+				echo >&2 "E: mountpoint $(debchroot__e "$1") missing $debchroot__initd"
+			fi
 			debchroot__initrv=1
 			;;
 		esac
