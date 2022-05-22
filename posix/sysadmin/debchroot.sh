@@ -668,10 +668,10 @@ EOCHR
 	fi
 	# tricky but needed only sometimes
 	test -d /run/udev && test -d "$1/run/udev" && \
-	    if x"$debchroot__skip_runudev" = x"1"; then
+	    if test x"$debchroot__skip_runudev" = x"1"; then
 		test -n "$debchroot__quiet" || \
 		    echo >&2 "W: skipping /run/udev mount as requested"
-	elif x"$(readlink -f "$1/run/udev" || echo ERR)" != x"$1/run/udev"; then
+	elif test x"$(readlink -f "$1/run/udev" || echo ERR)" != x"$1/run/udev"; then
 		echo >&2 "W: $(debchroot__e "$1")/run/udev weird, not mounted"
 	elif ! mount --bind /run/udev "$1/run/udev"; then
 		echo >&2 "E: cannot mount $(debchroot__e "$1")/run/udev"
