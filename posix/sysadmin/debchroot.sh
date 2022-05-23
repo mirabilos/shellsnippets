@@ -582,6 +582,7 @@ debchroot__prep() {
 			exec 6<.archive
 			rm .archive
 			tar -xf - --same-permissions --same-owner <&6
+			rm -f log
 			rm -rf pts shm
 			mkdir pts
 			if test -h /dev/shm; then
@@ -606,7 +607,7 @@ EOCHR
 		(
 			set -e
 			cd /dev
-			find . -type s -print0
+			find . \( -type s -o -path ./log \) -print0
 		) >"$debchroot__prepj" || {
 			echo >&2 "E: cannot discover /dev sockets"
 			umount "$debchroot__prept/dev"
