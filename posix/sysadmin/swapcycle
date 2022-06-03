@@ -86,8 +86,9 @@
 # encryption key and generate a new one, using fresh randomness; due to
 # https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=728197 you’ll also want
 # to do this once in /etc/rc.local so it runs after the system has come up.
-# $ sudo install swapcycle /usr/local/sbin/  # add to /etc/rc.local e.g. ↓
-#	(/usr/local/sbin/swapcycle 2>&1 | logger -t swapcycle:onboot) &
+# $ sudo install swapcycle /usr/local/sbin/
+# add, for example like below, to /etc/rc.local
+#  (sleep 30; /usr/local/sbin/swapcycle 2>&1 | logger -t swapcycle:onboot) &
 #
 # Tell xfce to hide its hibernation button with (thanks, ArchWiki):
 # $ xfconf-query -c xfce4-session -np /shutdown/ShowHibernate -t bool -s false
