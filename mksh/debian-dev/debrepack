@@ -54,6 +54,8 @@ for cf in control.*; do
 	(*.tar.xz) cc='xz -2' ;;
 	(*.tar.bz*|*.tar.zst)
 		print -ru2 -- "W: unsupported format, using gzip for control tarball"
+		mv "$cf" control.tar.gz
+		cf=control.tar.gz
 		cc='gzip -n9' ;;
 	(*) die "huh? control.* = $cf" ;;
 	}
@@ -67,6 +69,8 @@ for df in data.*; do
 	(*.tar.xz) dc='xz' ;;
 	(*.tar.bz*|*.tar.zst)
 		print -ru2 -- "W: unsupported format, using xz for data tarball"
+		mv "$df" data.tar.xz
+		df=data.tar.xz
 		dc='xz' ;;
 	(*) die "huh? data.* = $df" ;;
 	}
