@@ -1,6 +1,6 @@
 #!/bin/mksh
 #-
-# Copyright © 2014, 2018
+# Copyright © 2014, 2018, 2022
 #	mirabilos <t.glaser@tarent.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -33,6 +33,23 @@ fn=${1##*/}
 [[ $fn = *.@(deb|ipk) ]] || die not a Debian source or binary package or IPK
 dn=${fn%.???}-extracted
 
+function x_member {
+	set -o pipefail
+	local fn
+
+	for fn in "$@"; do
+		# use filename to identify nōn-standard formats
+		case $fn {
+		(*.tar.zst)
+			zstd -dc <"$fn" | paxtar xpf -
+			;;
+		(*)
+			paxtar xapf "$fn"
+			;;
+		}
+	done
+}
+
 mode=xapf
 [[ $fn = *.ipk ]] && mode=xzpf
 
@@ -43,6 +60,6 @@ cd "$dn"
 paxtar $mode ../"$fn"
 mkdir c d
 cd c
-paxtar xapf ../control.*
+x_member ../control.*
 cd ../d
-paxtar xapf ../data.*
+x_member ../data.*
