@@ -1,5 +1,5 @@
 #!/bin/sh
-# $MirOS: src/scripts/cleanenv,v 1.6 2021/02/07 02:07:58 tg Exp $
+# $MirOS: src/scripts/cleanenv,v 1.7 2022/05/24 03:34:20 tg Exp $
 
 p=/bin:/usr/bin:/sbin:/usr/sbin:/usr/X11R6/bin
 
@@ -17,7 +17,8 @@ if test x"$a1" = x"-"; then
 	    "$@"
 fi
 
+lc=$(locale 2>/dev/null | fgrep LC_CTYPE | sed 's/="\(.*\)"$/=\1/')
 exec /usr/bin/env -i \
-    PATH=$p TZ=UTC $(locale 2>/dev/null | fgrep LC_CTYPE) \
+    PATH=$p TZ=UTC ${lc:+"$lc"} \
     DISPLAY="$DISPLAY" HOME="${HOME:-/}" TERM="${TERM:-vt100}" USER="${USER}" \
     "$@"

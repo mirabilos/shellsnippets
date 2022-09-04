@@ -1,8 +1,8 @@
 #!/bin/mksh
-rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.81 2021/02/13 08:31:03 tg Exp $'
+rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.82 2022/06/03 21:49:39 tg Exp $'
 #-
 # Copyright © 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015,
-#	      2016, 2017, 2019, 2021
+#	      2016, 2017, 2019, 2021, 2022
 #	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -615,16 +615,17 @@ cat <<'EOF'
    padding: 3px;
    white-space: nowrap;
   }
+  .binheadcell {
+   border: 1px solid #999999;
+   padding: 3px;
+   white-space: nowrap;
+   color: #AAAAAA;
+  }
   .srcpkgline {
    background-color: #CCCCCC;
   }
   .srcpkgdist {
    background-color: #666666;
-   color: #FFFFFF;
-   font-weight: bold;
-  }
-  .binpkgdist {
-   background-color: #999999;
    color: #FFFFFF;
    font-weight: bold;
   }
@@ -692,7 +693,9 @@ print "</tr></thead><tbody>"
 set -A bp_sort
 i=0
 while (( i < nbin )); do
-	print $i ${bp_disp[i++]} #${bp_suites[i]}
+	print -r -- $i "${bp_name[i]:-\~}" "${bp_dist[i]:-\~}" \
+	    "${bp_disp[i]}" #${bp_suites[i]}
+	let ++i
 done | sort -k2 |&
 while read -p num rest; do
 	bp_sort[${#bp_sort[*]}]=$num
@@ -791,22 +794,35 @@ for i in ${bp_sort[*]}; do
 	(( i < 0 )) && continue
 	if (( !num )); then
 		print "\n<!-- sp ENOENT -->"
-		print "<tr class=\"srcpkgline\">"
-		print " <td class=\"srcpkgname\">~ENOENT~</td>"
-		print " <td class=\"srcpkgdesc\">binary" \
+		print "<tr class=\"tablehead\">"
+		print " <th class=\"binheadcell\">~ENOENT~</td>"
+		print " <th class=\"binheadcell\">binary" \
 		    "packages without a matching source package</td>"
 		for suitename in $allsuites; do
 			[[ -h dists/$suitename ]] && continue
-			print " <td class=\"srcpkgitem\">-</td>"
+			print " <th class=\"tableheadcell\">$suitename</td>"
 		done
 		print "</tr>"
 		num=1
+		lasth=
 	fi
 	#print "<!-- bp #$i for${bp_suites[i]} -->"
 	print "<!-- bp #$i -->"
+	if [[ -z $lasth || \
+	    ${bp_dist[i]} != "${bp_dist[lasth]}" || \
+	    ${bp_name[i]} != "${bp_name[lasth]}" ]]; then
+		print "<tr class=\"srcpkgline\">"
+		print " <td class=\"srcpkgdist\">${bp_dist[i]}</td>"
+		print " <td class=\"srcpkgdesc\">src:<tt>${bp_name[i]}</tt></td>"
+		for suitename in $allsuites; do
+			[[ -h dists/$suitename ]] && continue
+			print " <td class=\"srcpkgitem\"></td>"
+		done
+		lasth=$i
+	fi
 	print "<tr class=\"binpkgline\">"
-	print " <td class=\"binpkgdist\">${bp_dist[i]}</td>"
-	print " <td rowspan=\"2\" class=\"binpkgdesc\">$(xhtml_escape "${bp_desc[i]}")</td>"
+	print " <td class=\"binpkgname\">${bp_disp[i]}</td>"
+	print " <td class=\"binpkgdesc\">$(xhtml_escape "${bp_desc[i]}")</td>"
 	for suitename in $allsuites; do
 		[[ -h dists/$suitename ]] && continue
 		eval pv=\${bp_ver_${suitename}[i]}
@@ -822,10 +838,8 @@ for i in ${bp_sort[*]}; do
 				(( j < nrpl )) && pv=${prepldst[j]}
 			fi
 		fi
-		print " <td rowspan=\"2\" class=\"binpkgitem\">$pv</td>"
+		print " <td class=\"binpkgitem\">$pv</td>"
 	done
-	print "</tr><tr class=\"binpkgline\">"
-	print " <td class=\"binpkgname\">${bp_disp[i]}</td>"
 	print "</tr>"
 done
 

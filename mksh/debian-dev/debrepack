@@ -1,6 +1,6 @@
 #!/bin/mksh
 #-
-# Copyright © 2015, 2021
+# Copyright © 2015, 2021, 2022
 #	mirabilos <tg@debian.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -30,12 +30,12 @@ function chkdir {
 	[[ $(<debian-binary) = 2.0 ]] || return 1
 	[[ -d c && -d d ]] || return 1
 	i=0; for x in control.*; do
-		[[ $x = *.tar@(|.gz|.xz) ]] || return 1
+		[[ $x = *.tar@(|.gz|.xz|.zst) ]] || return 1
 		let i++
 	done
 	(( i == 1 )) || return 1
 	i=0; for x in data.*; do
-		[[ $x = *.tar@(|.bz2|.gz|.xz) ]] || return 1
+		[[ $x = *.tar@(|.bz2|.gz|.xz|.zst) ]] || return 1
 		let i++
 	done
 	(( i == 1 )) || return 1
@@ -52,6 +52,11 @@ for cf in control.*; do
 	(*.tar) cc=cat ;;
 	(*.tar.gz) cc='gzip -n9' ;;
 	(*.tar.xz) cc='xz -2' ;;
+	(*.tar.bz*|*.tar.zst)
+		print -ru2 -- "W: unsupported format, using gzip for control tarball"
+		mv "$cf" control.tar.gz
+		cf=control.tar.gz
+		cc='gzip -n9' ;;
 	(*) die "huh? control.* = $cf" ;;
 	}
 	break
@@ -62,6 +67,11 @@ for df in data.*; do
 	(*.tar.bz2) dc='bzip2' ;;
 	(*.tar.gz) dc='gzip -n9' ;;
 	(*.tar.xz) dc='xz' ;;
+	(*.tar.bz*|*.tar.zst)
+		print -ru2 -- "W: unsupported format, using xz for data tarball"
+		mv "$df" data.tar.xz
+		df=data.tar.xz
+		dc='xz' ;;
 	(*) die "huh? data.* = $df" ;;
 	}
 	break
