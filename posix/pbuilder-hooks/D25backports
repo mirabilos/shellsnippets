@@ -1,5 +1,5 @@
 #!/bin/sh
-# $MirOS: contrib/hosted/tg/deb/hookdir/D25backports,v 1.8 2020/10/31 07:21:35 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/D25backports,v 1.9 2022/08/22 23:24:40 tg Exp $
 #-
 # Not complicated enough for copyright.
 #
@@ -43,6 +43,16 @@ case $d in
 (*)
 	echo >&2 W: D25backports: ignoring unknown DIST "'$DIST'"
 	exit 0
+	;;
+esac
+
+# specific workarounds
+case $d/$ARCHITECTURE in
+(stretch/amd64)
+	# cmake is broken in the last upload
+	echo deb \[arch=amd64 check-valid-until=no\] \
+	    http://snapshot.debian.org/archive/debian/20190105T031603Z/ \
+	    stretch-backports main >>/etc/apt/sources.list
 	;;
 esac
 

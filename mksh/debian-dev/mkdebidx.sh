@@ -1,5 +1,5 @@
 #!/bin/mksh
-rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.82 2022/06/03 21:49:39 tg Exp $'
+rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.83 2022/09/06 02:49:10 tg Exp $'
 #-
 # Copyright © 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015,
 #	      2016, 2017, 2019, 2021, 2022
@@ -59,9 +59,10 @@ typeset -f repo_description >/dev/null || function repo_description {
 
 	print -nr -- "WTF ${suite_nick} Repository"
 }
-set -A dpkgarchs -- alpha amd64 arm arm64 armel armhf hppa hurd-i386 i386 \
-    ia64 kfreebsd-amd64 kfreebsd-i386 m68k mips mips64el mipsel powerpc \
-    powerpcspe ppc64 ppc64el riscv64 s390 s390x sh4 sparc sparc64 x32
+set -A dpkgarchs -- alpha amd64 arc arm arm64 arm64ilp32 armel armhf \
+    hppa hurd-i386 i386 ia64 kfreebsd-amd64 kfreebsd-i386 m68k \
+    mips mips64el mipsel powerpc powerpcspe ppc64 ppc64el \
+    riscv64 s390 s390x sh4 sparc sparc64 tilegx x32
 [[ -n "${normarchs[*]}" ]] || set -A normarchs -- "${dpkgarchs[@]}"
 
 set +U
