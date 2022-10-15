@@ -561,6 +561,20 @@ Press Enter to continue; use the "exit" command to quit.' 13 69
 		grpck -s
 		rm -f /etc/passwd- /etc/group- /etc/shadow- /etc/gshadow- \
 		    /etc/subuid- /etc/subgid-
+		need_machineid=true
+		while $need_machineid; do
+			case $(cat /etc/machine-id 2>/dev/null) in
+			(00000000000000000000000000000000) ;;
+			([0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f])
+				need_machineid=false ;;
+			esac
+			if $need_machineid; then
+				dd if=/dev/urandom iflag=fullblock \
+				    bs=16 count=1 2>/dev/null | \
+				    hexdump -e '16/1 "%02x" "\n"' \
+				    >/etc/machine-id
+			fi
+		done
 		# record initial /etc state
 		if command -v etckeeper >/dev/null 2>&1; then
 			etckeeper commit 'Finish installation'
