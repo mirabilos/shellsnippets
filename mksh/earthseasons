@@ -76,6 +76,7 @@ curlver=$(curl --version 2>/dev/null | sed -ne '2,$d' -e '/^curl /s!!curl/!p') |
 [[ -n $curlver ]] || die 'cannot obtain cURL version'
 myua="$myua using $curlver"
 
+caching_didonerequest=false
 function caching_request {
 	local cachekey=$1 rv altreply
 	shift
@@ -91,6 +92,12 @@ function caching_request {
 
 	[[ ! -e $altreply ]] || rm "$altreply" || \
 	    die 'cannot remove old reply' "$altreply"
+	# rate limiting
+	if $caching_didonerequest; then
+		sleep 1
+	else
+		caching_didonerequest=true
+	fi
 	curl $curlparms -A "$myua" "$@" >"$altreply"
 	rv=$?
 	if (( rv == 0 )); then
