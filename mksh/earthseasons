@@ -183,7 +183,10 @@ function api_response {
 }
 
 function doapi {
-	api_response START_TIME "'$tbeg'" STOP_TIME "'$tend'" STEP_SIZE "'$step'"
+	api_response \
+	    START_TIME "'${tbeg%.[05]00}'" \
+	    STOP_TIME "'${tend%.[05]00}'" \
+	    STEP_SIZE "'$step'"
 }
 
 function parse_table {
@@ -248,10 +251,57 @@ if (( (z % 4) == 0 && ((z % 100) != 0 || (z % 400) == 0) )); then
 	step=366
 fi
 yearf=${|doapi;}
-
 parse_table year "$yearf"
+
+function ddie {
+	print -ru2 -- "N: i	ts			DEC		DEC absolute"
+	i=-1
+	while (( ++i < yearn )); do
+		print -ru2 -- "N: $i	${yearts[i]}	${yeardec[i]}	${yeardeca[i]}"
+	done
+	die "$@"
+}
+
+# find DECmin, DECmax, DECpos, DECneg
+i=0
+DECmin=err
+DECmax=err
+while (( ++i < yearn )); do
+	if [[ ${yeardeca[i]} < ${yeardeca[i-1]} ]]; then
+		DECmin=$i
+		break
+	fi
+done
+while (( i < yearn )) && [[ ${yeardec[++i]} = -* ]]; do
+	: nothing
+done
+DECpos=$i
+while (( ++i < yearn )); do
+	if [[ ${yeardeca[i]} < ${yeardeca[i-1]} ]]; then
+		DECmax=$i
+		break
+	fi
+done
+while (( i < yearn )) && [[ ${yeardec[++i]} != -* ]]; do
+	: nothing
+done
+DECneg=$i
+if (( i >= yearn )) || [[ $DECmin = err || $DECmax = err ]]; then
+	ddie 'year data format error' \
+	    "DECmin=$DECmin" "DECpos=$DECpos" \
+	    "DECmax=$DECmax" "DECneg=$DECneg"
+fi
+
+
+
+
 i=-1
-while (( ++i < $yearn )); do
+while (( ++i < yearn )); do
 	print -r -- "$i	${yearts[i]}	${yeardec[i]}	${yeardeca[i]}"
 done
 print -r = "$yearf"
+
+print -r -- "$DECmin	${yearts[DECmin]}	${yeardec[DECmin]}	${yeardeca[DECmin]}	min"
+print -r -- "$DECpos	${yearts[DECpos]}	${yeardec[DECpos]}	${yeardeca[DECpos]}	pos"
+print -r -- "$DECmax	${yearts[DECmax]}	${yeardec[DECmax]}	${yeardeca[DECmax]}	max"
+print -r -- "$DECneg	${yearts[DECneg]}	${yeardec[DECneg]}	${yeardeca[DECneg]}	neg"
