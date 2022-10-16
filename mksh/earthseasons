@@ -74,7 +74,6 @@ else
 fi
 curlver=$(curl --version 2>/dev/null | sed -ne '2,$d' -e '/^curl /s!!curl/!p') || curlver=
 [[ -n $curlver ]] || die 'cannot obtain cURL version'
-myua="$myua using $curlver"
 
 caching_didonerequest=false
 function caching_request {
@@ -98,7 +97,7 @@ function caching_request {
 	else
 		caching_didonerequest=true
 	fi
-	curl $curlparms -A "$myua" "$@" >"$altreply"
+	curl $curlparms -A "$myua using $curlver" "$@" >"$altreply"
 	rv=$?
 	if (( rv == 0 )); then
 		mv "$altreply" "$REPLY" || \
