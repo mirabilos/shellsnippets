@@ -34,3 +34,217 @@ set -ex
 : upgrade your mksh should this fail:
 set -o noglob -o pipefail +x
 
+myver=0.1
+apibase='https://ssd.jpl.nasa.gov/api/horizons.api'
+apirq="$apibase?format=json&COMMAND='10'&OBJ_DATA=NO&MAKE_EPHEM=YES&EPHEM_TYPE=OBSERVER&CENTER=500@399&QUANTITIES='2'&REF_SYSTEM=ICRF&CAL_FORMAT=BOTH&ANG_FORMAT=DEG&APPARENT=AIRLESS&TIME_DIGITS=FRACSEC&EXTRA_PREC=YES&CSV_FORMAT=YES"
+
+function die {
+	print -ru2 -- "E: $1"
+	shift
+	for x in "$@"; do
+		print -ru2 -- "N: $x"
+	done
+	exit 1
+}
+
+function warn {
+	print -ru2 -- "W: $1"
+	shift
+	for x in "$@"; do
+		print -ru2 -- "N: $x"
+	done
+}
+
+function testforlocaloptions {
+	set +e
+}
+testforlocaloptions
+[[ -o errexit ]] || die 'mksh too old'
+
+myua="earthseasons/$myver +https://github.com/mirabilos/shellsnippets/blob/master/mksh/earthseasons"
+mydir=$(realpath "$0/..") || die 'cannot get script directory'
+test -d earthseasons.cache || mkdir earthseasons.cache || die 'cannot make cache directory'
+
+if curl --fail-with-body file:/// >/dev/null 2>&1; then
+	curlparms='--fail-with-body -sSL'
+elif curl -f file:/// >/dev/null 2>&1; then
+	curlparms='-fsSL'
+else
+	die 'cURL failed function test'
+fi
+curlver=$(curl --version 2>/dev/null | sed -ne '2,$d' -e '/^curl /s!!curl/!p') || curlver=
+[[ -n $curlver ]] || die 'cannot obtain cURL version'
+myua="$myua using $curlver"
+
+function caching_request {
+	local cachekey=$1 rv altreply
+	shift
+	set +e
+
+	[[ cachekey != [.\~]* ]] || cachekey="+$cachekey"
+	REPLY=earthseasons.cache/$cachekey
+	altreply=earthseasons.cache/'~'$cachekey
+
+	if [[ -s earthseasons.cache/$cachekey ]]; then
+		return 0
+	fi
+
+	[[ ! -e $altreply ]] || rm "$altreply" || \
+	    die 'cannot remove old reply' "$altreply"
+	curl $curlparms -A "$myua" "$@" >"$altreply"
+	rv=$?
+	if (( rv == 0 )); then
+		mv "$altreply" "$REPLY" || \
+		    die 'renaming cURL result' "$altreply"
+		return 0
+	fi
+	REPLY=$altreply
+	return $rv
+}
+
+function api_request {
+	local parm parms rs rv x
+
+	while (( $# )); do
+		parm=${2//'%'/%25}
+		parm=${parm//';'/%3B}
+		parm=${parm//'/'/%2F}
+		parm=${parm//'?'/%3F}
+		parm=${parm//':'/%3A}
+		parm=${parm//'@'/%40}
+		parm=${parm//'&'/%26}
+		parm=${parm//'='/%3D}
+		parm=${parm//'+'/%2B}
+		parm=${parm//'$'/%24}
+		parm=${parm//','/%2C}
+		parm=${parm//$'\t'/%09}
+		parm=${parm//' '/%20}
+		parm=${parm//'<'/%3C}
+		parm=${parm//'>'/%3E}
+		parm=${parm//'#'/%23}
+		parm=${parm//'"'/%22}
+		parm=${parm//'{'/%7B}
+		parm=${parm//'}'/%7D}
+		parm=${parm//'|'/%7C}
+		parm=${parm//\\/%5C}
+		parm=${parm//'^'/%5E}
+		parm=${parm//'['/%5B}
+		parm=${parm//']'/%5D}
+		parm=${parm//'`'/%60}
+		parm=${parm//\'/%27}
+		parm=${parm//$'\n'/%0A}
+		parms+="&$1=$parm"
+		shift 2
+	done
+
+	set +e
+	caching_request "$parms" "$apirq$parms"
+	rv=$?
+	rs=$REPLY
+	(( rv == 0 )) || return $rv
+
+	x=$(<"$rs" jq -r .code) || die 'API result is not JSON' "$parms" "$rs"
+	if [[ $x != null ]]; then
+		warn "API result error code $x"
+		return 254
+	fi
+	x=$(<"$rs" jq -r .error) || die 'API result is not JSON' "$parms" "$rs"
+	if [[ $x != null ]]; then
+		warn "API result error string: $x"
+		return 254
+	fi
+	# unpack
+	REPLY=earthseasons.cache/.$parms
+	<"$rs" jq -r .result >"$REPLY" || \
+	    die 'API result unpacking error' "$parms" "$rs"
+}
+
+function api_response {
+	local rv
+
+	set +e
+	api_request "$@"
+	rv=$?
+	(( rv )) || return 0
+
+	if jq . <"$REPLY" >/dev/null; then
+		jq . <"$REPLY" || cat "$REPLY"
+	else
+		cat "$REPLY"
+	fi | sed 's/^/N: /'
+	die 'API request failed' "$REPLY"
+}
+
+function doapi {
+	api_response START_TIME "'$tbeg'" STOP_TIME "'$tend'" STEP_SIZE "'$step'"
+}
+
+function parse_table {
+	nameref dts=${1}ts dec=${1}dec dea=${1}deca nd=${1}n
+	local src=$2 tarr line
+	set -A dts
+	set -A dec
+	nd=0
+
+	exec <"$src"
+	while IFS= read -r line; do
+		[[ $line != '$$SOE' ]] || break
+	done
+	[[ $line = '$$SOE' ]] || die 'missing table start marker' "$src"
+	while IFS=, read -rA tarr; do
+		[[ ${tarr[0]} != '$$EOE' ]] || return 0
+		line=${tarr[5]%%+( )}
+		dec[nd]=${line##+( )}
+		[[ ${dec[nd]} = ?(-)?([0-2])[0-9].[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9] ]] || \
+		    die 'DEC not in expected format' "$src" "${tarr[@]}"
+		dea[nd]=${dec[nd]#-}
+		[[ ${dea[nd]} = ??.* ]] || dea[nd]=0${dea[nd]}
+		line=${tarr[0]%%+( )}
+		IFS=' -'
+		set -- ${line##+( )}
+		case $2 {
+		(Jan) line=01 ;;
+		(Feb) line=02 ;;
+		(Mar) line=03 ;;
+		(Apr) line=04 ;;
+		(May) line=05 ;;
+		(Jun) line=06 ;;
+		(Jul) line=07 ;;
+		(Aug) line=08 ;;
+		(Sep) line=09 ;;
+		(Oct) line=10 ;;
+		(Nov) line=11 ;;
+		(Dec) line=12 ;;
+		(*) die 'unparsable month' "$src" "${tarr[@]}" ;;
+		}
+		[[ $1 = $y || $1 = $z ]] || die 'bad year' "$src" "${tarr[@]}"
+		[[ $3 = @(0[1-9]|[12][0-9]|3[01]) ]] || \
+		    die 'bad day of month' "$src" "${tarr[@]}"
+		# note leap seconds cannot occur in the queries we give
+		# resolution is ½ second
+		[[ $4 = @([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9].[05]00 ]] || \
+		    die 'bad time' "$src" "${tarr[@]}"
+		dts[nd++]="$1-$line-$3 $4"
+	done
+	die 'missing table end marker' "$src"
+}
+
+(( $# == 1 )) || die "Syntax: $0 year"
+[[ $1 == @(19[789][0-9]|2[0-9][0-9][0-9]) ]] || die "not a year: $1"
+y=$1
+z=$((y + 1))
+
+tbeg="${y}-10-01 00:00:00"
+tend="${z}-10-01 00:00:00"
+step=365
+if (( (z % 4) == 0 && ((z % 100) != 0 || (z % 400) == 0) )); then
+	step=366
+fi
+yearf=${|doapi;}
+
+parse_table year "$yearf"
+i=-1
+while (( ++i < $yearn )); do
+	print -r -- "$i	${yearts[i]}	${yeardec[i]}	${yeardeca[i]}"
+done
+print -r = "$yearf"
