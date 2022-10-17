@@ -34,7 +34,7 @@ set -ex
 : upgrade your mksh should this fail:
 set -o noglob -o pipefail +x
 
-myver=0.1
+myver=1.0
 apibase='https://ssd.jpl.nasa.gov/api/horizons.api'
 apirq="$apibase?format=json&COMMAND='10'&OBJ_DATA=NO&MAKE_EPHEM=YES&EPHEM_TYPE=OBSERVER&CENTER=500@399&QUANTITIES='2'&REF_SYSTEM=ICRF&CAL_FORMAT=BOTH&ANG_FORMAT=DEG&APPARENT=AIRLESS&TIME_DIGITS=FRACSEC&EXTRA_PREC=YES&CSV_FORMAT=YES"
 
@@ -617,7 +617,7 @@ function doout {
 }
 
 print -r -- '/* {{{ generated */'
-print -r -- "/* by $myua */"
+print -r -- "/*     by $myua */"
 doout "$vtssmh" 'Samhain (Hallowe’en), *solar'
 doout "$vtswsw" 'Yul (Wintersonnenwende, Mittwinter)'
 doout "$vtsimb" 'Imbolc/Brigid (Lichtmeß), *solar'
