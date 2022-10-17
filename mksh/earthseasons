@@ -453,8 +453,6 @@ function doraflip {
 	(( i < n )) || ddie "cannot determine fine $1 flip point"
 	nameref vts=vts$1
 	vts=${ts[i]}
-nameref dec=f${1}dec
-print -ru2 "D: $i	$vts	${ra[i]}	${dec[i]}	$1"
 }
 
 dominmax min
@@ -483,5 +481,7 @@ print -r -- "$RAhtn	${yearts[RAhtn]}	${yearra[RAhtn]}	${yeardec[RAhtn]}	${yearde
 print -r -- "min: $vtsmin	$vdecmin"
 print -r -- "max: $vtsmax	$vdecmax"
 
-#dumpx ftn-coarse cftn foo
-#dumpx frn-fine fftn foo
+print -r -- "winter	$vtswsw"
+print -r -- "spring	$vtsftn"
+print -r -- "summer	$vtsssw"
+print -r -- "autumn	$vtshtn"
