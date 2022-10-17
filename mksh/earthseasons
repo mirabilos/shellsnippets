@@ -62,7 +62,7 @@ testforlocaloptions
 [[ -o errexit ]] || die 'mksh too old'
 
 myua="earthseasons/$myver +https://github.com/mirabilos/shellsnippets/blob/master/mksh/earthseasons"
-mydir=$(realpath "$0/..") || die 'cannot get script directory'
+cd $(realpath "$0/..") || die 'cannot change to script directory'
 test -d earthseasons.cache || mkdir earthseasons.cache || die 'cannot make cache directory'
 
 if curl --fail-with-body file:/// >/dev/null 2>&1; then
