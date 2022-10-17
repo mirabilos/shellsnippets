@@ -91,6 +91,7 @@ function caching_request {
 
 	[[ ! -e $altreply ]] || rm "$altreply" || \
 	    die 'cannot remove old reply' "$altreply"
+	print -ru2 "I: requesting $cachekey"
 	# rate limiting
 	if $caching_didonerequest; then
 		sleep 1
@@ -195,6 +196,9 @@ function parse_table {
 	set -A dec
 	nd=0
 
+	lastparsed=$1
+	lastparsedfn=$src
+
 	exec <"$src"
 	while IFS= read -r line; do
 		[[ $line != '$$SOE' ]] || break
@@ -211,6 +215,7 @@ function parse_table {
 		line=${tarr[0]%%+( )}
 		IFS=' -'
 		set -- ${line##+( )}
+		IFS=$' \t\n'
 		case $2 {
 		(Jan) line=01 ;;
 		(Feb) line=02 ;;
@@ -252,12 +257,20 @@ fi
 yearf=${|doapi;}
 parse_table year "$yearf"
 
-function ddie {
+function dumpx {
+	local title=$1 key=$2 fn=$3
+	nameref ts=${key}ts dec=${key}dec deca=${key}deca n=${key}n
+
+	print -ru2 -- "I: $title $key file $fn"
 	print -ru2 -- "N: i	ts			DEC		DEC absolute"
 	i=-1
-	while (( ++i < yearn )); do
-		print -ru2 -- "N: $i	${yearts[i]}	${yeardec[i]}	${yeardeca[i]}"
+	while (( ++i < n )); do
+		print -ru2 -- "N: $i	${ts[i]}	${dec[i]}	${deca[i]}"
 	done
+}
+
+function ddie {
+	dumpx lastparsed "$lastparsed" "$lastparsedfn"
 	die "$@"
 }
 
@@ -266,7 +279,7 @@ i=0
 DECmin=err
 DECmax=err
 while (( ++i < yearn )); do
-	if [[ ${yeardeca[i]} < ${yeardeca[i-1]} ]]; then
+	if [[ ${yeardeca[i]} < ${yeardeca[i - 1]} ]]; then
 		DECmin=$i
 		break
 	fi
@@ -276,7 +289,7 @@ while (( i < yearn )) && [[ ${yeardec[++i]} = -* ]]; do
 done
 DECpos=$i
 while (( ++i < yearn )); do
-	if [[ ${yeardeca[i]} < ${yeardeca[i-1]} ]]; then
+	if [[ ${yeardeca[i]} < ${yeardeca[i - 1]} ]]; then
 		DECmax=$i
 		break
 	fi
@@ -291,6 +304,70 @@ if (( i >= yearn )) || [[ $DECmin = err || $DECmax = err ]]; then
 	    "DECmax=$DECmax" "DECneg=$DECneg"
 fi
 
+function dominmax {
+	nameref dec=DEC$1
+	local i j k
+
+	(( dec >= 2 )) || ddie huh? "$yearf"	# cannot happen
+
+	tbeg=${yearts[dec - 2]}
+	tend=${yearts[dec]}
+	step=1200
+	nameref f=${1}fcoarse n=c${1}n
+	f=${|doapi;}
+	parse_table c$1 "$f"
+	nameref n=c${1}n ts=c${1}ts dec=c${1}dec deca=c${1}deca
+
+	i=0
+	while (( ++i < n )); do
+		if [[ ${deca[i]} < ${deca[i - 1]} ]]; then
+			break
+		fi
+	done
+	# note that i < 2 cannot happen because deca[dec-1] > deca[dec-2]
+	(( i >= 2 )) || ddie huh? "$f"
+	(( i < n )) || ddie "cannot determine coarse $1 ranges"
+
+	tbeg=${ts[i - 2]}
+	tend=${ts[i]}
+	step=576
+	nameref f=${1}ffine n=f${1}n
+	f=${|doapi;}
+	parse_table f$1 "$f"
+	nameref n=f${1}n ts=f${1}ts dec=f${1}dec deca=f${1}deca
+
+	i=0
+	while (( ++i < n )); do
+		if [[ ${deca[i]} < ${deca[i - 1]} ]]; then
+			break
+		fi
+	done
+	(( i < n )) || ddie "cannot determine fine $1 range upper end"
+	nameref val=vdec$1
+	val=${dec[i - 1]}
+
+	j=-1
+	while (( ++j < i )); do
+		if [[ ${dec[j]} = $val ]]; then
+			break
+		fi
+	done
+	if (( j == 0 )); then
+		nameref f=${1}fcoarse
+		dumpx coarse c$1 "$f"
+		ddie "cannot determine fine $1 range lower end"
+	fi
+	(( j < i )) || ddie huh? "$f" "j=$j i=$i n=$n val=$val"
+
+	# determine median element (j is first $val, i is first after)
+	(( (k = (i - j) / 2 + j), 1 ))
+	nameref vts=vts$1
+	vts=${ts[k]}
+}
+
+dominmax min
+dominmax max
+
 
 
 
@@ -304,3 +381,6 @@ print -r -- "$DECmin	${yearts[DECmin]}	${yeardec[DECmin]}	${yeardeca[DECmin]}	mi
 print -r -- "$DECpos	${yearts[DECpos]}	${yeardec[DECpos]}	${yeardeca[DECpos]}	pos"
 print -r -- "$DECmax	${yearts[DECmax]}	${yeardec[DECmax]}	${yeardeca[DECmax]}	max"
 print -r -- "$DECneg	${yearts[DECneg]}	${yeardec[DECneg]}	${yeardeca[DECneg]}	neg"
+
+print -r -- "min: $vtsmin	$vdecmin"
+print -r -- "max: $vtsmax	$vdecmax"
