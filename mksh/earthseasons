@@ -263,6 +263,19 @@ function fliphtn {
 	[[ ! $1 < 180. ]]
 }
 
+function flipsmh {
+	[[ ! $1 < $vdecwh ]]
+}
+function flipimb {
+	[[ $1 < $vdecwh ]]
+}
+function flipblt {
+	[[ ! $1 < $vdecsh ]]
+}
+function fliplgh {
+	[[ $1 < $vdecsh ]]
+}
+
 (( $# == 1 )) || die "Syntax: $0 year"
 [[ $1 == @(19[789][0-9]|2[0-9][0-9][0-9]) ]] || die "not a year: $1"
 y=$1
@@ -295,9 +308,9 @@ function ddie {
 }
 
 # find DECmin, DECmax
-i=0
 DECmin=err
 DECmax=err
+i=0
 while (( ++i < yearn )); do
 	if [[ ${yeardeca[i]} < ${yeardeca[i - 1]} ]]; then
 		DECmin=$i
@@ -321,6 +334,7 @@ if (( i >= yearn )) || [[ $DECmin = err || $DECmax = err ]]; then
 	    "DECmin=$DECmin" "DECmax=$DECmax"
 fi
 # find RAwsw, RAftn, RAssw, RAhtn
+RAwsw= RAftn= RAssw= RAhtn=
 i=-1
 while (( ++i < yearn )); do
 	if flipwsw "${yearra[i]}"; then
@@ -415,7 +429,7 @@ function dominmax {
 
 function doraflip {
 	nameref ra=RA$1
-	local i j k
+	local i
 
 	(( ra >= 1 )) || ddie huh? "$yearf"	# cannot happen
 
@@ -447,6 +461,48 @@ function doraflip {
 	i=-1
 	while (( ++i < n )); do
 		if flip$1 "${ra[i]}"; then
+			break
+		fi
+	done
+	(( i < n )) || ddie "cannot determine fine $1 flip point"
+	nameref vts=vts$1
+	vts=${ts[i]}
+}
+
+function doquarter {
+	nameref dec=DEC$1
+	local i
+
+	(( dec >= 1 )) || ddie huh? "$yearf"	# cannot happen
+
+	tbeg=${yearts[dec - 1]}
+	tend=${yearts[dec]}
+	step=480
+	nameref f=${1}fcoarse n=c${1}n
+	f=${|doapi;}
+	parse_table c$1 "$f"
+	nameref n=c${1}n ts=c${1}ts deca=c${1}deca
+
+	i=-1
+	while (( ++i < n )); do
+		if flip$1 "${deca[i]}"; then
+			break
+		fi
+	done
+	(( i >= 1 )) || ddie huh? "$f"	# cannot happen
+	(( i < n )) || ddie "cannot determine coarse $1 ranges"
+
+	tbeg=${ts[i - 1]}
+	tend=${ts[i]}
+	step=360
+	nameref f=${1}ffine n=f${1}n
+	f=${|doapi;}
+	parse_table f$1 "$f"
+	nameref n=f${1}n ts=f${1}ts deca=f${1}deca
+
+	i=-1
+	while (( ++i < n )); do
+		if flip$1 "${deca[i]}"; then
 			break
 		fi
 	done
@@ -496,8 +552,49 @@ if [[ $nbcres != 3 || ${bcres[2]} != 42 || \
     ${bcres[1]} != 14.[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9] ]]; then
 	die "weird $nbcres bc results" "${bcres[@]}"
 fi
-vdecwh=${bcres[0]}
+vdecwh=${bcres[0]#-}
 vdecsh=${bcres[1]}
+
+# find DECsmh, DECimb, DECblt, DEClgh
+DECsmh= DECimb= DECblt= DEClgh=
+i=-1
+while (( ++i < yearn )); do
+	if flipsmh "${yeardeca[i]}"; then
+		DECsmh=$i
+		break
+	fi
+done
+while (( ++i < yearn )); do
+	if flipimb "${yeardeca[i]}"; then
+		DECimb=$i
+		break
+	fi
+done
+while (( ++i < yearn )); do
+	if flipblt "${yeardeca[i]}"; then
+		DECblt=$i
+		break
+	fi
+done
+while (( ++i < yearn )); do
+	if fliplgh "${yeardeca[i]}"; then
+		DEClgh=$i
+		break
+	fi
+done
+if (( i >= yearn )) || [[ -z $DECsmh || -z $DECimb || -z $DECblt || -z $DEClgh ]]; then
+	lastparsed=year
+	lastparsedfn="$yearf"
+	ddie 'year data format error' \
+	    "DECsmh=$DECsmh" "DECimb=$DECimb" \
+	    "DECblt=$DECblt" "DEClgh=$DEClgh"
+fi
+
+doquarter smh "$vdecwh"
+doquarter imb "$vdecwh"
+doquarter blt "$vdecsh"
+doquarter lgh "$vdecsh"
+
 
 
 
@@ -518,7 +615,11 @@ print -r -- "$RAhtn	${yearts[RAhtn]}	${yearra[RAhtn]}	${yeardec[RAhtn]}	${yearde
 print -r -- "min: $vtsmin	$vdecmin	⛤ $vdecwh"
 print -r -- "max: $vtsmax	$vdecmax	⛤ $vdecsh"
 
+print -r -- "samhain	$vtssmh"
 print -r -- "winter	$vtswsw"
+print -r -- "imbolc	$vtsimb"
 print -r -- "spring	$vtsftn"
+print -r -- "beltane	$vtsblt"
 print -r -- "summer	$vtsssw"
+print -r -- "lammas	$vtslgh"
 print -r -- "autumn	$vtshtn"
