@@ -34,7 +34,7 @@ set -ex
 : upgrade your mksh should this fail:
 set -o noglob -o pipefail +x
 
-myver=1.0
+myver=1.1
 apibase='https://ssd.jpl.nasa.gov/api/horizons.api'
 apirq="$apibase?format=json&COMMAND='10'&OBJ_DATA=NO&MAKE_EPHEM=YES&EPHEM_TYPE=OBSERVER&CENTER=500@399&QUANTITIES='2'&REF_SYSTEM=ICRF&CAL_FORMAT=BOTH&ANG_FORMAT=DEG&APPARENT=AIRLESS&TIME_DIGITS=FRACSEC&EXTRA_PREC=YES&CSV_FORMAT=YES"
 
@@ -613,7 +613,7 @@ function doout {
 		warn "bad fractional second part? $ss" "$label"
 	fi
 
-	print -r -- "$m-$d	$y, $H:$M[UTC] $H:$M:$S$ss $label"
+	print -r -- "$m-$d*	$y, $H:$M[UTC] $H:$M:$S$ss $label"
 }
 
 print -r -- '/* {{{ generated */'
