@@ -281,7 +281,7 @@ function ddie {
 	die "$@"
 }
 
-# find DECmin, DECmax, DECpos, DECneg
+# find DECmin, DECmax
 i=0
 DECmin=err
 DECmax=err
@@ -294,7 +294,6 @@ done
 while (( i < yearn )) && [[ ${yeardec[++i]} = -* ]]; do
 	: nothing
 done
-DECpos=$i
 while (( ++i < yearn )); do
 	if [[ ${yeardeca[i]} < ${yeardeca[i - 1]} ]]; then
 		DECmax=$i
@@ -304,11 +303,40 @@ done
 while (( i < yearn )) && [[ ${yeardec[++i]} != -* ]]; do
 	: nothing
 done
-DECneg=$i
 if (( i >= yearn )) || [[ $DECmin = err || $DECmax = err ]]; then
 	ddie 'year data format error' \
-	    "DECmin=$DECmin" "DECpos=$DECpos" \
-	    "DECmax=$DECmax" "DECneg=$DECneg"
+	    "DECmin=$DECmin" "DECmax=$DECmax"
+fi
+# find RAwsw, RAftn, RAssw, RAhtn
+i=-1
+while (( ++i < yearn )); do
+	if [[ ! ${yearra[i]} < 270. ]]; then
+		RAwsw=$i
+		break
+	fi
+done
+while (( ++i < yearn )); do
+	if [[ ${yearra[i]} = 0* ]]; then
+		RAftn=$i
+		break
+	fi
+done
+while (( ++i < yearn )); do
+	if [[ ! ${yearra[i]} < 090. ]]; then
+		RAssw=$i
+		break
+	fi
+done
+while (( ++i < yearn )); do
+	if [[ ! ${yearra[i]} < 180. ]]; then
+		RAhtn=$i
+		break
+	fi
+done
+if (( i >= yearn )) || [[ -z $RAwsw || -z $RAftn || -z $RAssw || -z $RAhtn ]]; then
+	ddie 'year data format error' \
+	    "RAwsw=$RAwsw" "RAftn=$RAftn" \
+	    "RAssw=$RAssw" "RAhtn=$RAhtn"
 fi
 
 function dominmax {
@@ -385,9 +413,11 @@ done
 print -r = "$yearf"
 
 print -r -- "$DECmin	${yearts[DECmin]}	${yearra[DECmin]}	${yeardec[DECmin]}	${yeardeca[DECmin]}	min"
-print -r -- "$DECpos	${yearts[DECpos]}	${yearra[DECpos]}	${yeardec[DECpos]}	${yeardeca[DECpos]}	pos"
 print -r -- "$DECmax	${yearts[DECmax]}	${yearra[DECmax]}	${yeardec[DECmax]}	${yeardeca[DECmax]}	max"
-print -r -- "$DECneg	${yearts[DECneg]}	${yearra[DECneg]}	${yeardec[DECneg]}	${yeardeca[DECneg]}	neg"
+print -r -- "$RAwsw	${yearts[RAwsw]}	${yearra[RAwsw]}	${yeardec[RAwsw]}	${yeardeca[RAwsw]}	winter"
+print -r -- "$RAftn	${yearts[RAftn]}	${yearra[RAftn]}	${yeardec[RAftn]}	${yeardeca[RAftn]}	spring"
+print -r -- "$RAssw	${yearts[RAssw]}	${yearra[RAssw]}	${yeardec[RAssw]}	${yeardeca[RAssw]}	summer"
+print -r -- "$RAhtn	${yearts[RAhtn]}	${yearra[RAhtn]}	${yeardec[RAhtn]}	${yeardeca[RAhtn]}	autumn"
 
 print -r -- "min: $vtsmin	$vdecmin"
 print -r -- "max: $vtsmax	$vdecmax"
