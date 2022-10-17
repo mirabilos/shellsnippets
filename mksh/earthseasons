@@ -19,8 +19,8 @@
 # damage or existence of a defect, except proven that it results out
 # of said person’s immediate fault when using the work as intended.
 #-
-# Calculates the earth’s cross-quarter days via the JPL Horizons API
-# and the quarter days using the golden ratio approach documented by
+# Calculates solstice and æquinōx days via the JPL Horizons API, and
+# the old quarter days using the golden ratio approach documented by
 # http://web.archive.org/web/20170628085124/http://www.astrothek.de/artikel/jahreskreis/jahreskreis_termine.html
 #
 # The service http://aa.usno.navy.mil/data/docs/EarthSeasons.php had
