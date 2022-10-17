@@ -250,6 +250,19 @@ function parse_table {
 	die 'missing table end marker' "$src"
 }
 
+function flipwsw {
+	[[ ! $1 < 270. ]]
+}
+function flipftn {
+	[[ $1 = 0* ]]
+}
+function flipssw {
+	[[ ! $1 < 090. ]]
+}
+function fliphtn {
+	[[ ! $1 < 180. ]]
+}
+
 (( $# == 1 )) || die "Syntax: $0 year"
 [[ $1 == @(19[789][0-9]|2[0-9][0-9][0-9]) ]] || die "not a year: $1"
 y=$1
@@ -266,7 +279,7 @@ parse_table year "$yearf"
 
 function dumpx {
 	local title=$1 key=$2 fn=$3
-	nameref ts=${key}ts dec=${key}dec deca=${key}deca ra=${1}ra n=${key}n
+	nameref ts=${key}ts dec=${key}dec deca=${key}deca ra=${key}ra n=${key}n
 
 	print -ru2 -- "I: $title $key file $fn"
 	print -ru2 -- "N: i	ts			RA		DEC		DEC absolute"
@@ -310,25 +323,25 @@ fi
 # find RAwsw, RAftn, RAssw, RAhtn
 i=-1
 while (( ++i < yearn )); do
-	if [[ ! ${yearra[i]} < 270. ]]; then
+	if flipwsw "${yearra[i]}"; then
 		RAwsw=$i
 		break
 	fi
 done
 while (( ++i < yearn )); do
-	if [[ ${yearra[i]} = 0* ]]; then
+	if flipftn "${yearra[i]}"; then
 		RAftn=$i
 		break
 	fi
 done
 while (( ++i < yearn )); do
-	if [[ ! ${yearra[i]} < 090. ]]; then
+	if flipssw "${yearra[i]}"; then
 		RAssw=$i
 		break
 	fi
 done
 while (( ++i < yearn )); do
-	if [[ ! ${yearra[i]} < 180. ]]; then
+	if fliphtn "${yearra[i]}"; then
 		RAhtn=$i
 		break
 	fi
@@ -400,8 +413,56 @@ function dominmax {
 	vts=${ts[k]}
 }
 
+function doraflip {
+	nameref ra=RA$1
+	local i j k
+
+	(( ra >= 1 )) || ddie huh? "$yearf"	# cannot happen
+
+	tbeg=${yearts[ra - 1]}
+	tend=${yearts[ra]}
+	step=480
+	nameref f=${1}fcoarse n=c${1}n
+	f=${|doapi;}
+	parse_table c$1 "$f"
+	nameref n=c${1}n ts=c${1}ts ra=c${1}ra
+
+	i=-1
+	while (( ++i < n )); do
+		if flip$1 "${ra[i]}"; then
+			break
+		fi
+	done
+	(( i >= 1 )) || ddie huh? "$f"	# cannot happen
+	(( i < n )) || ddie "cannot determine coarse $1 ranges"
+
+	tbeg=${ts[i - 1]}
+	tend=${ts[i]}
+	step=360
+	nameref f=${1}ffine n=f${1}n
+	f=${|doapi;}
+	parse_table f$1 "$f"
+	nameref n=f${1}n ts=f${1}ts ra=f${1}ra
+
+	i=-1
+	while (( ++i < n )); do
+		if flip$1 "${ra[i]}"; then
+			break
+		fi
+	done
+	(( i < n )) || ddie "cannot determine fine $1 flip point"
+	nameref vts=vts$1
+	vts=${ts[i]}
+nameref dec=f${1}dec
+print -ru2 "D: $i	$vts	${ra[i]}	${dec[i]}	$1"
+}
+
 dominmax min
 dominmax max
+doraflip wsw
+doraflip ftn
+doraflip ssw
+doraflip htn
 
 
 
@@ -421,3 +482,6 @@ print -r -- "$RAhtn	${yearts[RAhtn]}	${yearra[RAhtn]}	${yeardec[RAhtn]}	${yearde
 
 print -r -- "min: $vtsmin	$vdecmin"
 print -r -- "max: $vtsmax	$vdecmax"
+
+#dumpx ftn-coarse cftn foo
+#dumpx frn-fine fftn foo
