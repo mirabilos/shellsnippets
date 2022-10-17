@@ -190,7 +190,7 @@ function doapi {
 }
 
 function parse_table {
-	nameref dts=${1}ts dec=${1}dec dea=${1}deca nd=${1}n
+	nameref dts=${1}ts dec=${1}dec dea=${1}deca dra=${1}ra nd=${1}n
 	local src=$2 tarr line
 	set -A dts
 	set -A dec
@@ -206,6 +206,13 @@ function parse_table {
 	[[ $line = '$$SOE' ]] || die 'missing table start marker' "$src"
 	while IFS=, read -rA tarr; do
 		[[ ${tarr[0]} != '$$EOE' ]] || return 0
+		line=${tarr[4]%%+( )}
+		dra[nd]=${line##+( )}
+		[[ ${dra[nd]} = @(3[0-5][0-9]|[12][0-9][0-9]|?([1-9])[0-9]).[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9] ]] || \
+		    die 'RA not in expected format' "$src" "${tarr[@]}"
+		while [[ ${dra[nd]} != ???.* ]]; do
+			dra[nd]=0${dra[nd]}
+		done
 		line=${tarr[5]%%+( )}
 		dec[nd]=${line##+( )}
 		[[ ${dec[nd]} = ?(-)?([0-2])[0-9].[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9] ]] || \
@@ -259,13 +266,13 @@ parse_table year "$yearf"
 
 function dumpx {
 	local title=$1 key=$2 fn=$3
-	nameref ts=${key}ts dec=${key}dec deca=${key}deca n=${key}n
+	nameref ts=${key}ts dec=${key}dec deca=${key}deca ra=${1}ra n=${key}n
 
 	print -ru2 -- "I: $title $key file $fn"
-	print -ru2 -- "N: i	ts			DEC		DEC absolute"
+	print -ru2 -- "N: i	ts			RA		DEC		DEC absolute"
 	i=-1
 	while (( ++i < n )); do
-		print -ru2 -- "N: $i	${ts[i]}	${dec[i]}	${deca[i]}"
+		print -ru2 -- "N: $i	${ts[i]}	${ra[i]}	${dec[i]}	${deca[i]}"
 	done
 }
 
@@ -373,14 +380,14 @@ dominmax max
 
 i=-1
 while (( ++i < yearn )); do
-	print -r -- "$i	${yearts[i]}	${yeardec[i]}	${yeardeca[i]}"
+	print -r -- "$i	${yearts[i]}	${yearra[i]}	${yeardec[i]}	${yeardeca[i]}"
 done
 print -r = "$yearf"
 
-print -r -- "$DECmin	${yearts[DECmin]}	${yeardec[DECmin]}	${yeardeca[DECmin]}	min"
-print -r -- "$DECpos	${yearts[DECpos]}	${yeardec[DECpos]}	${yeardeca[DECpos]}	pos"
-print -r -- "$DECmax	${yearts[DECmax]}	${yeardec[DECmax]}	${yeardeca[DECmax]}	max"
-print -r -- "$DECneg	${yearts[DECneg]}	${yeardec[DECneg]}	${yeardeca[DECneg]}	neg"
+print -r -- "$DECmin	${yearts[DECmin]}	${yearra[DECmin]}	${yeardec[DECmin]}	${yeardeca[DECmin]}	min"
+print -r -- "$DECpos	${yearts[DECpos]}	${yearra[DECpos]}	${yeardec[DECpos]}	${yeardeca[DECpos]}	pos"
+print -r -- "$DECmax	${yearts[DECmax]}	${yearra[DECmax]}	${yeardec[DECmax]}	${yeardeca[DECmax]}	max"
+print -r -- "$DECneg	${yearts[DECneg]}	${yearra[DECneg]}	${yeardec[DECneg]}	${yeardeca[DECneg]}	neg"
 
 print -r -- "min: $vtsmin	$vdecmin"
 print -r -- "max: $vtsmax	$vdecmax"
