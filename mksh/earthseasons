@@ -462,6 +462,43 @@ doraflip ftn
 doraflip ssw
 doraflip htn
 
+# calculate declination for quarter days from golden ratio
+bc <<-EOF |&
+	define v(x) {
+		if (x < 0) return (-1)
+		if (x > 0) return (1)
+		return (0)
+	}
+	define r(x,n) {
+		auto o
+		o = scale
+		if (scale < (n + 1)) scale = (n + 1);
+		x += v(x) * 0.5 * A^-n
+		scale = n
+		x /= 1
+		scale = o
+		return (x)
+	}
+	scale=240
+	a=$vdecmin
+	b=$vdecmax
+	r(a/((1+sqrt(5))/2),9)
+	r(b/((1+sqrt(5))/2),9)
+	42
+EOF
+set -A bcres --
+nbcres=0
+while IFS= read -pr line; do
+	bcres[nbcres++]=$line
+done
+if [[ $nbcres != 3 || ${bcres[2]} != 42 || \
+    ${bcres[0]} != -14.[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9] || \
+    ${bcres[1]} != 14.[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9] ]]; then
+	die "weird $nbcres bc results" "${bcres[@]}"
+fi
+vdecwh=${bcres[0]}
+vdecsh=${bcres[1]}
+
 
 
 
@@ -478,8 +515,8 @@ print -r -- "$RAftn	${yearts[RAftn]}	${yearra[RAftn]}	${yeardec[RAftn]}	${yearde
 print -r -- "$RAssw	${yearts[RAssw]}	${yearra[RAssw]}	${yeardec[RAssw]}	${yeardeca[RAssw]}	summer"
 print -r -- "$RAhtn	${yearts[RAhtn]}	${yearra[RAhtn]}	${yeardec[RAhtn]}	${yeardeca[RAhtn]}	autumn"
 
-print -r -- "min: $vtsmin	$vdecmin"
-print -r -- "max: $vtsmax	$vdecmax"
+print -r -- "min: $vtsmin	$vdecmin	⛤ $vdecwh"
+print -r -- "max: $vtsmax	$vdecmax	⛤ $vdecsh"
 
 print -r -- "winter	$vtswsw"
 print -r -- "spring	$vtsftn"
