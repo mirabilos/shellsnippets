@@ -118,7 +118,7 @@ function api_request {
 		parm=${parm//';'/%3B}
 		parm=${parm//'/'/%2F}
 		parm=${parm//'?'/%3F}
-		parm=${parm//':'/%3A}
+#		parm=${parm//':'/%3A}
 		parm=${parm//'@'/%40}
 		parm=${parm//'&'/%26}
 		parm=${parm//'='/%3D}
