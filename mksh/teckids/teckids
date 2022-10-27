@@ -181,6 +181,7 @@ if [[ -z $cmd ]]; then
 		exit ${1:-1}
 	}
 
+	OPTIND=1
 	while getopts ":$opts" ch; do
 		[[ $ch = '?' ]] && die "Unknown option: $OPTARG"
 		[[ $ch = ':' ]] && die "Option $OPTARG missing required argument"
