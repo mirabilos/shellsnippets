@@ -1,5 +1,5 @@
 #!/bin/sh
-# $MirOS: contrib/hosted/tg/deb/hookdir/D29dhbpo,v 1.1 2018/12/20 01:48:12 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/D29dhbpo,v 1.2 2022/11/17 10:43:10 tg Exp $
 #-
 # Not complicated enough for copyright.
 #
@@ -11,4 +11,5 @@ LC_ALL=C; export LC_ALL
 d=${DIST%/*}
 d=${d%-backports*}
 
-apt-get -y install debhelper/$d-backports
+apt-get -y install debhelper
+apt-get -y install -t $d-backports debhelper
