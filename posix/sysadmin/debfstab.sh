@@ -24,6 +24,8 @@
 # a chroot/subset thereof. Note that whole-device bind mounts cannot
 # be distinguished from nōn-bind mounts of the underlying device, in
 # Linux.
+# ⚠ WARNING: either a corresponding fsck must be installed or passno
+#            be changed to 0 for any filesystem listed!
 
 debfstab_die() {
 	echo >&2 "E: debfstab.sh: $*"
