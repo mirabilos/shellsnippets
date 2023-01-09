@@ -1,8 +1,8 @@
-roff2htm_rcsid='$MirOS: src/scripts/roff2htm,v 1.104 2022/01/03 03:36:30 tg Exp $'
+roff2htm_rcsid='$MirOS: src/scripts/roff2htm,v 1.113 2022/12/21 23:14:31 tg Exp $'
 # $ekkoBSD: catman2html.sh,v 1.2 2004/03/07 03:02:53 stephen Exp $
 #-
 # Copyright (c) 2004, 2005, 2006, 2007, 2011, 2012, 2014, 2015,
-#		2016, 2017, 2018, 2020, 2021
+#		2016, 2017, 2018, 2020, 2021, 2022
 #	mirabilos <m@mirbsd.org>
 # Original version for ekkoBSD by:
 # Copyright (c) 2004
@@ -75,8 +75,23 @@ s/\([0-9A-z][-.,0-9A-z:]*\)-\n\(  *\)\([0-9A-z][-.,0-9A-z:]*([1-9][A-z]*)\)\([^ 
 	    -e 's#_||#_|_|#g'					\
 	    -e 's#+_#±#g'						\
 									\
-	    -e 's#^[A-z][ 0-9A-z]*$#</pre><h2>&</h2><pre>#'		\
-	    -e 's#^  \([A-z][ -%'\''-;=?-~]*\)$#</pre><h3>\1</h3><pre>#' \
+	    -e '/^[A-z][ 0-9A-z]*$/{
+		s/\(.\)\1/\1/g
+		s/\(.\)[~_]/\1/g
+		h
+		s/[^A-Za-z0-9.:_-]/_/g
+		G
+		s`^\(.*\)\n\(.*\)$`</pre><h2 id="Sh.\1"><a href="#Sh.\1">\2</a></h2><pre>`
+	    }'								\
+	    -e '/^  \([A-z][ -%'\''-;=?-~]*\)$/{
+		s//\1/
+		s/\(.\)\1/\1/g
+		s/\(.\)[~_]/\1/g
+		h
+		s/[^A-Za-z0-9.:_-]/_/g
+		G
+		s`^\(.*\)\n\(.*\)$`</pre><h3 id="Ss.\1"><a href="#Ss.\1">\2</a></h3><pre>`
+	    }'								\
 									\
 	    -e 's#\([^~<>�-�][�-�]*\)~#\1̅#g'				\
 	    -e 's#\([^]\)~_#\1_̅ #g'					\
@@ -87,7 +102,6 @@ s/\([0-9A-z][-.,0-9A-z:]*\)-\n\(  *\)\([0-9A-z][-.,0-9A-z:]*([1-9][A-z]*)\)\([^ 
 	    -e 's#<.<\([^>]*\)>#<b>\1</b>#g'				\
 	    -e 's###g'							\
 									\
-	    -e '/<h[23]/s#</*[biG]>##g'					\
 	    -e 's#</\([biG]\)><\1>##g'					\
 	    -e 's#</\([biG]\)>\([- -*./:;?@^_~]*\)<\1>#\2#g'		\
 	    -e 's#\([- 0-9A-z]\)\([$/_-]*\)\(<[biG]>\)#\1\3\2#g'	\
@@ -198,17 +212,21 @@ function output_header {
  <title>RTFM '$1\($2')</title>
  <meta name="robots" content="index, follow" />
  <style type="text/css"><!--/*--><![CDATA[/*><!--*/
-	code, kbd, pre, samp, tt {
-		font-family:FixedMisc, Inconsolatazi4varl_qu,
+	code,
+	kbd,
+	pre,
+	samp,
+	tt {
+		font-family:FixedMisc, GlassTTYVT220, Inconsolatazi4varl_qu,
 		    Fixed, "Inconsolata LGC", Inconsolata, monospace;
 		font-size:1em;
 	}
 	body {
 		background-color:#000000;
 		color:#666666;
-		font-family:Gentium,
-		    "Bitstream Vera Serif", "DejaVu Serif", FreeSerif,
-		    Palatino, "Palatino Linotype", "Book Antiqua", serif;
+		font-family:"Gentium Plus", Gentium, "Gentium Basic",
+		    "Bitstream Vera Serif", "DejaVu Serif", FreeSerif, serif;
+		font-feature-settings: "ss01";
 	}
 	a {
 		color:inherit;
@@ -236,53 +254,93 @@ function output_header {
 		font-style:normal;
 		border-bottom:1px solid #FFB000;
 	}
-	b i, i b {
+	b i,
+	i b {
 		color:#FFEF00;
 		font-weight:normal;
 		font-style:normal;
 		border-bottom:1px solid #FFCC00;
 	}
-	h1 {
+	h1,
+	h2,
+	h3 {
 		color:#FFCC00;
+		font-weight:normal;
+	}
+	h1 {
 		font-size:x-large;
-		font-family:Gentium,
-		    "Bitstream Vera Serif", "DejaVu Serif", FreeSerif,
-		    Palatino, "Palatino Linotype", "Book Antiqua", serif;
-		margin:0.5em 0 0.75em 1em;
+		max-width:26em;
+		margin:0.5em 0 0.75em 81px;
+		text-indent:-81px;
+	}
+	h1 tt {
+		white-space:pre;
 	}
 	h2 {
-		color:#FFFFFF;
 		font-size:large;
-		font-family:"Bitstream Vera Sans", "DejaVu Sans", sans-serif;
-		margin:1em 0 0.5em 0.5em;
+		margin:1em 0 0.5em 0em;
 	}
 	h3 {
-		color:#CCCCCC;
 		font-size:medium;
-		font-family:"Bitstream Vera Sans", "DejaVu Sans", sans-serif;
-		margin:0.875em 0 0.5em 1.5em;
+		margin:0.875em 0 0.5em 1.2em;
 	}
-	.footer1, .footer2, .footer3 {
-		line-height:1.42;
+	#footerdiv {
+		max-width:46em;
+		line-height:1.5;
 		margin:0.25em 0;
 	}
 	.footer1 {
 		font-size:xx-small;
 	}
-	.footer2 {
-		max-width:47em;
+	.footer1 tt {
+		white-space:nowrap;
 	}
 	.footer3 {
 		font-size:x-small;
 	}
+	#footerImprint {
+		color:#FFEF00;
+	}
+	a[href^="http://"]:after,
+	a[href^="https://"]:after {
+		content:"➶";
+		color:#00AAFF;
+		font-size:medium;
+		margin:0 0 0 3px;
+		white-space:nowrap;
+	}
  /*]]>*/--></style>
+ <script type="text/javascript"><!--//--><![CDATA[//><!--
+  window.onload = function () {
+	var fivesp = document.getElementById("fivesp");
+	var h1 = fivesp.parentElement;
+	var w = 0 + fivesp.offsetWidth;
+	if (w) {
+		w = w / 5.0;
+		h1.style.marginLeft = (w * 9) + "px";
+		h1.style.textIndent = (w * -4) + "px";
+		h1.removeChild(fivesp);
+
+		w = (w * 2) + "px";
+		var h3s = document.getElementsByTagName("h3");
+		var i;
+		for (i = 0; i < h3s.length; ++i)
+			h3s[i].style.marginLeft = w;
+	}
+	if (!(/\.mirbsd\.org$/.test(window.location.hostname))) {
+		var el = document.getElementById("footerImprint");
+		el.style.display = "none";
+	}
+  };
+ //--><!]]></script>
 </head><body>
-<h1>MirBSD manpage: <a href="'$roff2htm_rel'man'$2/$1'.htm">'$1\($2')</a></h1>'
+<h1><tt id="fivesp">     </tt>MirBSD manpage: <a href="'$roff2htm_rel'man'$2/$1'.htm">'$1\($2')</a></h1>'
 }
 
 function output_footer {
 	print -r -- '
-<hr /><p class="footer1">Generated on <tt>'$roff2htm_gendate'</tt> by
+<hr /><div id="footerdiv">
+<p class="footer1">Generated on <tt>'$roff2htm_gendate'</tt> by
  <tt>'$roff2htm_rcsid'</tt> — <span
  style="font-size:3pt; font-style:italic;">This product includes material
  provided by <b>mirabilos</b>.</span></p>
@@ -294,6 +352,9 @@ function output_footer {
 <p class="footer3">This manual page’s HTML representation is supposed to be <a
  href="http://validator.w3.org/check/referer">valid XHTML/1.1</a>; if not,
  please send a bug report — diffs preferred.</p>
+<p id="footerImprint"><a href="/imprint.htm">Kontakt / <b>Impressum</b>
+ &amp; Datenschutzerklärung</a></p>
+</div>
 </body></html>'
 }
 
