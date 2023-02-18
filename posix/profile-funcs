@@ -1,5 +1,5 @@
-# Copyright (c) 2011, 2012, 2013, 2017, 2019
-#	Thorsten Glaser <tg@mirbsd.org>
+# Copyright (c) 2011, 2012, 2013, 2017, 2019, 2023
+#	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission
@@ -67,6 +67,20 @@ sprunge() {
 # geocaching (and related) waypoint
 wp() {
 	${BROWSER:-lynx} "http://www.mirbsd.org/wp.cgi?$1"
+}
+
+# Mojeek Search
+mj() {
+	local _q _IFS
+
+	_IFS=$IFS
+	IFS=+
+	_q="$*"
+	IFS=$_IFS
+	# reg=	← country (eu, de, fr, uk, "")
+	# site=	← site search
+	# qm=	← none of these words
+	${BROWSER:-lynx} "https://www.mojeek.com/search?theme=dark&hp=minimal&t=40&si=1&lang=en&lb=&arc=none&autocomp=0&qsbu=1&qsba=0&qss[]=Bing&qss[]=Brave&qss[]=DuckDuckGo&qss[]=Ecosia&qss[]=Gigablast&qss[]=Google&qss[]=Startpage&qss[]=Yandex&date=1&cdate=1&size=1&tlen=256&dlen=512&rp_i=0&spell=1&newtab=1&ib=1&tn=3&ref=0&reg=&site=&qm=&q=$_q"
 }
 
 # DuckDuckGo search
