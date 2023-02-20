@@ -1,6 +1,6 @@
 #!/bin/sh
 #-
-# Copyright © 2020, 2021
+# Copyright © 2020, 2021, 2023
 #	mirabilos <m@mirbsd.org>
 # Copyright © 2019, 2020, 2022
 #	mirabilos <t.glaser@tarent.de>
@@ -642,8 +642,10 @@ EOCHR
 		unset debchroot__prept
 	fi
 	# /dev/pts is a bit tricky… consider /dev might not be from us
-	mountpoint --nofollow -q "$1/dev/pts" || \
-	    if test x"$debchroot__skip_devpts" = x"1"; then
+	if test ! -h "$1/dev/pts" && mountpoint -q "$1/dev/pts"; then
+		test -n "$debchroot__quiet" || \
+		    echo >&2 "I: /dev/pts already mounted"
+	elif test x"$debchroot__skip_devpts" = x"1"; then
 		test -n "$debchroot__quiet" || \
 		    echo >&2 "W: skipping /dev/pts mount as requested"
 	else
