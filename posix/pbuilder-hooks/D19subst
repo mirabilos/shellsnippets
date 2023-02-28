@@ -1,0 +1,30 @@
+#!/bin/sh
+# $MirOS: contrib/hosted/tg/deb/hookdir/D19subst,v 1.1 2023/01/28 04:04:04 tg Exp $
+#-
+# © 2023 mirabilos Ⓕ CC0
+#
+# Enables /etc/apt/sources.list entries commented out
+# with exactly "#D19subst#" (actually /^#${this}#/ ☺);
+# use this e.g. to enable incoming for buildds on sid.
+
+this=D19subst
+
+unset LANGUAGE
+LC_ALL=C; export LC_ALL
+set -e
+mydir=$(dirname "$0")
+if test -d /etc/apt/sources.list.d; then
+	slist=/etc/apt/sources.list.d/$this.list
+else
+	slist=/etc/apt/sources.list
+fi
+
+sed -n "/^#${this}#/s///p" </etc/apt/sources.list >>"$slist"
+
+if test -x "$mydir/D50apt-update" || \
+    test -x "$mydir/D50apt-upgrade"; then
+	: 'nothing; rely on the operator to DTRT'
+else
+	apt-get update
+	apt-get -y --purge dist-upgrade
+fi

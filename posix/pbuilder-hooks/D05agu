@@ -1,9 +1,0 @@
-#!/bin/sh
-# $MirOS: contrib/hosted/tg/deb/hookdir/D05agu,v 1.3 2012/01/03 16:57:19 tg Exp $
-#-
-# Not complicated enough for copyright.
-
-unset LANGUAGE
-LC_ALL=C; export LC_ALL
-
-apt-get update

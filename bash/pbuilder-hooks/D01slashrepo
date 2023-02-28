@@ -1,7 +1,7 @@
 #!/bin/bash
-# $MirOS: contrib/hosted/tg/deb/hookdir/D01slashrepo,v 1.4 2021/12/14 14:47:20 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/D01slashrepo,v 1.5 2023/01/28 04:04:03 tg Exp $
 #-
-# Copyright © 2014, 2018, 2019
+# Copyright © 2014, 2018, 2019, 2023
 #	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -25,13 +25,26 @@
 
 base=/repo
 this=D01slashrepo
-
+msg() {
+	local level=$1
+	shift
+	printf >&2 '%s: %s: %s\n' "$level" "$this" "$*"
+}
 
 unset LANGUAGE
 LC_ALL=C; export LC_ALL
+set -e
+mydir=$(dirname "$0")
+if test -d /etc/apt/sources.list.d; then
+	slist=/etc/apt/sources.list.d/$this.list
+	spfx='deb [trusted=yes]'
+else
+	slist=/etc/apt/sources.list
+	spfx=deb
+fi
 
 test -d "$base/." || {
-	echo >&2 "E: $this: base '$base' does not exist"
+	msg E "base '$base' does not exist"
 	exit 1
 }
 
@@ -39,7 +52,7 @@ shopt -s extglob
 base=${base%%*(/)}
 pstr=${base//\//_}_._Packages
 
-echo >&2 "I: creating Packages file for local APT cache in $base"
+msg I "creating Packages file for local APT cache in $base"
 rm -f "$base/Packages"
 (cd "$base"
 #dpkg-scanpackages -h md5 -m . >Packages 2>/dev/null || \
@@ -49,13 +62,14 @@ paste -d_ <(sed -n '/^Package: /s///p' "$base/Packages") \
     <(sed -n '/^Version: /s///p' "$base/Packages") \
     <(sed -n '/^Architecture: /s///p' "$base/Packages") | \
     sed 's/^/N: /' >&2
-echo >&2 "I: updating APT repository information"
+msg I updating APT repository information
 cp "$base/Packages" "/var/lib/apt/lists/$pstr"
-if test -d /etc/apt/sources.list.d/.; then
-	echo "deb [trusted=yes] file://$base ./" >"/etc/apt/sources.list.d/$this.list"
+echo "$spfx file://$base ./" >>"$slist"
+if test -x "$mydir/D50apt-update" || \
+    test -x "$mydir/D50apt-upgrade"; then
+	: 'nothing; rely on the operator to DTRT'
 else
-	echo "deb file://$base ./" >>"/etc/apt/sources.list"
+	apt-cache gencaches
 fi
-apt-cache gencaches
-echo >&2 "I: made $(grep -c '^Package: ' "$base/Packages") packages available from $base"
+msg I made $(grep -c '^Package: ' "$base/Packages") packages available from "$base"
 exit 0

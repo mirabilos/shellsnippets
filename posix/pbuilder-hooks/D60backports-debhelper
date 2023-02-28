@@ -1,0 +1,16 @@
+#!/bin/sh
+# $MirOS: contrib/hosted/tg/deb/hookdir/D60backports-debhelper,v 1.1 2023/01/28 04:04:06 tg Exp $
+#-
+# © 2018, 2022 mirabilos Ⓕ CC0
+#
+# Evil hack, to go with D25backports, when necessary.
+
+unset LANGUAGE
+LC_ALL=C; export LC_ALL
+set -e
+
+d=${DIST%/*}
+d=${d%-backports*}
+
+apt-get -y --purge install debhelper
+apt-get -y --purge install -t "$d-backports" debhelper

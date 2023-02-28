@@ -1,7 +1,7 @@
 #!/bin/bash
-# $MirOS: contrib/hosted/tg/deb/hookdir/D00local,v 1.6 2018/04/11 16:10:27 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/D02varcacheapt,v 1.1 2023/01/28 04:04:03 tg Exp $
 #-
-# Copyright © 2014, 2016, 2018
+# Copyright © 2014, 2018, 2019, 2023
 #	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -24,14 +24,27 @@
 # • this must be a valid basename for sources.list.d: [A-Za-z0-9._-]
 
 base=/var/cache/apt
-this=D00local
-
+this=D02varcacheapt
+msg() {
+	local level=$1
+	shift
+	printf >&2 '%s: %s: %s\n' "$level" "$this" "$*"
+}
 
 unset LANGUAGE
 LC_ALL=C; export LC_ALL
+set -e
+mydir=$(dirname "$0")
+if test -d /etc/apt/sources.list.d; then
+	slist=/etc/apt/sources.list.d/$this.list
+	spfx='deb [trusted=yes]'
+else
+	slist=/etc/apt/sources.list
+	spfx=deb
+fi
 
 test -d "$base/." || {
-	echo >&2 "E: D01slashrepo: base '$base' does not exist"
+	msg E "base '$base' does not exist"
 	exit 1
 }
 
@@ -39,18 +52,24 @@ shopt -s extglob
 base=${base%%*(/)}
 pstr=${base//\//_}_._Packages
 
-echo >&2 "I: creating Packages file for local APT cache in $base"
+msg I "creating Packages file for local APT cache in $base"
 rm -f "$base/Packages"
 (cd "$base"
 #dpkg-scanpackages -h md5 -m . >Packages 2>/dev/null || \
-    dpkg-scanpackages -m . >Packages)
+    dpkg-scanpackages -m . >Packages 2>/dev/null || \
+    dpkg-scanpackages . /dev/null >Packages)
 paste -d_ <(sed -n '/^Package: /s///p' "$base/Packages") \
     <(sed -n '/^Version: /s///p' "$base/Packages") \
     <(sed -n '/^Architecture: /s///p' "$base/Packages") | \
     sed 's/^/N: /' >&2
-echo >&2 "I: updating APT repository information"
+msg I updating APT repository information
 cp "$base/Packages" "/var/lib/apt/lists/$pstr"
-echo "deb [trusted=yes] file://$base ./" >"/etc/apt/sources.list.d/$this.list"
-apt-cache gencaches
-echo >&2 "I: made $(grep -c '^Package: ' "$base/Packages") packages available from $base"
+echo "$spfx file://$base ./" >>"$slist"
+if test -x "$mydir/D50apt-update" || \
+    test -x "$mydir/D50apt-upgrade"; then
+	: 'nothing; rely on the operator to DTRT'
+else
+	apt-cache gencaches
+fi
+msg I made $(grep -c '^Package: ' "$base/Packages") packages available from "$base"
 exit 0

@@ -1,9 +1,11 @@
 #!/bin/sh
-# $MirOS: contrib/hosted/tg/deb/hookdir/C80shell-jupp,v 1.8 2023/01/28 04:04:03 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/D80shell-jupp,v 1.1 2023/01/28 04:04:06 tg Exp $
 #-
 # © 2012, 2013, 2014, 2016, 2021 mirabilos Ⓕ CC0
+#
+# NOTE: this installs packages; your build will not be clean afterwards!
 
-this=C80shell-jupp
+this=D80shell-jupp
 msg() {
 	local level=$1
 	shift
@@ -15,7 +17,7 @@ LC_ALL=C; export LC_ALL
 
 msg I "Current time: $(date)"
 echo
-echo Build failed. Trying to invoke a shell.
+echo Build environment set up. Trying to invoke a shell.
 echo
 apt-get -y install less mksh ed jupp || \
     apt-get -y install less mksh ed joe

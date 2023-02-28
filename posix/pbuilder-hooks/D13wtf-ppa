@@ -1,0 +1,62 @@
+#!/bin/sh
+# $MirOS: contrib/hosted/tg/deb/hookdir/D13wtf-ppa,v 1.1 2023/01/28 04:04:04 tg Exp $
+#-
+# © 2012, 2014, 2016, 2017, 2023 mirabilos Ⓕ CC0
+
+this=D13wtf-ppa
+msg() {
+	local level=$1
+	shift
+	printf >&2 '%s: %s: %s\n' "$level" "$this" "$*"
+}
+
+unset LANGUAGE
+LC_ALL=C; export LC_ALL
+set -e
+mydir=$(dirname "$0")
+if test -d /etc/apt/sources.list.d; then
+	slist=/etc/apt/sources.list.d/$this.list
+else
+	slist=/etc/apt/sources.list
+fi
+
+d=${DIST%/*}
+d=${d%-backports*}
+case $d in
+(hardy|precise|trusty|xenial|bionic|focal|jammy)
+	;;
+(*)
+	msg W ignoring unknown DIST "'$DIST'"
+	exit 0
+	;;
+esac
+
+# Import PPA key
+apt-key add - <<'EOF'
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+Comment: Hostname:
+Version: Hockeypuck 2.1.0-189-g15ebf24
+
+xo0ESdI1nwEEAMLpKp/ZDzyS8a8tDu7oNh//tamgysKTc472g5hCMEwtsusmahzG
+U5ucYIKrv6Z2OGLwfZV2E8/LI5j1onqLf63Np7avqPFvRDpmJFvOkfdCJ2iizWPm
+W3u1NlkQNcGCqgNajc4Qt/5HIa/1DZ+DuSO1LTUrwy7KSd3ET1PwEpQ1ABEBAAHN
+IUxhdW5jaHBhZCBQUEEgZm9yIFRob3JzdGVuIEdsYXNlcsK2BBMBAgAgBQJJ0jWf
+AhsDBgsJCAcDAgQVAggDBBYCAwECHgECF4AACgkQkjSxOcf3z3YKAgP/di/bPqjG
+FvW3heUoXjKXFXtcOqqR3beb8TlGXpUvOtEX2n8r+lVoD6UKx08ooV7p0bOOAFUl
+Zj2LkWjmCwCzWMbqr/EjgeNOuxFiEyAm8i1Q/vrewX800qOcZbLJa+5z6lZHtyOM
+eqVj6JOcqs4uZX66GLCZRp7lX/MsDTP78dA=
+=jzgP
+-----END PGP PUBLIC KEY BLOCK-----
+EOF
+
+cat >>"$slist" <<EOF
+deb http://ppa.launchpadcontent.net/mirabilos/ppa/ubuntu $d main
+EOF
+
+if test -x "$mydir/D50apt-update" || \
+    test -x "$mydir/D50apt-upgrade"; then
+	: 'nothing; rely on the operator to DTRT'
+else
+	apt-get update
+	apt-get -y --purge dist-upgrade
+fi

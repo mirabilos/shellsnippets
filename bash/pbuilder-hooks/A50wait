@@ -1,7 +1,7 @@
 #!/bin/bash
-# $MirOS: contrib/hosted/tg/deb/hookdir/A50wait,v 1.3 2011/12/15 21:06:42 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/A50wait,v 1.4 2023/01/28 04:04:02 tg Exp $
 #-
-# Not complicated enough for copyright.
+# © 2011 mirabilos Ⓕ CC0
 #
 # This is actually POSIX sh compliant, except many do not do arithmetics.
 

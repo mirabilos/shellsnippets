@@ -1,0 +1,16 @@
+#!/bin/sh
+# $MirOS: contrib/hosted/tg/deb/hookdir/D50apt-update,v 1.1 2023/01/28 04:04:05 tg Exp $
+#-
+# © 2011 mirabilos Ⓕ CC0
+
+unset LANGUAGE
+LC_ALL=C; export LC_ALL
+set -e
+
+#rm -f /etc/resolv.conf
+#cat >/etc/resolv.conf <<'EOF'
+#lookup file bind
+#nameserver 8.8.8.8
+#EOF
+
+apt-get update

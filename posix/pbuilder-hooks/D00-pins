@@ -1,13 +1,19 @@
 #!/bin/sh
-# $MirOS: contrib/hosted/tg/deb/hookdir/D00-pins,v 1.1 2020/10/31 07:21:35 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/D00-pins,v 1.2 2023/01/28 04:04:03 tg Exp $
 #-
-# Not complicated enough for copyright.
+# © 2020 mirabilos Ⓕ CC0
 
+this=D00-pins
+if test -d /etc/apt/preferences.d; then
+	pfile=/etc/apt/preferences.d/$this.pref
+else
+	pfile=/etc/apt/preferences
+fi
 unset LANGUAGE
 LC_ALL=C; export LC_ALL
 
 # depends on systemd, gconf-gsettings-backend replaces it
-cat >>/etc/apt/preferences <<\EOF
+cat >>"$pfile" <<\EOF
 Package: dconf-gsettings-backend
 Pin: version *
 Pin-Priority: -1

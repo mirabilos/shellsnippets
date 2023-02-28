@@ -118,15 +118,17 @@ fi >>"$T/hooks/D02repos"
 print 'apt-get update' >>"$T/hooks/D02repos"
 suppresstags=
 if (( issnapshot )); then
-	extraargs='-X nmu'
+	argX='-X nmu'
 	suppresstags="$suppresstags package-has-long-file-name"
 else
-	extraargs=
+	argX=
 fi
 cat >"$T/hooks/B00lintian" <<-EOF
 	#!/bin/sh
-	# \$MirOS: contrib/hosted/tg/deb/hookdir/B20lintian,v 1.4 2020/03/27 23:17:14 tg Exp $
+	# \$MirOS: contrib/hosted/tg/deb/hookdir/B20lintian,v 1.5 2023/01/28 04:04:02 tg Exp \$
 	# $kuhbauerId
+	#-
+	# © 2011, 2020 mirabilos Ⓕ CC0
 
 	unset LANGUAGE
 	LC_ALL=C; export LC_ALL
@@ -146,7 +148,7 @@ cat >"$T/hooks/B00lintian" <<-EOF
 		if test -n "\$argSup"; then
 			argSup=\$argSup,
 		else
-			lintian -h 2>&1 | grep -F -- --suppress-tags \
+			lintian -h 2>&1 | grep -F -- --suppress-tags \\
 			    >/dev/null 2>&1 || break
 			argSup='--suppress-tags '
 		fi
@@ -156,11 +158,11 @@ cat >"$T/hooks/B00lintian" <<-EOF
 	echo ==================================================================
 	echo Running lintian...
 	echo
-	e2=
+	extraargs=
 	# omit --verbose on sarge where it displays overridden tags
-	dpkg --compare-versions "\$(dpkg-query -W --showformat='\${Version}' \
-	    lintian)" lt 1.23.28 || e2=-v
-	lintian -Ii \$argE \$argP \$e2 \$argSup $extraargs --allow-root /tmp/buildd/*.changes 2>&1
+	dpkg --compare-versions "\$(dpkg-query -W --showformat='\${Version}' \\
+	    lintian)" lt 1.23.28 || extraargs="\$extraargs -v"
+	lintian -Ii \$argE \$argP \$extraargs \$argSup $argX --allow-root /tmp/buildd/*.changes 2>&1
 	echo
 	echo ==================================================================
 	echo

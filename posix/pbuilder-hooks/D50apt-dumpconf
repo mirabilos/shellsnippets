@@ -1,0 +1,26 @@
+#!/bin/sh
+# $MirOS: contrib/hosted/tg/deb/hookdir/D50apt-dumpconf,v 1.1 2023/01/28 04:04:05 tg Exp $
+#-
+# © 2023 mirabilos Ⓕ CC0
+#
+# Recommended enabling to log all APT setup changes
+
+unset LANGUAGE
+LC_ALL=C; export LC_ALL
+
+exec >&2
+for f in /etc/apt/preferences /etc/apt/preferences.d/*; do
+	test -e "$f" || continue
+	printf '<%s> {\n' "$f"
+	<"$f" sed 's/^/	/'
+	printf '}\n'
+done
+for f in /etc/apt/sources.list /etc/apt/sources.list.d/*; do
+	test -e "$f" || continue
+	printf '<%s> {\n' "$f"
+	<"$f" sed \
+	    -e 's!://[^ :@/]*:[^ :@/]*@!://***:***@!g' \
+	    -e 's/^/	/'
+	printf '}\n'
+done
+exit 0

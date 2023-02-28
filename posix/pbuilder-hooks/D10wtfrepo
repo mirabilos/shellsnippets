@@ -1,27 +1,51 @@
 #!/bin/sh
-# $MirOS: contrib/hosted/tg/deb/hookdir/D10wtfrepo,v 1.9 2021/02/13 23:21:21 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/D10wtfrepo,v 1.14 2023/01/28 04:56:50 tg Exp $
 #-
-# Not complicated enough for copyright.
+# © 2012, 2014, 2016, 2017, 2023 mirabilos Ⓕ CC0
+
+this=D10wtfrepo
+msg() {
+	local level=$1
+	shift
+	printf >&2 '%s: %s: %s\n' "$level" "$this" "$*"
+}
 
 unset LANGUAGE
 LC_ALL=C; export LC_ALL
+set -e
+mydir=$(dirname "$0")
+if test -d /etc/apt/sources.list.d; then
+	slist=/etc/apt/sources.list.d/$this.list
+else
+	slist=/etc/apt/sources.list
+fi
 
 d=${DIST%/*}
 d=${d%-backports*}
+dokey=
 case $d in
-(sarge|etch|lenny|squeeze|wheezy|jessie|stretch|buster|bullseye|sid)
+(sarge|etch|lenny|squeeze|wheezy|jessie|stretch|buster|bullseye)
+	dokey=1
 	;;
 (bookworm)
+	;;
+(trixie|forky)
+	msg W adding stable for testing
+	d=bookworm
+	;;
+(sid)
+	;;
+(dpo)
 	d=sid
 	;;
 (*)
-	echo >&2 W: D10wtfrepo: ignoring unknown DIST "'$DIST'"
+	msg W ignoring unknown DIST "'$DIST'"
 	exit 0
 	;;
 esac
 
-# Import 2018 key
-apt-key add - <<'EOF'
+# 2018 key
+repokey=$(cat <<'EOF'
 -----BEGIN PGP PUBLIC KEY BLOCK-----
 
 mQGNBFlP41MBDADGjAsxl0jbdknmg2CHKf7gQPBxOBk5/qw6F5HAOthBM/14sohA
@@ -34,29 +58,57 @@ oyPAEZxai5R8m1q9SD+c16nx8F5GSuEoAcvfyAc7EqhCfnjh3o2/QokOPPboMRWW
 s46FaIWZiuNf8p1hfgj6cjH1ny124AbvvClddCDPuFwwXVxRji3ApeOwPUkqoFDn
 zebsA4OA2+ggEGEAEQEAAbQxU2lnbmluZyBrZXkgMjAxOCBmb3Ig4oCcV1RG4oCd
 IHBhY2thZ2UgcmVwb3NpdG9yeYkBuwQTAQkAJQIbAwULCAQJBwUVCQoDCAMWAgAC
-HgECF4AFAl3YB/oFCQwM8qIACgkQAgir6mZzodk/Xwv9Hw3T+DVlTYDgUtrkj3hy
-U/r75ng4RX0w8de/q3KuCWW9J8gx+CrZ3sy4xjJYZPpy4y7SilDNudzJcS3Qe88T
-LdeO4x68MruAERZQNHfw1uKdg05LGV1a8ISrc5mB0lsL82eRewde/47DeZhln7R6
-x2/fOZQNVtdRM0g+Auwlsd+LvTvLe1mGIjXOIA6vJYvbKYNalO0PQtz3WWbKkUYG
-JqIu1RwEtnGraKQOqulCO775fQdG1SCK3BmqAmTcb3UmkJBwsQGCIU6EYspexnq7
-BHbWrVpA2Q+1k6xR5cYctJCw0PDNYQrSNR7T4ZkW+pu65IOHq33+h+GTIMIwiZ51
-u96fgu6za40eVr7cVyaj6BrNEBiJ2q7qL2DNi8rM4kuZzIrvUWEnjnZJC4w22ABW
-ePRDsE2zp3D/toKEL8DruIg7D1iwde8m7Ut4vDhl0RDLd6xRAy0Vaw9h4rWtW8OZ
-4vcfr/+2s0fcsj6hcQqjPyvlbEoBmgK1TJHm/+aytozg
-=pYYz
+HgECF4AFAmPUf44FCREBvi4ACgkQAgir6mZzodktTgv9E48RRmVBXg8bVHxEjnvd
+NQY3b/KjACzcs9iKVE1gPG0wrdo3DzCDhCfuIqeofz6/KWeoZUZi9NpJV8JIrzxZ
+wjQAFAckuGhBRHo4OOEzYW+YyJMdWa1btM2qYy0YgBI4VJpbSQubW7s+iYosF4qg
+639tj0rRmBvScWvqKy0o/VxE4HvsZfq5abL/C4txpummmYuo7qHapoLNAgXylfoB
+Z5xrRwZR64rLiIupkP8OwxF0oAXLvNrxN6CLJ3xBYCoaYU2phtA9b56FucGh6cts
+CMpivK9iYt6GexFNw9DWxEffCRSdsT8uSp3CfktVb7BK0hjbQbZUvsDY870akRpx
+G7c0D/iOK/lPpdAc/NXmCeM8dFWa6GaIc72cg60Nh9nrHedygALV7jY2wVxQRXgJ
+RlU7iWE/Y56OcGQ6vERGK5ZpUN8sGS8EX2daltMBAyaA3xQ9LjCCE6uNAtIl89Yc
+1Fz5a02YLhd3YU39gbgx+vSKvBik5VO4o7mvLfEySR/n
+=z3/K
 -----END PGP PUBLIC KEY BLOCK-----
 EOF
+)
 
-cat >>/etc/apt/sources.list <<EOF
-deb http://www.mirbsd.org/~tg/Debs/ $d wtf
-EOF
+if test -n "$dokey"; then
+	# in bullseye, this already emits a warning…
+	printf '%s\n' "$repokey" | apt-key add -
+	cat >>"$slist" <<-EOF
+		deb http://www.mirbsd.org/~tg/Debs/ $d wtf
+	EOF
+else {
+	echo 'Types: deb'
+	echo 'URIs: http://www.mirbsd.org/~tg/Debs/'
+	echo "Suites: $d"
+	echo 'Components: lts'
+	echo 'Languages: none'
+	# … but this isn’t supported yet in bullseye, so pooh!
+	echo Signed-By:
+	printf '%s\n' "$repokey" | sed -e 's/^$/./' -e 's/^/ /'
+    } >"/etc/apt/sources.list.d/$this.sources"
+fi
 
-# note: sarge/wtf almost certainly needs sarge-backports
+case $d in
+(sarge)
+	# suite dependency
+	grep sarge-backports /etc/apt/sources.list >/dev/null 2>&1 || \
+	    msg W 'missing sarge-backports'
+	# note apt-key is in apt/sarge-backports so install that first
+	;;
+(squeeze)
+	# partial suite, add base
+	cat >>"$slist" <<-EOF
+		deb http://www.mirbsd.org/~tg/Debs/ lenny wtf
+	EOF
+	;;
+esac
 
-# note: squeeze needs lenny (incomplete suite)
-test x"$d" = x"squeeze" && cat >>/etc/apt/sources.list <<EOF
-deb http://www.mirbsd.org/~tg/Debs/ lenny wtf
-EOF
-
-apt-get update
-apt-get -y --purge dist-upgrade
+if test -x "$mydir/D50apt-update" || \
+    test -x "$mydir/D50apt-upgrade"; then
+	: 'nothing; rely on the operator to DTRT'
+else
+	apt-get update
+	apt-get -y --purge dist-upgrade
+fi

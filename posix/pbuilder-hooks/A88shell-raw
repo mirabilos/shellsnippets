@@ -1,12 +1,19 @@
 #!/bin/sh
-# $MirOS: contrib/hosted/tg/deb/hookdir/A88shell-raw,v 1.1 2016/10/07 23:05:20 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/A88shell-raw,v 1.2 2023/01/28 04:04:02 tg Exp $
 #-
-# Not complicated enough for copyright.
+# © 2016 mirabilos Ⓕ CC0
+
+this=A88shell-raw
+msg() {
+	local level=$1
+	shift
+	printf >&2 '%s: %s: %s\n' "$level" "$this" "$*"
+}
 
 unset LANGUAGE
 LC_ALL=C; export LC_ALL
 
-echo "I: Current time: $(date)"
+msg I "Current time: $(date)"
 echo
 echo Trying to invoke a shell, with no extra packages installed...
 echo
