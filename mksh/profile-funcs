@@ -12,6 +12,33 @@ xv() {
 	return $rv
 }
 
+# iconv from IRC encoding (ISO-IR-10 / ISO-646-FI)
+function fromirc {
+	local o l n i
+
+	read -raN-1 o <<<"$*"
+	n=${#o[*]}
+	i=-1
+	while (( ++i < n )); do
+		if (( o[i] > 126 )); then
+			o[i]=1#?
+			l[i]=1#?
+		else case ${o[i]} {
+		(36) o[i]=1#¤ l[i]=1#¤ ;;
+		(91) o[i]=1#Ä l[i]=1#ä ;;
+		(92) o[i]=1#Ö l[i]=1#ö ;;
+		(93) o[i]=1#Å l[i]=1#å ;;
+		(123) o[i]=1#ä l[i]=1#ä ;;
+		(124) o[i]=1#ö l[i]=1#ö ;;
+		(125) o[i]=1#å l[i]=1#å ;;
+		(126) o[i]=1#¯ l[i]=1#¯ ;;
+		(*) l[i]=${o[i]} ;;
+		}
+		fi
+	done
+	print -rnA "${o[@]}" "${l[@]}"
+}
+
 # might wish to call these in ~/.profile near the end:
 
 # show weather
