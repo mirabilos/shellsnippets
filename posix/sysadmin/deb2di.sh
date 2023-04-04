@@ -2,7 +2,7 @@
 #-
 # Copyright © 2020, 2021
 #	mirabilos <m@mirbsd.org>
-# Copyright © 2019, 2020, 2022
+# Copyright © 2019, 2020, 2022, 2023
 #	mirabilos <t.glaser@tarent.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -39,39 +39,74 @@ getslist() {
 deb http://deb.debian.org/debian/ buster main non-free contrib
 deb http://deb.debian.org/debian-security/ buster/updates main non-free contrib
 deb http://deb.debian.org/debian/ buster-updates main non-free contrib
+deb http://deb.debian.org/debian/ buster-proposed-updates main non-free contrib
 deb http://deb.debian.org/debian/ buster-backports main non-free contrib
-#deb http://deb.debian.org/debian/ buster-backports-sloppy main non-free contrib
+deb http://deb.debian.org/debian/ buster-backports-sloppy main non-free contrib
 		EOF
 		;;
 	(bullseye) cat <<-'EOF'
 deb http://deb.debian.org/debian/ bullseye main non-free contrib
 deb http://deb.debian.org/debian-security/ bullseye-security main non-free contrib
 deb http://deb.debian.org/debian/ bullseye-updates main non-free contrib
+deb http://deb.debian.org/debian/ bullseye-proposed-updates main non-free contrib
 deb http://deb.debian.org/debian/ bullseye-backports main non-free contrib
-#deb http://deb.debian.org/debian/ bullseye-backports-sloppy main non-free contrib
+#deb http://deb.debian.org/debian/ bullseye-backports main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian/ bullseye-backports-sloppy main non-free contrib
+#deb http://deb.debian.org/debian/ bullseye-backports-sloppy main non-free-firmware non-free contrib
 		EOF
 		;;
 	(bookworm) cat <<-'EOF'
-deb http://deb.debian.org/debian/ bookworm main non-free contrib
-deb http://deb.debian.org/debian-security/ bookworm-security main non-free contrib
-deb http://deb.debian.org/debian/ bookworm-updates main non-free contrib
-#deb http://deb.debian.org/debian/ bookworm-backports main non-free contrib
-#deb http://deb.debian.org/debian/ bookworm-backports-sloppy main non-free contrib
+deb http://deb.debian.org/debian/ bookworm main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian-security/ bookworm-security main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian/ bookworm-updates main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian/ bookworm-proposed-updates main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian/ bookworm-backports main non-free-firmware non-free contrib
+#deb http://deb.debian.org/debian/ bookworm-backports-sloppy main non-free-firmware non-free contrib
+		EOF
+		;;
+	(stable) cat <<-'EOF'
+deb http://deb.debian.org/debian/ stable main non-free contrib
+deb http://deb.debian.org/debian-security/ stable-security main non-free contrib
+deb http://deb.debian.org/debian/ stable-updates main non-free contrib
+#deb http://deb.debian.org/debian/ stable-proposed-updates main non-free contrib
+deb http://deb.debian.org/debian/ stable-backports main non-free contrib
+#deb http://deb.debian.org/debian/ stable-backports main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian/ stable-backports-sloppy main non-free contrib
+#deb http://deb.debian.org/debian/ stable-backports-sloppy main non-free-firmware non-free contrib
 		EOF
 		;;
 	(testing) cat <<-'EOF'
-deb http://deb.debian.org/debian/ testing main non-free contrib
-deb http://deb.debian.org/debian-security/ testing-security main non-free contrib
-deb http://deb.debian.org/debian/ testing-updates main non-free contrib
+deb http://deb.debian.org/debian/ testing main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian-security/ testing-security main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian/ testing-updates main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian/ testing-proposed-updates main non-free-firmware non-free contrib
+
+# add stable, for when testing gets uninstallably
+deb http://deb.debian.org/debian/ stable main non-free contrib
+deb http://deb.debian.org/debian-security/ stable-security main non-free contrib
+deb http://deb.debian.org/debian/ stable-updates main non-free contrib
+deb http://deb.debian.org/debian/ stable-proposed-updates main non-free contrib
+deb http://deb.debian.org/debian/ stable-backports main non-free contrib
 		EOF
 		;;
 	(sid) cat <<-'EOF'
-deb http://deb.debian.org/debian/ sid main non-free contrib
+deb http://deb.debian.org/debian/ sid main non-free-firmware non-free contrib
 		EOF
 		;;
 	(dpo) cat <<-'EOF'
-deb http://deb.debian.org/debian-ports/ unstable main
-deb http://deb.debian.org/debian-ports/ unreleased main
+deb http://deb.debian.org/debian-ports/ unstable main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian-ports/ unreleased main non-free-firmware non-free contrib
+		EOF
+		;;
+	(sid-exp) cat <<-'EOF'
+deb http://deb.debian.org/debian/ sid main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian/ experimental main non-free-firmware non-free contrib
+		EOF
+		;;
+	(dpo-exp) cat <<-'EOF'
+deb http://deb.debian.org/debian-ports/ unstable main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian-ports/ unreleased main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian-ports/ experimental main non-free-firmware non-free contrib
 		EOF
 		;;
 	(*)
