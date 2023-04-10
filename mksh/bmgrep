@@ -17,4 +17,5 @@ for x in "$@"; do
 done
 wc -l ~/.etc/*.htm
 print -ru2 -- + fgrep "${args[@]}"
-exec fgrep -n "${args[@]}" -- ~/.etc/*.htm
+fgrep -n "${args[@]}" -- ~/.etc/*.htm | sed \
+    -e 's//╶╴/g'
