@@ -50,9 +50,7 @@ deb http://deb.debian.org/debian-security/ bullseye-security main non-free contr
 deb http://deb.debian.org/debian/ bullseye-updates main non-free contrib
 deb http://deb.debian.org/debian/ bullseye-proposed-updates main non-free contrib
 deb http://deb.debian.org/debian/ bullseye-backports main non-free contrib
-#deb http://deb.debian.org/debian/ bullseye-backports main non-free-firmware non-free contrib
 deb http://deb.debian.org/debian/ bullseye-backports-sloppy main non-free contrib
-#deb http://deb.debian.org/debian/ bullseye-backports-sloppy main non-free-firmware non-free contrib
 		EOF
 		;;
 	(bookworm) cat <<-'EOF'
@@ -61,18 +59,32 @@ deb http://deb.debian.org/debian-security/ bookworm-security main non-free-firmw
 deb http://deb.debian.org/debian/ bookworm-updates main non-free-firmware non-free contrib
 deb http://deb.debian.org/debian/ bookworm-proposed-updates main non-free-firmware non-free contrib
 deb http://deb.debian.org/debian/ bookworm-backports main non-free-firmware non-free contrib
-#deb http://deb.debian.org/debian/ bookworm-backports-sloppy main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian/ bookworm-backports-sloppy main non-free-firmware non-free contrib
+		EOF
+		;;
+	(trixie) cat <<-'EOF'
+deb http://deb.debian.org/debian/ trixie main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian-security/ trixie-security main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian/ trixie-updates main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian/ trixie-proposed-updates main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian/ trixie-backports main non-free-firmware non-free contrib
+
+# add stable, for when testing gets uninstallablylish
+deb http://deb.debian.org/debian/ stable main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian-security/ stable-security main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian/ stable-updates main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian/ proposed-updates main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian/ stable-backports main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian/ stable-backports-sloppy main non-free-firmware non-free contrib
 		EOF
 		;;
 	(stable) cat <<-'EOF'
-deb http://deb.debian.org/debian/ stable main non-free contrib
-deb http://deb.debian.org/debian-security/ stable-security main non-free contrib
-deb http://deb.debian.org/debian/ stable-updates main non-free contrib
-#deb http://deb.debian.org/debian/ stable-proposed-updates main non-free contrib
-deb http://deb.debian.org/debian/ stable-backports main non-free contrib
-#deb http://deb.debian.org/debian/ stable-backports main non-free-firmware non-free contrib
-deb http://deb.debian.org/debian/ stable-backports-sloppy main non-free contrib
-#deb http://deb.debian.org/debian/ stable-backports-sloppy main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian/ stable main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian-security/ stable-security main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian/ stable-updates main non-free-firmware non-free contrib
+#deb http://deb.debian.org/debian/ proposed-updates main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian/ stable-backports main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian/ stable-backports-sloppy main non-free-firmware non-free contrib
 		EOF
 		;;
 	(testing) cat <<-'EOF'
@@ -80,13 +92,15 @@ deb http://deb.debian.org/debian/ testing main non-free-firmware non-free contri
 deb http://deb.debian.org/debian-security/ testing-security main non-free-firmware non-free contrib
 deb http://deb.debian.org/debian/ testing-updates main non-free-firmware non-free contrib
 deb http://deb.debian.org/debian/ testing-proposed-updates main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian/ testing-backports main non-free-firmware non-free contrib
 
-# add stable, for when testing gets uninstallably
-deb http://deb.debian.org/debian/ stable main non-free contrib
-deb http://deb.debian.org/debian-security/ stable-security main non-free contrib
-deb http://deb.debian.org/debian/ stable-updates main non-free contrib
-deb http://deb.debian.org/debian/ stable-proposed-updates main non-free contrib
-deb http://deb.debian.org/debian/ stable-backports main non-free contrib
+# add stable, for when testing gets uninstallablylish
+deb http://deb.debian.org/debian/ stable main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian-security/ stable-security main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian/ stable-updates main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian/ proposed-updates main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian/ stable-backports main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian/ stable-backports-sloppy main non-free-firmware non-free contrib
 		EOF
 		;;
 	(sid) cat <<-'EOF'
