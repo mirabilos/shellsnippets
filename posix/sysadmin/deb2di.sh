@@ -606,7 +606,7 @@ Press Enter to continue; use the "exit" command to quit.' 13 69
 			if $need_machineid; then
 				dd if=/dev/urandom iflag=fullblock \
 				    bs=16 count=1 2>/dev/null | \
-				    hexdump -e '16/1 "%02x" "\n"' \
+				    hexdump -ve '16/1 "%02x" "\n"' \
 				    >/etc/machine-id
 			fi
 		done
