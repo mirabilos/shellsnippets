@@ -230,6 +230,9 @@ pystones() {
 
 # using Git to create coloured diffs of arbitrary files
 alias cdiff='git diff --color=auto --no-index --no-prefix'
+# same as 'git check-whitespace' (except whitespace at EOF) for its arguments
+# example: $ check-patchwsp debian/patches/*
+alias check-patchwsp='perl -lne '\''print "\e[0;35;40m" . $ARGV . "\e[36m:\e[32m" . $. . "\e[36m:\e[37m+\e[30;41m" . $1 . "\e[37;40m" . $2 . "\e[0m" if /^[+]( +\t+)(.*)$/; print "\e[0;35;40m" . $ARGV . "\e[36m:\e[32m" . $. . "\e[36m:\e[37m" . $1 . "\e[30;41m" . $2 . "\e[0m" if /(^[+].*?)([\t\cK\cL\cM ]+$)/; close ARGV if eof;'\'
 
 # map TO_CLIPBOARD and PASTE_URL lynx keymap entries to commands
 export RL_CLCOPY_CMD='xsel -ib'
