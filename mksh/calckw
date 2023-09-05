@@ -1,0 +1,49 @@
+#!/bin/mksh
+# -*- mode: sh -*-
+#-
+# © 2023 mirabilos <m@mirbsd.org> Ⓕ CC0
+#-
+# Calculate ISO calendar week ranges for a whole year, for calendar-mirbsd
+
+if [[ $# != 1 || $1 != [1-9]+([0-9]) ]]; then
+	print -ru2 "E: Syntax: mksh calckw «year»"
+	exit 1
+fi
+Y=$1
+
+if ! date --help >/dev/null 2>&1; then
+	print -ru2 "E: calckw is written for GNU date(1)"
+	exit 1
+fi
+
+export LC_ALL=C
+unset LANGUAGE
+
+function getday {
+	set -- $(date -ud "$Y-01-01T12:00:00Z + $d day" +'%G %V %u %Y %b %d')
+	iwy=$1
+	iwn=$2
+	iwd=$3	# 1=Monday 7=Sunday
+	y=$4
+	md="$5 $6"
+}
+
+# find day of first ISO calendar week’s first day in the year
+d=0
+while :; do
+	getday
+	(( iwd == 1 )) && break
+	let ++d
+done
+
+# output all calendar weeks starting in that year
+while :; do
+	(( y == Y )) || break
+	s="/* KW $iwn ($md"
+	let d+=6
+	getday
+	print -r -- "$s .. $md) */"
+	(( y == Y )) || break
+	let ++d
+	getday
+done
