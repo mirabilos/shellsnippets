@@ -1,6 +1,6 @@
 # -*- mode: sh -*-
 #-
-# Copyright © 2009, 2012, 2015, 2017, 2018, 2019
+# Copyright © 2009, 2012, 2015, 2017, 2018, 2019, 2023
 #	Thorsten Glaser <t.glaser@tarent.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -26,6 +26,7 @@
 # in order to use the shared per-user agent started from this script.
 
 test -n "${USER_ID:-}" || USER_ID=$(id -u)
+test "$USER_ID" -ge 1000 || return 0
 
 agents_sh_skelcheck() {
 	local fn=$1 md5s md5
