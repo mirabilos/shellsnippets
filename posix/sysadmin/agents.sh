@@ -93,7 +93,7 @@ agents_sh_sshcheck() {
 		    rm -rf "$x"
 	fi
 	if test -d "$x/." && test -O "$x/."; then
-		ofn="$x/info2~"
+		ofn="$x/info2~.$$"
 		rm -f "$ofn"
 		:>"$ofn"
 		chmod 0600 "$ofn"
