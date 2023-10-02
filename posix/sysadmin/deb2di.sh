@@ -1,6 +1,6 @@
 #!/bin/sh
 #-
-# Copyright © 2020, 2021
+# Copyright © 2020, 2021, 2023
 #	mirabilos <m@mirbsd.org>
 # Copyright © 2019, 2020, 2022, 2023
 #	mirabilos <t.glaser@tarent.de>
@@ -421,6 +421,12 @@ esac
 		# like d-i
 		rm -f /etc/mtab
 		ln -sfT /proc/self/mounts /etc/mtab
+		test -d /etc/network || mkdir /etc/network
+		test -e /etc/network/interfaces || {
+			echo "# interfaces(5) file used by ifup(8) and ifdown(8)" >/etc/network/interfaces
+			echo "# Include files from /etc/network/interfaces.d:" >>/etc/network/interfaces
+			echo "source /etc/network/interfaces.d/*" >>/etc/network/interfaces
+		}
 		grep -q 'iface lo inet loopback' /etc/network/interfaces || \
 		    cat >>/etc/network/interfaces <<-'EOF'
 
