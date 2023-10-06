@@ -112,16 +112,6 @@ ggs() {
 	IFS=$_IFS
 	${BROWSER:-lynx} "http://www.google.com/search?hl=la&pws=0&num=100&safe=off&ucbcb=1&q=$_q"
 }
-# Google GRoups
-ggr() {
-	local _q _IFS
-
-	_IFS=$IFS
-	IFS=+
-	_q="$*"
-	IFS=$_IFS
-	${BROWSER:-lynx} "http://groups.google.com/groups?hl=la&pws=0&num=100&safe=off&as_umsgid=$_q"
-}
 
 # dict.leo.org German English
 ge() {
