@@ -110,7 +110,7 @@ ggs() {
 	IFS=+
 	_q="$*"
 	IFS=$_IFS
-	${BROWSER:-lynx} "http://www.google.com/search?hl=la&pws=0&num=100&safe=off&q=$_q"
+	${BROWSER:-lynx} "http://www.google.com/search?hl=la&pws=0&num=100&safe=off&ucbcb=1&q=$_q"
 }
 # Google GRoups
 ggr() {
