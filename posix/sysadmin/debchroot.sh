@@ -471,7 +471,7 @@ debchroot__prep() {
 		echo >&2 "E: cannot mount $(debchroot__e "$1")/sys"
 		return 1
 	fi
-	test -s "$1/sys/firmware/efi/efivars" && \
+	test ! -d "$1/sys/firmware/efi/efivars" || \
 	    if ! mount -t efivarfs efivars "$1/sys/firmware/efi/efivars"; then
 		echo >&2 "E: cannot mount $(debchroot__e "$1")/sys/firmware/efi/efivars"
 		return 1
