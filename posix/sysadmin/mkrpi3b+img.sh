@@ -900,6 +900,7 @@ swap                /tmp            tmpfs  defaults,relatime,nosuid,nodev  0  0
 		(cd /dev && exec MAKEDEV std sd consoleonly ttyS0)
 		# because this is picked up by packages, e.g. postfix
 		HOSTNAME=$(</etc/hostname)
+		export HOSTNAME
 		hostname "$HOSTNAME"
 		# sanitise APT state
 		apt-get clean
