@@ -565,6 +565,7 @@ debchroot__prep() {
 			set -e
 			cd /dev
 			tar -cf - -b 1 --one-file-system --sort=name \
+			    --exclude=./fd \
 			    --warning=no-file-ignored .
 		) >"$debchroot__prept/dev/.archive" || {
 			echo >&2 "E: cannot pack up /dev"
@@ -583,8 +584,9 @@ debchroot__prep() {
 			exec 6<.archive
 			rm .archive
 			tar -xf - --same-permissions --same-owner <&6
-			rm -f log
+			rm -f fd log
 			rm -rf pts shm
+			ln -s /proc/self/fd fd
 			mkdir pts
 			if test -h /dev/shm; then
 				cp -a /dev/shm .
