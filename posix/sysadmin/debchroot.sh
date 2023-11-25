@@ -564,7 +564,8 @@ debchroot__prep() {
 		(
 			set -e
 			cd /dev
-			tar -cf - -b 1 --one-file-system --warning=no-file-ignored .
+			tar -cf - -b 1 --one-file-system --sort=name \
+			    --warning=no-file-ignored .
 		) >"$debchroot__prept/dev/.archive" || {
 			echo >&2 "E: cannot pack up /dev"
 			umount "$debchroot__prept/dev"
