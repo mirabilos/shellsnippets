@@ -648,7 +648,7 @@ Press Enter to continue; use the "exit" command to quit.' 13 69
 	EOS
 ) >"$sfn" || die 'post-installation script creation failure'
 
-debchroot_run -P "$mp" -w 'exec unshare --uts chroot' /bin/sh -c '
+debchroot_run -P "$mp" /bin/sh -c '
     exec /usr/bin/env -i \
 	DEBIAN_FRONTEND=teletype \
 	HOME=/root \
