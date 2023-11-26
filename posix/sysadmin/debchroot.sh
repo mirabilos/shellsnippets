@@ -59,7 +59,7 @@ debchroot_start() (
 	test -n "$debchroot__quiet" || if test x"$debchroot__rv" = x"0"; then
 		sed -e 's/[^[:print:]]/[7m?[0m/g' >&2 <<-EOF
 		I: done, enter with one of:
-		N: ${debchroot__debchroot_}go $(debchroot__q "$debchroot__mpt") [name]
+		N: ${debchroot__debchroot_}go $(debchroot__q "$debchroot__mpt") [-u user] [name]
 		N: ${debchroot__debchroot_}run [-n name] [-w cmd] $(debchroot__q "$debchroot__mpt") command ...
 		I: finally, undo and umount everything under the directory with:
 		N: ${debchroot__debchroot_}stop $(debchroot__q "$debchroot__mpt")
@@ -101,11 +101,13 @@ debchroot_stop() (
 debchroot_go() {
 	debchroot__name=
 	debchroot__P=
+	debchroot__user=root
 	OPTIND=1
-	while getopts "n:P:" debchroot__ch; do
+	while getopts "n:P:u:" debchroot__ch; do
 		case $debchroot__ch in
 		(n) debchroot__name=$OPTARG ;;
 		(P) debchroot__P=$OPTARG ;;
+		(u) debchroot__user=$OPTARG ;;
 		(*) echo >&2 "E: debchroot_go: bad options"; return 1 ;;
 		esac
 	done
@@ -120,7 +122,8 @@ debchroot_go() {
 	fi
 	set -- -P "$debchroot__P" -n "$debchroot__name" \
 	    -- su -l -w \
-	    debian_chroot,LANG,LC_CTYPE,LC_ALL,TERM,TERMCAP
+	    debian_chroot,LANG,LC_CTYPE,LC_ALL,TERM,TERMCAP \
+	    -- "$debchroot__user"
 	unset debchroot__ch debchroot__P debchroot__name
 	debchroot_run "$@"
 }
@@ -1041,7 +1044,7 @@ Usage: (you may also give the chroot directory before the command)
 	${debchroot__debchroot_}start [opts] /path/to/chroot	# or "." for cwd
 	# opts can be: -s dir to skip [$(debchroot__skip q)]
 	# run a shell or things in a started chroot
-	${debchroot__debchroot_}go /path/to/chroot [chroot-name]
+	${debchroot__debchroot_}go /path/to/chroot [-u user] [chroot-name]
 	${debchroot__debchroot_}run [-n chroot-name] [-w cmd] /p/t/chroot cmd args...
 	# cmd is the chroot wrapper, "exec chroot" by default
 	# disband policy-rc.d and all sub-mounts
