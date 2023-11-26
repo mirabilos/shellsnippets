@@ -572,6 +572,7 @@ esac
 		fi
 		if test -n "$mkuser" && id -- "$mkuser" >/dev/null 2>&1; then
 			# groups from d-i plus adm and sudo (d-i does sudo, too?)
+			# not adding dialout but you may want that (ttyUSB0, etc.)
 			: ignore errors for nonexisting groups, please
 			for group in audio bluetooth cdrom debian-tor dip floppy \
 			    lpadmin netdev plugdev scanner video adm sudo; do
