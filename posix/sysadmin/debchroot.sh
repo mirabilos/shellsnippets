@@ -173,7 +173,12 @@ debchroot_run() (
 		echo >&2 "I: entering chroot $(debchroot__e "$debchroot__mpt")" \
 		    "as $(debchroot__e "$debchroot__name")"
 	fi
-	eval exec unshare --uts "$debchroot__ccmd"' chroot "$debchroot__mpt" "$@"'
+	eval "exec unshare --uts $debchroot__xcmd sh -c '"'
+		debchroot__host=$(chroot "$2" cat /etc/hostname 2>/dev/null) || \
+		    debchroot__host=
+		test -z "$debchroot__host" || hostname -- "$debchroot__host"
+		exec "$@"
+	    '"' -- chroot" '"$debchroot__mpt" "$@"'
 )
 
 debchroot_rpi() (
@@ -1046,7 +1051,7 @@ Usage: (you may also give the chroot directory before the command)
 	# run a shell or things in a started chroot
 	${debchroot__debchroot_}go /path/to/chroot [-u user] [chroot-name]
 	${debchroot__debchroot_}run [-n chroot-name] [-W cxp] /p/t/chroot cmd args...
-	# (cxp comes between 'exec unshare --uts' and 'chroot …')
+	# (cxp comes between 'exec unshare --uts' and 'sh … chroot …' via eval)
 	# disband policy-rc.d and all sub-mounts
 	${debchroot__debchroot_}stop /path/to/chroot
 	# mount RPi SD and enter it (p1 assumed firmware/boot, p2 root)
