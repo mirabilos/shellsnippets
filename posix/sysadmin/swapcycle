@@ -51,7 +51,7 @@
 #   # nuke beginning 2 MiB of partition
 # $ sudo dd if=/dev/urandom iflag=fullblock count=4096 of=/dev/sdX2
 #   # create protective filesystem
-# $ sudo mke2fs -E discard -L swp_HOSTNAME /dev/sdX2 512k
+# $ sudo mke2fs -E discard -L swp_HOSTNAME /dev/sdX2 64k
 # $ sudo mount -o sync /dev/sdX2 /mnt
 # $ echo 'This is a protective filesystem for cryptsetup swap.' | \
 #     sudo dd of=/mnt/README.txt
@@ -62,7 +62,7 @@
 #   # declare crypttab(5) entry and activate it
 # $ sudoedit /etc/crypttab
 #	→ add a line that reads:
-# cswap LABEL=swp_HOSTNAME /dev/random offset=1024,discard,cipher=aes-xts-plain64,size=256,plain,swap
+# cswap LABEL=swp_HOSTNAME /dev/random offset=128,discard,cipher=aes-xts-plain64,size=256,plain,swap
 #	*or* (LVM o̲n̲l̲y̲)
 # cswap /dev/vg-HOSTNAME/lv-swap /dev/random discard,cipher=aes-xts-plain64,size=256,plain,swap
 # $ sudo cryptdisks_start cswap   # if this fails (nōn-LVM) see below
