@@ -429,7 +429,7 @@ debchroot__init() {
 debchroot__skipinit=0
 debchroot__skip() {
 	if test x"$1" = x"q"; then
-		echo "tmp|dev|devpts|devshm|run|runudev"
+		echo "tmp|dev|devpts|devshm|run|runudev|svc"
 		return 0
 	fi
 	if test x"$1" = x"0"; then
@@ -440,6 +440,7 @@ debchroot__skip() {
 			debchroot__skip_devshm=0
 			debchroot__skip_run=0
 			debchroot__skip_runudev=0
+			debchroot__skip_svc=0
 		}
 		debchroot__skipinit=1
 		return 0
@@ -460,6 +461,8 @@ debchroot__skip() {
 		debchroot__skip_run=1 ;;
 	(runudev)
 		debchroot__skip_runudev=1 ;;
+	(svc)
+		debchroot__skip_svc=1 ;;
 	(*)
 		echo >&2 "E: debchroot_$1: bad -s option argument"
 		return 1 ;;
@@ -711,7 +714,8 @@ EOCHR
 	(1*) debchroot__prepnoshm=2 ;;
 	(*) debchroot__prepnoshm=0 ;;
 	esac
-	export debchroot__prepnoshm
+	debchroot__prepnosvc=$debchroot__skip_svc
+	export debchroot__prepnoshm debchroot__prepnosvc
 	chroot "$1" /bin/sh 7>"$debchroot__prepj" <<\EOCHR
 		LC_ALL=C; export LC_ALL; LANGUAGE=C; unset LANGUAGE
 		# ensure /dev/null exists
@@ -793,6 +797,10 @@ EOCHR
 			}
 		}
 
+		if test x"$debchroot__prepnosvc" = x"1"; then
+			trydivert() { :; }
+		fi
+
 		trydivert /sbin/start-stop-daemon start-stop-daemon <<-\EOF
 			#!/bin/sh
 			echo 1>&2
@@ -815,7 +823,7 @@ EOCHR
 EOCHR
 	debchroot__preprv=$?
 	unset debchroot__prepd
-	unset debchroot__prepnoshm
+	unset debchroot__prepnoshm debchroot__prepnosvc
 	debchroot__preprv=$debchroot__preprv,"$(cat "$debchroot__prepj")"
 	rm -f "$debchroot__prepj"
 	unset debchroot__prepj
@@ -1021,14 +1029,15 @@ case $1 in
 	fi
 	sed -e 's/[^	[:print:]]/[7m?[0m/g' >&2 <<EOF
 Usage: (you may also give the chroot directory before the command)
-	# set up policy-rc.d and mounts
+	# set up mounts and diversions
 	${debchroot__debchroot_}start [opts] /path/to/chroot	# or "." for cwd
 	# opts can be: -s dir to skip [$(debchroot__skip q)]
+	# (note: svc skips initctl, s-s-d, policy-rc.d diversions)
 	# run a shell or things in a started chroot
 	${debchroot__debchroot_}go /path/to/chroot [-u user] [chroot-name]
 	${debchroot__debchroot_}run [-n chroot-name] [-W cxp] /p/t/chroot cmd args...
 	# (cxp comes between 'exec unshare --uts' and 'sh … chroot …' via eval)
-	# disband policy-rc.d and all sub-mounts
+	# disband svc diversions and all sub-mounts
 	${debchroot__debchroot_}stop /path/to/chroot
 	# mount RPi SD and enter it (p1 assumed firmware/boot, p2 root)
 	${debchroot__debchroot_}rpi [opts] /dev/mmcblk0|/path/to/image [chroot-name]
