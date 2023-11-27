@@ -1029,20 +1029,24 @@ case $1 in
 	fi
 	sed -e 's/[^	[:print:]]/[7m?[0m/g' >&2 <<EOF
 Usage: (you may also give the chroot directory before the command)
-	# set up mounts and diversions
-	${debchroot__debchroot_}start [opts] /path/to/chroot	# or "." for cwd
-	# opts can be: -s dir to skip [$(debchroot__skip q)]
-	# (note: svc skips initctl, s-s-d, policy-rc.d diversions)
-	# run a shell or things in a started chroot
-	${debchroot__debchroot_}go /path/to/chroot [-u user] [chroot-name]
-	${debchroot__debchroot_}run [-n chroot-name] [-W cxp] /p/t/chroot cmd args...
-	# (cxp comes between 'exec unshare --uts' and 'sh … chroot …' via eval)
-	# disband svc diversions and all sub-mounts
-	${debchroot__debchroot_}stop /path/to/chroot
-	# mount RPi SD and enter it (p1 assumed firmware/boot, p2 root)
-	${debchroot__debchroot_}rpi [opts] /dev/mmcblk0|/path/to/image [chroot-name]
-	# make the debchroot_* functions available
-	debchroot_embed=1; . ${selfpath:-./debchroot.sh}
+# set up mounts and diversions
+${debchroot__debchroot_}start [opts] /path/to/chroot	# or "." for cwd
+# opts can be: -s dir to skip [$(debchroot__skip q)]
+# (note: svc skips initctl, s-s-d, policy-rc.d diversions)
+
+# run a shell or things in a started chroot
+${debchroot__debchroot_}go /path/to/chroot [-u user] [chroot-name]
+${debchroot__debchroot_}run [-n chroot-name] [-W cxp] /p/t/chroot cmd args...
+# (cxp comes between 'exec unshare --uts' and 'sh … chroot …' via eval)
+
+# disband svc diversions and all sub-mounts
+${debchroot__debchroot_}stop /path/to/chroot
+
+# mount RPi SD and enter it (p1 assumed firmware/boot, p2 root)
+${debchroot__debchroot_}rpi [opts] /dev/mmcblk0|/path/to/image [chroot-name]
+
+# make the debchroot_* functions available
+debchroot_embed=1; . ${selfpath:-./debchroot.sh}
 EOF
 	case $1 in
 	(help|-h|-\?|--help) exit 0 ;;
