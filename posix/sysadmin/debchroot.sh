@@ -27,6 +27,9 @@
 # yet); debchroot_stop disbands them and umounts all filesystems un‐
 # der the chroot base directory, including manually mounted ones, if
 # possible; it tries to lazily umount those in use and warns.
+#
+# Support for older host systems may be nōn-existent (stretch should
+# work), older chroots might.
 
 debchroot__debchroot_='debchroot_'
 debchroot__quiet=
@@ -1039,7 +1042,7 @@ ${debchroot__debchroot_}go /path/to/chroot [-u user] [chroot-name]
 ${debchroot__debchroot_}run [-n chroot-name] [-W cxp] /p/t/chroot cmd args...
 # (cxp comes between 'exec unshare --uts' and 'sh … chroot …' via eval)
 
-# disband svc diversions and all sub-mounts
+# disband svc diversions and all sub-mounts (even præ-existing ones!)
 ${debchroot__debchroot_}stop /path/to/chroot
 
 # mount RPi SD and enter it (p1 assumed firmware/boot, p2 root)
