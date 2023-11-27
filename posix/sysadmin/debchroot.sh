@@ -801,7 +801,7 @@ EOCHR
 		EOF
 		exists /sbin/initctl && trydivert /sbin/initctl Upstart <<-\EOF
 			#!/bin/sh
-			if [ "$1" = version ]; then exec /sbin/initctl.REAL "$@"; fi
+			test x"$1" = x"version" && exec /sbin/initctl.REAL "$@"
 			echo 1>&2
 			echo 'Warning: Fake initctl called, doing nothing.' 1>&2
 			exit 0
