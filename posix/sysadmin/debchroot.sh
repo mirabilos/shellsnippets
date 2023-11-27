@@ -701,31 +701,7 @@ EOCHR
 		return 1
 	fi
 	# /dev/shm is hardest, can be /run/shm with symlinks in either direction
-	# so do that in the chroot, same as policy-rc.d setup
-
-	if test -h "$1/usr/sbin/policy-rc.d" || \
-	   test -e "$1/usr/sbin/policy-rc.d"; then
-		rm -f "$1/usr/sbin/policy-rc.d"
-		test -d "$1/usr/sbin/policy-rc.d" && rmdir "$1/usr/sbin/policy-rc.d"
-	fi
-	if test -h "$1/usr/sbin/policy-rc.d" || \
-	   test -e "$1/usr/sbin/policy-rc.d"; then
-		echo >&2 "E: cannot clear pre-existing policy-rc.d script"
-		rm "$debchroot__prepj"
-		unset debchroot__prepj
-		return 1
-	fi
-	cat >"$1/usr/sbin/policy-rc.d" <<-\EOF
-		#!/bin/sh
-		exit 101
-	EOF
-	chmod 0755 "$1/usr/sbin/policy-rc.d"
-	test -x "$1/usr/sbin/policy-rc.d" || {
-		echo >&2 "E: cannot install policy-rc.d deny script"
-		rm "$debchroot__prepj"
-		unset debchroot__prepj
-		return 1
-	}
+	# so do that in the chroot, same as diverting initctl, policy-rc.d, s-s-d
 
 	debchroot__prepd="$(debchroot__e "$1")"
 	export debchroot__prepd
@@ -811,7 +787,7 @@ EOCHR
 		trydivert2() {
 			cat >$1
 			chmod 0755 $1
-			test -x $1 || {
+			test -e $1 && test -s $1 && test -x $1 || {
 				echo >&2 "E: cannot install fake $2"
 				exit 1
 			}
@@ -829,6 +805,10 @@ EOCHR
 			echo 1>&2
 			echo 'Warning: Fake initctl called, doing nothing.' 1>&2
 			exit 0
+		EOF
+		trydivert /usr/sbin/policy-rc.d policy-rc.d <<-\EOF
+			#!/bin/sh
+			exit 101
 		EOF
 
 		echo dobro >&7
@@ -907,12 +887,7 @@ debchroot__undo() {
 
 		undivert /sbin/initctl
 		undivert /sbin/start-stop-daemon
-
-		rm -f /usr/sbin/policy-rc.d
-		if exists /usr/sbin/policy-rc.d; then
-			echo >&2 "E: failed to remove policy-rc.d script"
-			rv=1
-		fi
+		undivert /usr/sbin/policy-rc.d
 
 		exit $rv
 EOCHR
