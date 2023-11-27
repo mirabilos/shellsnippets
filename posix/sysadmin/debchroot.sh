@@ -815,6 +815,7 @@ EOCHR
 EOCHR
 	debchroot__preprv=$?
 	unset debchroot__prepd
+	unset debchroot__prepnoshm
 	debchroot__preprv=$debchroot__preprv,"$(cat "$debchroot__prepj")"
 	rm -f "$debchroot__prepj"
 	unset debchroot__prepj
