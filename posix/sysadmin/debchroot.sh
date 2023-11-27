@@ -819,7 +819,11 @@ EOCHR
 		EOF
 		trydivert /usr/sbin/policy-rc.d policy-rc.d <<-\EOF
 			#!/bin/sh
-			exit 101
+			while :; do case $1 in
+			-*) shift ;;
+			makedev|x11-common) exit 0 ;;
+			*) exit 101 ;;
+			esac; done
 		EOF
 
 		echo dobro >&7
