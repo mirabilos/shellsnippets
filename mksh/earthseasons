@@ -619,7 +619,7 @@ function doout {
 print -r -- '/* {{{ generated */'
 print -r -- "/*     by $myua */"
 doout "$vtssmh" 'Samhain (All-Hallowe’en), solar/golden ratio'
-doout "$vtswsw" 'Jul (Wintersonnenwende, Mittwinter, longest-night, Saturnalia)'
+doout "$vtswsw" 'Jul (Wintersonnenwende, Mittwinter, longest-night, Saturnalia, schab-e Yaldā, 冬至)'
 doout "$vtsimb" 'Imbolc (Brighid, Lichtmeß, Oimelc, Lupercalia), solar/golden ratio'
 doout "$vtsftn" 'Ēostre/Ôstara (Frühjahrstagundnachtgleiche, Nouruz, Hilaria)'
 doout "$vtsblt" 'Beltaine (Walpurgis, Floralia), solar/golden ratio'
