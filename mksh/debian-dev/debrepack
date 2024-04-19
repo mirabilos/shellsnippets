@@ -1,6 +1,6 @@
 #!/bin/mksh
 #-
-# Copyright © 2015, 2021, 2022
+# Copyright © 2015, 2021, 2022, 2024
 #	mirabilos <tg@debian.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -23,22 +23,43 @@ function die {
 	exit 1
 }
 
+cc= cf= dc= df=
+nt=true
+while [[ $1 = -* ]]; do
+	case $1 {
+	(-cc)	cc=$2; shift ;;
+	(-cf)	cf=$2; shift ;;
+	(-dc)	dc=$2; shift ;;
+	(-df)	df=$2; shift ;;
+	(-t)	nt=false ;;
+	(*)	die "usage: $0 [-{c,d}c 'gzip -n9'] [-cf control.tar.gz] [-df data.tar.gz] [-t]" ;;
+	}
+	shift
+done
+hasc=true hasd=true
+[[ -n $cc && -n $cf ]] || hasc=false
+[[ -n $dc && -n $df ]] || hasd=false
+
 function chkdir {
 	local i x
 
 	[[ -s debian-binary ]] || return 1
 	[[ $(<debian-binary) = 2.0 ]] || return 1
 	[[ -d c && -d d ]] || return 1
-	i=0; for x in control.*; do
-		[[ $x = *.tar@(|.gz|.xz|.zst) ]] || return 1
-		let i++
-	done
-	(( i == 1 )) || return 1
-	i=0; for x in data.*; do
-		[[ $x = *.tar@(|.bz2|.gz|.xz|.zst) ]] || return 1
-		let i++
-	done
-	(( i == 1 )) || return 1
+	$hasc || {
+		i=0; for x in control.*; do
+			[[ $x = *.tar@(|.gz|.xz|.zst) ]] || return 1
+			let i++
+		done
+		(( i == 1 )) || return 1
+	}
+	$hasd || {
+		i=0; for x in data.*; do
+			[[ $x = *.tar@(|.bz2|.gz|.xz|.zst) ]] || return 1
+			let i++
+		done
+		(( i == 1 )) || return 1
+	}
 	[[ -s c/control ]]
 }
 
@@ -47,7 +68,7 @@ while ! chkdir; do
 	cd ..
 done
 
-for cf in control.*; do
+$hasc || for cf in control.*; do
 	case $cf {
 	(*.tar) cc=cat ;;
 	(*.tar.gz) cc='gzip -n9' ;;
@@ -61,7 +82,7 @@ for cf in control.*; do
 	}
 	break
 done
-for df in data.*; do
+$hasd || for df in data.*; do
 	case $df {
 	(*.tar) dc=cat ;;
 	(*.tar.bz2) dc='bzip2' ;;
@@ -87,18 +108,22 @@ fa=$(sed -n '/^Architecture: /s///p' c/control)
 set -o pipefail
 set -ex
 
-(cd d && find . -type f | sed s,^./,, | sort | xargs md5sum --) >c/md5sums
-(cd d && find . | sort | paxcpio -oC512 -Hustar -Minodes -Mlinks -Muidgid -Mgslash) | \
-    $dc >"$df"
-for x in c/*; do
-	if [[ $x = c/config || $x = c/@(post|pre)@(inst|rm) ]]; then
-		p=755
-	else
-		p=644
-	fi
-	chmod $p "$x"
+(cd d && find . -type f -print0 | \
+    sed -z s,^./,, | \
+    sort -z | \
+    xargs -0 md5sum --) >c/md5sums
+(cd d && find . -print0 | \
+    sort -z | \
+    paxcpio -oC512 -0 -Hustar -Minodes -Mlinks -Muidgid -Mgslash) | \
+    eval "$dc" >"$df"
+find c -type f -print0 | xargs -0 chmod 644 --
+for x in c/config c/@(post|pre)@(inst|rm); do
+	[[ ! -h $x && -f $x ]] || continue
+	chmod 755 "$x"
 done
-(cd c && find . | sort | paxcpio -oC512 -Hustar -Minodes -Mlinks -Muidgid -Mgslash) | \
-    $cc >"$cf"
-
+(cd c && find . -print0 | \
+    sort -z | \
+    paxcpio -oC512 -0 -Hustar -Minodes -Mlinks -Muidgid -Mgslash) | \
+    eval "$cc" >"$cf"
+$nt || touch debian-binary
 paxtar -D ar -M dist -cf "${fp}_${fv}_${fa}.deb" debian-binary "$cf" "$df"
