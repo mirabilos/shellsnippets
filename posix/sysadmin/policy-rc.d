@@ -8,5 +8,3 @@ case $1 in
   *)  exit 101;;
 esac
 done
-
-
