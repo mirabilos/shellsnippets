@@ -444,15 +444,15 @@ function automail {
 		body+="$nl${nl}SEPA-Lastschriftmandat:$nl"
 		body+="| Ich ermächtige den Gläubiger Teckids e.V., Rochusstr. 2-4, 53123 Bonn$nl"
 		body+="| mit der Gläubiger-ID DE70${sepa_gid}00001497650, den Betrag von $sepa_betrag € von$nl"
-                body+="| meinem Konto einmalig mit dem SEPA-Basislastschriftverfahren einzu-$nl"
-                body+="| ziehen. Gleichzeitig weise ich meine Bank an, die vom Teckids e.V.$nl"
-                body+="| von meinem Konto eingezogene SEPA-Basislastschrift einzulösen.$nl"
-                body+="|$nl"
-                body+="|   Name des Zahlers:   $sepa_zahler$nl"
-                body+="|   IBAN des Zahlers:   $sepa_iban$nl"
-                body+="|   BIC des Zahlers:    $sepa_bic$nl"
-                body+="|$nl"
-                body+="| Die Mandatsreferenz wird mit der Zahlungsaufforderung mitgeteilt."
+		body+="| meinem Konto einmalig mit dem SEPA-Basislastschriftverfahren einzu-$nl"
+		body+="| ziehen. Gleichzeitig weise ich meine Bank an, die vom Teckids e.V.$nl"
+		body+="| von meinem Konto eingezogene SEPA-Basislastschrift einzulösen.$nl"
+		body+="|$nl"
+		body+="|   Name des Zahlers:   $sepa_zahler$nl"
+		body+="|   IBAN des Zahlers:   $sepa_iban$nl"
+		body+="|   BIC des Zahlers:    $sepa_bic$nl"
+		body+="|$nl"
+		body+="| Die Mandatsreferenz wird mit der Zahlungsaufforderung mitgeteilt."
 	fi
 
 	if [[ -n $mail_extra ]]; then
@@ -586,7 +586,7 @@ function dofield {
 		fi
 		return
 	elif [[ $fldk = geburtsdatum ]]; then
-		if [[ $fldv = *([        ]) ]]; then
+		if [[ $fldv = *([	 ]) ]]; then
 			: handled further below
 		elif ! dtchk dtJ "$fldv" dtv; then
 			 handled further below
@@ -626,7 +626,7 @@ for x in "${pflichtfeld[@]}"; do
 	let ++i
 	(( x )) || continue
 	eval v=\$${fields[i]}
-	[[ $v = *([      ]) ]] && pflichtfelder_fehlen+=,\ ${fieldnames[i]//_/ }
+	[[ $v = *([	 ]) ]] && pflichtfelder_fehlen+=,\ ${fieldnames[i]//_/ }
 done
 
 text=

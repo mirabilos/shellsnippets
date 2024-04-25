@@ -107,11 +107,11 @@ while read -u3 v v; do
 
 	# Find end date
 	until=$(grep "^Until: " "$vd/$v/vote")
-        until=${until#Until: }
+	until=${until#Until: }
 
 	# Get vote initiator
 	initiator=$(grep "^Initiator: " "$vd/$v/vote")
-        initiator=${initiator#Initiator: }
+	initiator=${initiator#Initiator: }
 
 	# Check authenticated user is in the group defined in the vote definition
 	group_ok=0
@@ -140,9 +140,9 @@ out+="<h2>Offene Abstimmungen - bitte abstimmen!</h2>"
 out+="<table border=\"1\" style=\"width: 100%\"><tr><th>Abstimmung</th><th>Enddatum</th><th>Aktion</th></tr>"
 for v in "${votes_open[@]}"; do
 	name=$(grep "^Title: " "$vd/$v/vote")
-        name=${name#Title: }
+	name=${name#Title: }
 	until=$(grep "^Until: " "$vd/$v/vote")
-        until=${until#Until: }
+	until=${until#Until: }
 	out+="<tr><td>$(xhtml_escape "$name")</td><td>"
 	if [[ -n $until ]]; then
 		out+=$(LC_ALL=de_DE.UTF-8 date -d @$until +'%A, den %d.%m.%Y, um %H:%M Uhr')
@@ -155,9 +155,9 @@ out+="<h2>Abstimmungen, an denen du teilgenommen hast</h2>"
 out+="<table border=\"1\" style=\"width: 100%\"><tr><th>Abstimmung</th><th>Enddatum</th><th>Aktion</th></tr>"
 for v in "${votes_voted[@]}"; do
 	name=$(grep "^Title: " "$vd/$v/vote")
-        name=${name#Title: }
+	name=${name#Title: }
 	until=$(grep "^Until: " "$vd/$v/vote")
-        until=${until#Until: }
+	until=${until#Until: }
 	out+="<tr><td>$(xhtml_escape "$name")</td><td>"
 	if [[ -n $until ]]; then
 		out+=$(LC_ALL=de_DE.UTF-8 date -d @$until +'%A, den %d.%m.%Y, um %H:%M Uhr')
@@ -170,9 +170,9 @@ out+="<h2>Verpasste Abstimmungen</h2>"
 out+="<table border=\"1\" style=\"width: 100%\"><tr><th>Abstimmung</th><th>Enddatum</th><th>Aktion</th></tr>"
 for v in "${votes_missed[@]}"; do
 	name=$(grep "^Title: " "$vd/$v/vote")
-        name=${name#Title: }
+	name=${name#Title: }
 	until=$(grep "^Until: " "$vd/$v/vote")
-        until=${until#Until: }
+	until=${until#Until: }
 	out+="<tr><td>$(xhtml_escape "$name")</td><td>"
 	if [[ -n $until ]]; then
 		out+=$(LC_ALL=de_DE.UTF-8 date -d @$until +'%A, den %d.%m.%Y, um %H:%M Uhr')

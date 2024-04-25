@@ -49,7 +49,7 @@ kd=$(mktemp -d)
 asso_loadk users
 for user_dn in "${asso_y[@]}"; do
 	uid=$(asso_getv users "$user_dn" uid 0)
-        kc=$(asso_getv users "$user_dn" sshAuthorizedKey count)
+	kc=$(asso_getv users "$user_dn" sshAuthorizedKey count)
 
 	[[ -z $kc ]] && continue
 
