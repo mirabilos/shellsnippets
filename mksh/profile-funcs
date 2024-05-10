@@ -23,6 +23,8 @@ function fromirc {
 		if (( o[i] > 126 )); then
 			o[i]=1#?
 			l[i]=1#?
+		elif (( o[i] >= 1#A && o[i] <= 1#Z )); then
+			(( l[i] = o[i] + (1#a - 1#A) ))
 		else case ${o[i]} {
 		(36) o[i]=1#¤ l[i]=1#¤ ;;
 		(91) o[i]=1#Ä l[i]=1#ä ;;
