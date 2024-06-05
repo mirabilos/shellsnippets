@@ -84,7 +84,9 @@
 # part failed on Debian with “precheck … failed”, apply the fix from:
 # https://edugit.org/-/snippets/28 (for example by retrieving it with
 # git clone https://edugit.org/snippets/28.git then applying with:
-# cd / && patch -lp0 </path/to/28/cryptsetup.patch #)
+# cd / && patch -lp0 </path/to/28/cryptsetup.patch #); Debian bookworm
+# and newer contain this fix, as does cryptsetup from the extrepo “wtf”
+# or “wtf-lts” for bullseye.
 #
 # Then, run t̲h̲i̲s̲ script periodically (but only if you have at least as much
 # free RAM (in top(1) “avail Mem”), better more, as “KiB Swap: used”, as it
