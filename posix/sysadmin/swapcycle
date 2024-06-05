@@ -48,7 +48,8 @@
 #	→ first file: remove line with /dev/sdX2 or equivalent
 #	→ second file: replace entire content with “RESUME=none”
 #
-# Then we’re going to set things up unless using LVM:
+# Then we’re going to set things up unless using LVM. (Note systemd
+# users: this requires version 220 so Debian stretch and newer.)
 #
 #   # nuke beginning 2 MiB of partition
 # $ sudo dd if=/dev/urandom iflag=fullblock count=4096 of=/dev/sdX2
@@ -68,7 +69,8 @@
 #	*or* (LVM o̲n̲l̲y̲)
 # cswap /dev/vg-HOSTNAME/lv-swap /dev/urandom discard,cipher=aes-xts-plain64,size=512,plain,swap
 #	(and consider using /dev/random instead if your system has enough;
-#	the default hash=ripemd160 is fine for either)
+#	the default hash=ripemd160 is fine for either; in Debian wheezy and
+#	older with systemd (≤ v206), drop the “discard”)
 # $ sudo cryptdisks_start cswap   # if this fails (nōn-LVM) see below
 #   # declare fstab(5) entry, enable swap again
 # $ sudoedit /etc/fstab
