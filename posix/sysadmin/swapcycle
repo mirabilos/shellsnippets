@@ -27,6 +27,7 @@
 # no need to temporarily swapoff the device).
 #
 # For systemd users, this requires >= jessie (not wheezy-backports).
+# Otherwise, wheezy should be fine; drop “discard” on squeeze/older.
 #
 # First though, set up cryptsetup swap. In this example /dev/sdX2 is
 # used as the current device on which to set this up; we’ll create a
