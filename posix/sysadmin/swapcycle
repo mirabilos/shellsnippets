@@ -1,5 +1,7 @@
 #!/bin/sh
 #-
+# Copyright © 2024
+#	mirabilos <tg@debian.org>
 # Copyright © 2021
 #	mirabilos <t.glaser@tarent.de>
 #
@@ -62,9 +64,11 @@
 #   # declare crypttab(5) entry and activate it
 # $ sudoedit /etc/crypttab
 #	→ add a line that reads:
-# cswap LABEL=swp_HOSTNAME /dev/random offset=128,discard,cipher=aes-xts-plain64,size=512,plain,swap
+# cswap LABEL=swp_HOSTNAME /dev/urandom offset=128,discard,cipher=aes-xts-plain64,size=512,plain,swap
 #	*or* (LVM o̲n̲l̲y̲)
-# cswap /dev/vg-HOSTNAME/lv-swap /dev/random discard,cipher=aes-xts-plain64,size=512,plain,swap
+# cswap /dev/vg-HOSTNAME/lv-swap /dev/urandom discard,cipher=aes-xts-plain64,size=512,plain,swap
+#	(and consider using /dev/random instead if your system has enough;
+#	the default hash=ripemd160 is fine for either)
 # $ sudo cryptdisks_start cswap   # if this fails (nōn-LVM) see below
 #   # declare fstab(5) entry, enable swap again
 # $ sudoedit /etc/fstab
