@@ -1,9 +1,9 @@
 #!/bin/mksh
-myver='$MirOS: src/usr.bin/wtf/wtf,v 1.44 2020/06/06 23:44:34 tg Exp $'
+myver='$MirOS: src/usr.bin/wtf/wtf,v 1.53 2024/03/20 22:27:52 tg Exp $'
 # $NetBSD: wtf,v 1.7 2000/11/21 00:18:52 soren Exp $
 #-
 # Copyright © 2002, 2003, 2004, 2006, 2007, 2008, 2010, 2011,
-#	      2012, 2014, 2015, 2017, 2019, 2020
+#	      2012, 2014, 2015, 2017, 2019, 2020, 2023, 2024
 #	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -31,9 +31,9 @@ usage() {
 	exit 1
 }
 
-# easier with nameref, but we support older mksh
 function apush {
-	eval "$1[n$1++]=\$2"
+	nameref arr=$1 cnt=n$1
+	arr[cnt++]=$2
 }
 
 use_acronyms=-1
@@ -108,7 +108,7 @@ if (( show_ver )); then
 			line=${line%%	*}
 			[[ $line = "$last" ]] || let ++nacr
 			last=$line
-			[[ $lots = ${EPOCHREALTIME%?????} ]] && continue
+			[[ $lots = "${EPOCHREALTIME%?????}" ]] && continue
 			print -nu2 \\rwtf knows at least $nacr acronyms with $nexp expansions
 			lots=${EPOCHREALTIME%?????}
 		done
@@ -239,40 +239,61 @@ case $use_mank {
 if (( use_why )); then
 	if command -v dpkg-query >/dev/null; then
 		# Debian packages
+		use_why_alldeps=$(dpkg-query ${DPKG_ROOT:+"--root=$DPKG_ROOT"} -W \
+		    --showformat=',${Package},,${Pre-Depends},,${Depends},,${Recommends},,${Suggests},,${Enhances},,${Provides},\n' | \
+		    tr -d ' ' | sed -e 's/([^)]*)//g' -e 's/:[^|,]*//g' | sort -u)
+		do_why_pkgfmtS='${binary:Package} (${Version})\n'
+		[[ $(dpkg-query -W --showformat='${binary:Package}\n' dpkg) = dpkg ]] || \
+		    do_why_pkgfmtS='${Package} (${Version})\n'
+		function do_why_getpkgs {
+			local x
+			set +e
+
+			dpkg-query ${DPKG_ROOT:+"--root=$DPKG_ROOT"} -W \
+			    --showformat='${Package}\n' "$@"
+			for x; do
+				# Debian Policy 3.9.8.0, §5.6.1, from
+				# mircvs://contrib/hosted/tg/deb/quinn-ls.sh
+				# changed to disallow trailing - or +
+				[[ $x = [a-z0-9]?(*([a-z0-9+.-])[a-z0-9.]) ]] && \
+				    print -r -- "$x"
+			done
+		}
 		function do_why {
 			set -o noglob
-			local pkgname n pre dep rec sug enh
-			local DEP REC SUG ENH
-			local -i nDEP nREC nSUG nENH
+			local pkgname n pre dep rec sug enh prv
+			local DEP REC SUG EBY PRV
+			local -i nDEP nREC nSUG nEBY nPRV
 
-			for pkgname in $(dpkg-query -W \
-			    --showformat='${Package}\n' "$@" | \
-			    sed 's/:.*$//' | sort -u); do
+			for pkgname in $(do_why_getpkgs "$@" | sort -u); do
 				set -A DEP; nDEP=0
 				set -A REC; nREC=0
 				set -A SUG; nSUG=0
-				set -A ENH; nENH=0
-				dpkg-query -W --showformat='${Package}${Pre-Depends}${Depends}${Recommends}${Suggests}\n' | \
-				    grep -Fw -- "$pkgname" | \
-				    sed -e 's/ //g' -e 's/([^)]*)//g' | \
-				    sort -u |&
-				while IFS='' read -pr n pre dep rec sug; do
+				set -A EBY; nEBY=0
+				set -A PRV; nPRV=0
+				grep -F \
+				    -e ",$pkgname," \
+				    -e ",$pkgname|" \
+				    -e "|$pkgname," \
+				    -e "|$pkgname|" \
+				    <<<"$use_why_alldeps" |&
+				while IFS='' read -pr n pre dep rec sug enh prv; do
+					n=${n#,}
+					n=${n%,}
 					do_why1r "$pkgname" "$n" DEP "$pre"
 					do_why1r "$pkgname" "$n" DEP "$dep"
 					do_why1r "$pkgname" "$n" REC "$rec"
 					do_why1r "$pkgname" "$n" SUG "$sug"
-				done
-				for enh in $(dpkg-query -W \
-				    --showformat='${Enhances}\n' "$pkgname" | \
-				    sed -e 's/ //g' -e 's/([^)]*)//g' | \
-				    tr ',|' '\n\n' | sort -u); do
-					apush ENH "${enh%%':'*} ="
+					do_why1r "$pkgname" "$n" EBY "$enh"
+					do_why1r "$pkgname" "$n" PRV "$prv"
 				done
 				n=
-				(( nDEP )) && do_why1p "$pkgname" Dependencies on "${DEP[@]}"
-				(( nREC )) && do_why1p "$pkgname" Recommends on "${REC[@]}"
-				(( nSUG )) && do_why1p "$pkgname" Suggests on "${SUG[@]}"
-				(( nENH )) && do_why1p "$pkgname" Enhanced by "${ENH[@]}"
+				(( nDEP )) && do_why1p "$pkgname" 'Depending on' "${DEP[@]}"
+				(( nREC )) && do_why1p "$pkgname" 'Recommending' "${REC[@]}"
+				(( nSUG )) && do_why1p "$pkgname" 'Suggesting' "${SUG[@]}"
+				(( nEBY )) && do_why1p "$pkgname" 'Enhancing' "${EBY[@]}"
+				n=
+				(( nPRV )) && do_why1P "$pkgname" 'Providing' "${PRV[@]}"
 			done
 			set +o noglob  # for old mksh versions
 		}
@@ -289,49 +310,59 @@ if (( use_why )); then
 					IFS=$' \t\n'
 					f=0
 					for x in "${z[@]}"; do
-						if [[ ${x%%':'*} = "$1" ]]; then
+						if [[ $x = "$1" ]]; then
 							(( f |= 1 ))
 						else
 							(( f |= 2 ))
 						fi
 					done
 					if (( f == 3 )); then
-						apush "$3" "${2%%':'*} |"
+						apush "$3" "$2 |"
 						return
 					elif (( f == 1 )); then
-						apush "$3" "${2%%':'*} ="
+						apush "$3" "$2  "
 						return
 					fi
-				elif [[ ${x%%':'*} = "$1" ]]; then
-					apush "$3" "${2%%':'*} ="
+				elif [[ $x = "$1" ]]; then
+					apush "$3" "$2  "
 					return
 				fi
 			done
 		}
 		function do_why_pkgfmt {
-			print -r -- "$2$(dpkg-query -W "$1" | tr '\n'  | sed \
-			    -e 's/\t\([^]*\)/ (= \1), /g' \
-			    -e 's/ (= )/ [no version]/g' \
-			    -e 's/, $//')$3"
+			local pn=${1//+/_P}
+			pn=${pn//-/_M}
+			nameref rfmt=do_why_pkgfmt_${pn//./_D}
+
+			[[ -n $rfmt ]] || rfmt=$(dpkg-query \
+			    ${DPKG_ROOT:+"--root=$DPKG_ROOT"} -W \
+			    --showformat="$do_why_pkgfmtS" \
+			    "$1" | tr '\n' '' | sed \
+			    -e 's/ ()/ [unknown version]/g' \
+			    -e 's//, /g' \
+			    -e 's/, $//')
+			REPLY=$rfmt
 		}
 		function do_why1p {
-			local h=$(do_why_pkgfmt "$1" "  - $2 $3 “" "”:")$'\n'
-			shift 3
+			local P=${|do_why_pkgfmt "$1";}
+			shift
+			do_why1P "$P" "$@"
+		}
+		function do_why1P {
+			local h="  - $2 $1"$'\n'
+			shift 2
 			local x y z
+			set -sA x -- "$@"
 
-			for x in "$@"; do
-				print -r -- "$x"
-			done | sort -u |&
-			while IFS= read -pr y; do
+			for y in "${x[@]}"; do
 				z=${y:(-1)}
 				y=${y% ?}
 				# checks for doublettes; order important:
 				# - dep before rec before sug before enh
-				# - ‘=’ before ‘|’
+				# - ‘ ’ before ‘|’
 				[[ $n = *"${y}"* ]] && continue
 				n+="${y}"
-				[[ $z = '|' ]] || z=' '
-				do_why_pkgfmt "$y" "$h$z"
+				print -r -- "$h$z${|do_why_pkgfmt "$y";}"
 				h=
 			done
 		}
@@ -346,31 +377,35 @@ if (( use_acronyms )); then
 		print -ru2 "E: acronyms database ${acronyms@Q} too old"
 		exit 1
 	fi
-	set -A ucsrch -- $line
+	mkuc='function cconv {'
+	for p in $line; do
+		mkuc+=" tgsrch=\${tgsrch//$p};"
+	done
+	eval "$mkuc }"
+	unset mkuc line
 
 	# create sorted input array, uppercased/folded
-	s='set -sA stsrch --'
+	set -A stsrch
+	typeset -u tgu
 	i=0
-	# now: "$@"=("$0" foo bar baz)
-	for target in "$@"; do
-		typeset -u tgsrch=$target
+	# now: "$@"=(foo bar baz foo)
+	for tgu; do
+		tgsrch=$tgu
 		[[ $tgsrch = *[A-Z].* || $tgsrch = .*[!.-]* ]] && \
 		    tgsrch=${tgsrch//.}
-		for p in "${ucsrch[@]}"; do
-			eval 'tgsrch=${tgsrch//'"$p}"
-		done
-		s+=" ${tgsrch@Q}=$((++i))"
+		cconv
+		stsrch[i++]="$tgsrch $i"
 	done
-	eval "$s"
-	# now: stsrch=(BAR=2 BAZ=3 FOO=1)
+	set -sA stsrch -- "${stsrch[@]}"
+	# now: stsrch=('BAR 1' 'BAZ 2' 'FOO 0' 'FOO 3')
 
 	# create output mapping, remove mapping number from stsrch
 	set -A omsrch
 	tgsrch=
 	i=0 n=-1
 	for s in "${stsrch[@]}"; do
-		p=${s%=*}
-		if [[ $p = $tgsrch ]]; then
+		p=${s% *}
+		if [[ $p = "$tgsrch" ]]; then
 			# this is a repeat
 			unset stsrch[i++]
 		else
@@ -378,20 +413,21 @@ if (( use_acronyms )); then
 			tgsrch=$p
 			let ++n
 		fi
-		(( omsrch[${s##*=}] = n ))
+		(( omsrch[${s##* }] = n ))
 	done
 	set -A stsrch -- "${stsrch[@]}"
-	# now: stsrch=(BAR BAZ FOO) omsrch[1]=2 omsrch[2]=0 omsrch[3]=1
+	#  sorted ->   0   1   2   |        0 1 2 3   <- cmdline order
+	# now: stsrch=(BAR BAZ FOO) omsrch=(2 0 1 2)  <- stsrch index
 
 	# shorten search time
 	set -A grepcmd
 	i=-1
 	for s in "${stsrch[@]}"; do
 		grepcmd[++i]=-e
-		grepcmd[++i]=${s@/[\\.\[\^\$\*]/\\$KSH_MATCH}$'\t'
+		grepcmd[++i]="^${s@/[\\.\[\^\$\*]/\\$KSH_MATCH}	"
 	done
 	grep "${grepcmd[@]}" <"$acronyms" |&
-	unset grepcmd
+	unset grepcmd tgu tgsrch
 
 	# look up acronyms
 	set -A acrout
@@ -412,13 +448,18 @@ if (( use_acronyms )); then
 	done
 	# avoid SIGPIPE
 	(( i == -1 )) || read -prN-1 line
-	line=
+	unset line s p
 
 	i=0
 fi
 
+if (( use_why && !(use_acronyms || use_dict || use_ports || use_mank || use_whatis) )); then
+	do_why "$@"
+	exit 0
+fi
+
 rv=0
-for target in "$@"; do
+for target; do
 	if (( use_ports )); then
 		p=$(ports_acquire "$target")
 		if [[ -n $p ]]; then
@@ -438,7 +479,7 @@ for target in "$@"; do
 	fi
 
 	if (( use_acronyms )); then
-		n=${omsrch[++i]}
+		n=${omsrch[i++]}
 		s=${acrout[n]}
 		tgsrch=${stsrch[n]}
 		if [[ -n $s ]]; then

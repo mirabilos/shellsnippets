@@ -1,5 +1,5 @@
 #!/bin/mksh
-rcsid='$MirOS: contrib/hosted/tg/deb/quinn-ls.sh,v 1.16 2017/05/28 22:05:26 tg Exp $'
+rcsid='$MirOS: contrib/hosted/tg/deb/quinn-ls.sh,v 1.17 2024/04/25 14:47:36 tg Exp $'
 #-
 # Copyright © 2011, 2012, 2013, 2016, 2017
 #	Thorsten Glaser <tg@debian.org>
@@ -214,7 +214,7 @@ for type in bad bld ign; do
 		fi
 		if ! isdebver "$vsn"; then
 			print -ru2 "skipping invalid version '$vsn'," \
-			     override $type
+			    override $type
 			continue
 		fi
 		print -ru2 "o:$type $pkg $vsn"

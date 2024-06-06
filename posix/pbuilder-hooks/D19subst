@@ -1,7 +1,7 @@
 #!/bin/sh
-# $MirOS: contrib/hosted/tg/deb/hookdir/D19subst,v 1.1 2023/01/28 04:04:04 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/D19subst,v 1.2 2024/01/03 23:26:50 tg Exp $
 #-
-# © 2023 mirabilos Ⓕ CC0
+# © 2023 mirabilos Ⓕ CC0 or MirBSD
 #
 # Enables /etc/apt/sources.list entries commented out
 # with exactly "#D19subst#" (actually /^#${this}#/ ☺);

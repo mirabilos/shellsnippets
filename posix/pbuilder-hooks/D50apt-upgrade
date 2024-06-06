@@ -1,7 +1,7 @@
 #!/bin/sh
-# $MirOS: contrib/hosted/tg/deb/hookdir/D50apt-upgrade,v 1.1 2023/01/28 04:04:06 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/D50apt-upgrade,v 1.2 2024/01/03 23:26:49 tg Exp $
 #-
-# © 2011 mirabilos Ⓕ CC0
+# © 2011 mirabilos Ⓕ CC0 or MirBSD
 #
 # NOTE: includes D50apt-update so do not enable both
 

@@ -1,7 +1,7 @@
 #!/bin/sh
-# $MirOS: contrib/hosted/tg/deb/hookdir/A80shell-jupp,v 1.1 2023/01/28 04:04:02 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/A80shell-jupp,v 1.2 2024/01/03 23:26:50 tg Exp $
 #-
-# © 2012, 2013, 2014, 2016, 2021 mirabilos Ⓕ CC0
+# © 2012, 2013, 2014, 2016, 2021 mirabilos Ⓕ CC0 or MirBSD
 #
 # NOTE: this installs packages; your build will not be clean afterwards!
 

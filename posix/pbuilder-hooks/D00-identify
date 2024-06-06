@@ -1,7 +1,7 @@
 #!/bin/sh
-# $MirOS: contrib/hosted/tg/deb/hookdir/D00-identify,v 1.3 2023/01/29 11:05:55 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/D00-identify,v 1.4 2024/01/03 23:26:49 tg Exp $
 #-
-# © 2021 mirabilos Ⓕ CC0
+# © 2021 mirabilos Ⓕ CC0 or MirBSD
 
 this=D00-identify
 msg() {

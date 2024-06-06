@@ -1,7 +1,7 @@
 #!/bin/sh
-# $MirOS: contrib/hosted/tg/deb/hookdir/C80shell-jupp,v 1.8 2023/01/28 04:04:03 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/C80shell-jupp,v 1.9 2024/01/03 23:26:50 tg Exp $
 #-
-# © 2012, 2013, 2014, 2016, 2021 mirabilos Ⓕ CC0
+# © 2012, 2013, 2014, 2016, 2021 mirabilos Ⓕ CC0 or MirBSD
 
 this=C80shell-jupp
 msg() {

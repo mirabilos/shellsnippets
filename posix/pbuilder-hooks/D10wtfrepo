@@ -1,7 +1,7 @@
 #!/bin/sh
-# $MirOS: contrib/hosted/tg/deb/hookdir/D10wtfrepo,v 1.14 2023/01/28 04:56:50 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/D10wtfrepo,v 1.15 2024/01/03 23:26:49 tg Exp $
 #-
-# © 2012, 2014, 2016, 2017, 2023 mirabilos Ⓕ CC0
+# © 2012, 2014, 2016, 2017, 2023 mirabilos Ⓕ CC0 or MirBSD
 
 this=D10wtfrepo
 msg() {

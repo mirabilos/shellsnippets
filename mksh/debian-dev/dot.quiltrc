@@ -1,4 +1,6 @@
-# $MirOS: contrib/hosted/tg/deb/dot.quiltrc,v 1.5 2013/12/31 10:17:32 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/dot.quiltrc,v 1.6 2024/01/06 01:35:44 tg Exp $
+#-
+# © 2012, 2013 mirabilos Ⓕ CC0 or MirBSD
 #-
 # Configuration options (set to non-empty value to enable):
 # * QUILTRC_ENABLE: generate patches in a standardised format

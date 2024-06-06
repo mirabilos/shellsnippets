@@ -1,7 +1,7 @@
 #!/bin/sh
-# $MirOS: contrib/hosted/tg/deb/hookdir/A88shell-raw,v 1.2 2023/01/28 04:04:02 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/A88shell-raw,v 1.3 2024/01/03 23:26:49 tg Exp $
 #-
-# © 2016 mirabilos Ⓕ CC0
+# © 2016 mirabilos Ⓕ CC0 or MirBSD
 
 this=A88shell-raw
 msg() {

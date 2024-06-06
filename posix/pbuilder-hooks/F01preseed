@@ -1,5 +1,5 @@
 #!/bin/sh
-# $MirOS: contrib/hosted/tg/deb/hookdir/D00-preseed,v 1.5 2024/01/03 23:26:50 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/F01preseed,v 1.5 2024/01/03 23:26:50 tg Exp $
 #-
 # © 2017 mirabilos Ⓕ CC0 or MirBSD
 

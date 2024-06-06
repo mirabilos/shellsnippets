@@ -1,8 +1,8 @@
 #!/bin/mksh
-rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.84 2023/05/22 01:46:20 tg Exp $'
+rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.87 2024/04/04 04:19:32 tg Exp $'
 #-
 # Copyright © 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015,
-#	      2016, 2017, 2019, 2021, 2022
+#	      2016, 2017, 2019, 2021, 2022, 2023, 2024
 #	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -59,10 +59,10 @@ typeset -f repo_description >/dev/null || function repo_description {
 
 	print -nr -- "WTF ${suite_nick} Repository"
 }
-set -A dpkgarchs -- alpha amd64 arc arm arm64 arm64ilp32 armel armhf \
-    hppa hurd-amd64 hurd-i386 i386 ia64 kfreebsd-amd64 kfreebsd-i386 \
+set -A dpkgarchs -- alpha amd64 arc arm arm64 armel armhf hppa \
+    hurd-amd64 hurd-arm64 hurd-i386 i386 ia64 kfreebsd-amd64 kfreebsd-i386 \
     loong64 m68k mips mips64el mipsel powerpc powerpcspe ppc64 ppc64el \
-    riscv64 s390 s390x sh4 sparc sparc64 tilegx x32
+    riscv64 s390 s390x sh4 sparc sparc64 x32 #mint-m68k
 [[ -n "${normarchs[*]}" ]] || set -A normarchs -- "${dpkgarchs[@]}"
 
 set +U
@@ -390,15 +390,15 @@ set -A prepldst
 integer nsrc=0 nbin=0 nrpl=0
 br='<br />'
 
-# syntax:	${suitename}/${distname}/${pN}/${pp} <suite>
+# syntax:	${suite}/${component}/${pN}/${pp} <suite>
 # example:	sid/wtf/openntpd/i386 lenny
 # not here:	squeeze/wtf/xz-utils/% backport-source
 # binary-only?	sid/wtf/pbuilder/= something
 if [[ -s mkdebidx.lnk ]]; then
 	while read pn pd; do
 		[[ $pn = '#'* ]] && continue
-		if [[ $pn != +([a-z0-9_])/+([a-z0-9_-])/+([!/])/@(%|=|+([a-z0-9])) || \
-		    $pd != +([a-z0-9_]) ]]; then
+		if [[ $pn != +([a-z0-9_-])/+([a-z0-9_-])/+([!/])/@(%|=|+([a-z0-9_-])) || \
+		    $pd != +([a-z0-9_-]) ]]; then
 			print -u2 "W: Invalid lnk line '$pn' '$pd'"
 			continue
 		fi
@@ -412,13 +412,13 @@ for suite in dists/*; do
 	for dist in $suite/*; do
 		[[ -d $dist/. ]] || continue
 		suitename=${suite##*/}
-		if [[ $suitename != +([a-z0-9_]) ]]; then
+		if [[ $suitename != +([a-z0-9_-]) ]]; then
 			print -u2 "W: Invalid suite name '$suitename'"
 			continue 2
 		fi
 		distname=${dist##*/}
 		if [[ $distname != +([a-z0-9_-]) ]]; then
-			print -u2 "W: Invalid dist name '$distname'"
+			print -u2 "W: Invalid dist (component) name '$distname'"
 			continue
 		fi
 		if [[ " $hide_components " = *" $distname "* ]]; then
@@ -596,6 +596,10 @@ cat <<'EOF'
    border-collapse: collapse;
    text-align: left;
    vertical-align: top;
+  }
+  thead {
+   position: sticky;
+   top: 0;
   }
   tr {
    border: 1px solid black;

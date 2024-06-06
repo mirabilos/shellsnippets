@@ -1,4 +1,4 @@
-# $MirOS: contrib/hosted/tg/historic/assotest,v 1.5 2022/01/25 06:24:48 tg Exp $
+# $MirOS: contrib/hosted/tg/historic/assotest,v 1.6 2024/04/25 14:46:46 tg Exp $
 #-
 # some number of interactive tests for asso-kit
 
@@ -15,22 +15,22 @@ shift
 
 typeset -Z11 -Uui16 ASSO_Lcdbhash_result
 function Lcdbhash_add {
-        [[ -o utf8-mode ]]; typeset u=$?
-        set +U
-        typeset s="$*"
-        [[ -n $s ]] || { s=$(cat;print .); s=${s%.}; }
-        typeset -i i=0 n=${#s}
+	[[ -o utf8-mode ]]; typeset u=$?
+	set +U
+	typeset s="$*"
+	[[ -n $s ]] || { s=$(cat;print .); s=${s%.}; }
+	typeset -i i=0 n=${#s}
 
-        while (( i < n )); do
+	while (( i < n )); do
 		((# ASSO_Lcdbhash_result += 1#${s:(i++):1} ))
-        done
+	done
 
-        (( u )) || set -U
+	(( u )) || set -U
 }
 function somehash {
-        ASSO_Lcdbhash_result=5381
-        Lcdbhash_add "$@"
-        print $ASSO_Lcdbhash_result
+	ASSO_Lcdbhash_result=5381
+	Lcdbhash_add "$@"
+	print $ASSO_Lcdbhash_result
 }
 
 mydir=$(realpath "$0/..")

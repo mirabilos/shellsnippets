@@ -1,7 +1,7 @@
 #!/bin/sh
-# $MirOS: contrib/hosted/tg/deb/hookdir/D60backports-debhelper,v 1.1 2023/01/28 04:04:06 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/D60backports-debhelper,v 1.2 2024/01/03 23:26:50 tg Exp $
 #-
-# © 2018, 2022 mirabilos Ⓕ CC0
+# © 2018, 2022 mirabilos Ⓕ CC0 or MirBSD
 #
 # Evil hack, to go with D25backports, when necessary.
 
