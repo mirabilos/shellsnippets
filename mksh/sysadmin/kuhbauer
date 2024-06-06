@@ -125,10 +125,10 @@ else
 fi
 cat >"$T/hooks/B00lintian" <<-EOF
 	#!/bin/sh
-	# \$MirOS: contrib/hosted/tg/deb/hookdir/B20lintian,v 1.5 2023/01/28 04:04:02 tg Exp \$
+	# \$MirOS: contrib/hosted/tg/deb/hookdir/B20lintian,v 1.6 2024/01/03 23:26:48 tg Exp \$
 	# $kuhbauerId
 	#-
-	# © 2011, 2020 mirabilos Ⓕ CC0
+	# © 2011, 2020 mirabilos Ⓕ CC0 or MirBSD
 
 	unset LANGUAGE
 	LC_ALL=C; export LC_ALL
