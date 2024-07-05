@@ -1,6 +1,6 @@
 #!/bin/mksh
 #-
-# Copyright © 2020
+# Copyright © 2020, 2024
 #	mirabilos <m@mirbsd.org>
 # Copyright © 2013, 2014, 2018, 2021
 #	mirabilos <t.glaser@tarent.de>
@@ -44,7 +44,7 @@ if [[ $1 = *'~'* ]]; then
 	cmd+=(CUSTOM="$CUSTOM")
 	REALDIST=${REALDIST%%'~'*}
 fi
-DIST=${REALDIST#*:}
+DIST=${REALDIST##*:}
 shift
 
 # workaround for supporting old and new eatmydata; cf. #765579
@@ -92,6 +92,7 @@ case $DIST {
 (*/*)		setarch_cmd= ;;
 (*)		setarch_cmd=- ;;
 }
+[[ $REALDIST != q:* ]] || setarch_cmd=-
 case ${DIST%/*} {
 (sarge|sarge-*)		setarch_26=1 ;;
 (etch|etch-*)		setarch_26=1 ;;
