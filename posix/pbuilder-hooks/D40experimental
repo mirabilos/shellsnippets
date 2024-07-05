@@ -1,0 +1,42 @@
+#!/bin/sh
+# $MirOS: contrib/hosted/tg/deb/hookdir/D40experimental,v 1.1 2024/07/04 15:44:04 tg Exp $
+#-
+# © 2012, 2014, 2016, 2017, 2018, 2019, 2022, 2023 mirabilos Ⓕ CC0 or MirBSD
+
+this=D40experimental
+msg() {
+	local level=$1
+	shift
+	printf >&2 '%s: %s: %s\n' "$level" "$this" "$*"
+}
+
+unset LANGUAGE
+LC_ALL=C; export LC_ALL
+set -e
+mydir=$(dirname "$0")
+if test -d /etc/apt/sources.list.d; then
+	slist=/etc/apt/sources.list.d/$this.list
+else
+	slist=/etc/apt/sources.list
+fi
+
+d=${DIST%/*}
+d=${d%-backports*}
+case $d in
+(dpo)
+	echo deb http://deb.debian.org/debian-ports/ \
+	    experimental main >>"$slist"
+	;;
+(*)
+	echo deb http://deb.debian.org/debian/ \
+	    experimental main >>"$slist"
+	;;
+esac
+
+if test -x "$mydir/D50apt-update" || \
+    test -x "$mydir/D50apt-upgrade"; then
+	: 'nothing; rely on the operator to DTRT'
+else
+	apt-get update
+	#apt-get -y --purge dist-upgrade
+fi
