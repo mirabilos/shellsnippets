@@ -1,8 +1,8 @@
 #!/usr/bin/env mksh
 # -*- mode: sh -*-
 #-
-# Copyright © 2021
-#	mirabilos <t.glaser@tarent.de>
+# Copyright © 2021, 2024
+#	mirabilos <t.glaser@qvest-digital.com>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission
@@ -130,7 +130,14 @@ draw_progress_bar
 
 grep -ve $'^[ih]i \t' <pl |&
 while IFS=$'\t' read -pr s p v; do
-	print -r "$p $v ERROR STATUS '$s'"
+	case $s {
+	('rc ')
+		print -r -- "$p $v was removed but conffiles litter (use dpkg --purge to fix once they are no longer needed)"
+		;;
+	(*)
+		print -r -- "$p $v ERROR STATUS '$s'"
+		;;
+	}
 	draw_progress_bar
 done
 grep -e $'^[ih]i \t' <pl | cut -sf2 >pp
