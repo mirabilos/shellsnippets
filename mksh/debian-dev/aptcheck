@@ -170,9 +170,9 @@ while IFS= read -pr line; do
 		case ${line##+( )} {
 		(*' /var/lib/dpkg/status')
 			(( rtype |= 1 )) ;;
-		(*'-backports'?(-sloppy)'/'+([a-z])' '+([a-z0-9])' Packages')
+		(*'-backports'?(-sloppy)'/'+([a-z0-9_-])' '+([a-z0-9-])' Packages')
 			(( rtype |= 2 )) ;;
-		(*' '*' '*/*' '+([a-z0-9])' Packages')
+		(*' '*' '*/*' '+([a-z0-9-])' Packages')
 			(( rtype |= 4 )) ;;
 		(*)
 			die unknown archive line ;;
