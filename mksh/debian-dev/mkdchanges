@@ -1,0 +1,59 @@
+#!/bin/mksh
+# © 2024 mirabilos Ⓕ MirBSD or CC0
+
+set -e
+
+if [[ $1 != *' '* ]]; then
+	print -ru2 "E: syntax: $0 'java optional' *.deb >changes-fragment"
+	exit 1
+fi
+sec=$1
+shift
+
+nl=$'\n'
+o1=Checksums-Sha1:
+o2=Checksums-Sha256:
+om=Files:
+
+if [[ $(exec 2>/dev/null; echo . | cksum -Ga sha1 -a size -a sha256 -a md5 | \
+    md5sum) = 7b83dbfa9501177ddd34b104f35b5846* ]]; then
+	#print -ru2 I: using cksum
+	alias dohash='
+		cksum -Ga sha1 -a size -a sha256 -a md5 "$f" |&
+		read -pr a x
+		read -pr z x
+		read -pr s x
+		read -pr m x
+		read -p x || : "dummy, to close the coprocess"
+	'
+else
+	#print -ru2 I: using slow
+	alias dohash='
+		stat -c %s "$f" |&
+		read -pr z x
+		read -p x || :
+		md5sum "$f" |&
+		read -pr m x
+		read -p x || :
+		sha1sum "$f" |&
+		read -pr a x
+		read -p x || :
+		sha256sum "$f" |&
+		read -pr s x
+		read -p x || :
+	'
+fi
+
+for f; do
+	b=${f##*/}
+	f=$(realpath "$f")
+	thiss='debug optional'
+	[[ $b = *-dbg* ]] || thiss=$sec
+	dohash
+	o1+="$nl $a $z $b"
+	o2+="$nl $s $z $b"
+	om+="$nl $m $z $thiss $b"
+done
+print -r -- "$o1"
+print -r -- "$o2"
+print -r -- "$om"
