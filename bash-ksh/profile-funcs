@@ -23,6 +23,8 @@ pts() {
 		${BROWSER:-lynx} "http://packages.qa.debian.org/${p:3:4}/${p#qa:}.html"
 	elif [[ $p = qa:* ]]; then
 		${BROWSER:-lynx} "http://packages.qa.debian.org/${p:3:1}/${p#qa:}.html"
+	elif [[ $p = qb:* ]]; then
+		${BROWSER:-lynx} "https://tracker.debian.org/pkg/${p#qb:}"
 	elif [[ $p = b[dp]:* ]]; then
 		${BROWSER:-lynx} "https://buildd.debian.org/status/package.php?p=${p#bd:}"
 	elif [[ $p = f:* ]]; then
