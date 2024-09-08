@@ -1,0 +1,40 @@
+#!/bin/mksh-static
+# © 2022, 2024 mirabilos Ⓕ MirBSD
+
+(( USER_ID == 0 )) || exec sudo /bin/mksh-static "$0" "$@"
+
+if [[ -e /sys/class/backlight/acpi_video0/brightness ]]; then
+	alias a=
+else
+	alias a='#'
+fi
+if [[ -e /sys/class/backlight/intel_backlight/brightness ]]; then
+	alias i=
+else
+	alias i='#'
+fi
+ca= ma= ci= mi=
+
+a ma=$(cat /sys/class/backlight/acpi_video0/max_brightness)
+i mi=$(cat /sys/class/backlight/intel_backlight/max_brightness)
+
+a ca=$(cat /sys/class/backlight/acpi_video0/brightness)
+i ci=$(cat /sys/class/backlight/intel_backlight/brightness)
+[[ $ca.$ma != +([0-9]).+([0-9]) ]] || print -ru2 -- "I: ACPI : $(
+	{ print scale=2; print -r -- "100*($ca)/($ma)"; } | bc
+    )% ($ca / $ma)"
+[[ $ci.$mi != +([0-9]).+([0-9]) ]] || print -ru2 -- "I: Intel: $(
+	{ print scale=2; print -r -- "100*($ci)/($mi)"; } | bc
+    )% ($ci / $mi)"
+
+a print -r -- "$ma" >/sys/class/backlight/acpi_video0/brightness
+i print -r -- "$mi" >/sys/class/backlight/intel_backlight/brightness
+
+a ca=$(cat /sys/class/backlight/acpi_video0/brightness)
+i ci=$(cat /sys/class/backlight/intel_backlight/brightness)
+[[ $ca.$ma != +([0-9]).+([0-9]) ]] || print -ru2 -- "I: ACPI : $(
+	{ print scale=2; print -r -- "100*($ca)/($ma)"; } | bc
+    )% ($ca / $ma)"
+[[ $ci.$mi != +([0-9]).+([0-9]) ]] || print -ru2 -- "I: Intel: $(
+	{ print scale=2; print -r -- "100*($ci)/($mi)"; } | bc
+    )% ($ci / $mi)"
