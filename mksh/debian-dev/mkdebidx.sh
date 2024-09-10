@@ -1,5 +1,5 @@
 #!/bin/mksh
-rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.87 2024/04/04 04:19:32 tg Exp $'
+rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.89 2024/07/11 14:26:12 tg Exp $'
 #-
 # Copyright © 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015,
 #	      2016, 2017, 2019, 2021, 2022, 2023, 2024
@@ -60,9 +60,9 @@ typeset -f repo_description >/dev/null || function repo_description {
 	print -nr -- "WTF ${suite_nick} Repository"
 }
 set -A dpkgarchs -- alpha amd64 arc arm arm64 armel armhf hppa \
-    hurd-amd64 hurd-arm64 hurd-i386 i386 ia64 kfreebsd-amd64 kfreebsd-i386 \
-    loong64 m68k mips mips64el mipsel powerpc powerpcspe ppc64 ppc64el \
-    riscv64 s390 s390x sh4 sparc sparc64 x32 #mint-m68k
+    hurd-amd64 hurd-arm64 hurd-i386 i386 ia64 loong64 \
+    m68k mips mips64el mipsel powerpc powerpcspe ppc64 ppc64el riscv64 \
+    s390 s390x sh4 sparc sparc64 x32 #mint-m68k #kfreebsd-amd64 kfreebsd-i386
 [[ -n "${normarchs[*]}" ]] || set -A normarchs -- "${dpkgarchs[@]}"
 
 set +U
@@ -308,7 +308,8 @@ for suite in dists/*; do
 		Suite: ${distribution:-${suite##*/}}
 		Codename: ${dcodename:-${suite##*/}}
 		Date: $(date -Ru)
-		Architectures: all ${dpkgarchs[*]} source
+		Architectures: all ${dpkgarchs[*]}
+		No-Support-for-Architecture-all: Packages
 		$components
 		Description: $(repo_description "$nick")
 		MD5Sum:

@@ -1,5 +1,5 @@
 #!/bin/sh
-# $MirOS: contrib/hosted/tg/deb/hookdir/D25backports,v 1.11 2024/01/03 23:26:51 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/D25backports,v 1.12 2024/08/24 18:21:16 tg Exp $
 #-
 # © 2012, 2014, 2016, 2017, 2018, 2019, 2022, 2023 mirabilos Ⓕ CC0 or MirBSD
 #
@@ -34,21 +34,21 @@ case $d in
 	echo deb http://archive.debian.org/debian-backports/ \
 	    $d-backports main >>"$slist"
 	;;
-(wheezy|jessie)
+(wheezy|jessie|stretch|buster)
 	echo deb http://archive.debian.org/debian/ \
 	    $d-backports main >>"$slist"
 	;;
-(stretch|buster|bullseye|bookworm)
+(bullseye|bookworm|trixie)
 	echo deb http://deb.debian.org/debian/ \
 	    $d-backports main >>"$slist"
 	;;
-(dapper|hardy|jaunty|karmic|lucid|maverick|natty|oneiric|precise|quantal|raring|saucy|utopic|vivid|wily|yakkety|zesty|artful|cosmic|disco|eoan|groovy|hirsute|impish)
+(dapper|hardy|jaunty|karmic|lucid|maverick|natty|oneiric|precise|quantal|raring|saucy|utopic|vivid|wily|yakkety|zesty|artful|cosmic|disco|eoan|groovy|hirsute|impish|kinetic)
 	echo deb http://old-releases.ubuntu.com/ubuntu/ \
 	    $d-updates main universe >>"$slist"
 	echo deb http://old-releases.ubuntu.com/ubuntu/ \
 	    $d-backports main universe >>"$slist"
 	;;
-(trusty|xenial|bionic|focal|jammy|kinetic|lunar)
+(trusty|xenial|bionic|focal|jammy|lunar|mantic|noble|oracular)
 	echo deb http://archive.ubuntu.com/ubuntu/ \
 	    $d-updates main universe >>"$slist"
 	echo deb http://archive.ubuntu.com/ubuntu/ \

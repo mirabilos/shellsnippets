@@ -1,5 +1,5 @@
 #!/bin/sh
-# $MirOS: contrib/hosted/tg/deb/hookdir/D10wtfrepo,v 1.15 2024/01/03 23:26:49 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/D10wtfrepo,v 1.16 2024/07/26 18:01:19 tg Exp $
 #-
 # © 2012, 2014, 2016, 2017, 2023 mirabilos Ⓕ CC0 or MirBSD
 
@@ -76,11 +76,11 @@ if test -n "$dokey"; then
 	# in bullseye, this already emits a warning…
 	printf '%s\n' "$repokey" | apt-key add -
 	cat >>"$slist" <<-EOF
-		deb http://www.mirbsd.org/~tg/Debs/ $d wtf
+		deb http://debr.mirbsd.org/repos/wtf/ $d wtf
 	EOF
 else {
 	echo 'Types: deb'
-	echo 'URIs: http://www.mirbsd.org/~tg/Debs/'
+	echo 'URIs: http://debr.mirbsd.org/repos/wtf/'
 	echo "Suites: $d"
 	echo 'Components: lts'
 	echo 'Languages: none'
@@ -100,7 +100,7 @@ case $d in
 (squeeze)
 	# partial suite, add base
 	cat >>"$slist" <<-EOF
-		deb http://www.mirbsd.org/~tg/Debs/ lenny wtf
+		deb http://debr.mirbsd.org/repos/wtf/ lenny wtf
 	EOF
 	;;
 esac

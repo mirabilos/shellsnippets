@@ -1,5 +1,5 @@
 #!/bin/sh
-# $MirOS: contrib/hosted/tg/deb/hookdir/D26backportsloppy,v 1.3 2024/01/03 23:26:49 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/D26backportsloppy,v 1.4 2024/08/24 18:21:16 tg Exp $
 #-
 # © 2012, 2014, 2016, 2017, 2019, 2023 mirabilos Ⓕ CC0 or MirBSD
 
@@ -27,11 +27,11 @@ case $d in
 	echo deb http://archive.debian.org/debian-backports/ \
 	    $d-backports-sloppy main >>"$slist"
 	;;
-(wheezy|jessie)
+(wheezy|jessie|stretch|buster)
 	echo deb http://archive.debian.org/debian/ \
 	    $d-backports-sloppy main >>"$slist"
 	;;
-(stretch|buster|bullseye)
+(bullseye|bookworm)
 	echo deb http://deb.debian.org/debian/ \
 	    $d-backports-sloppy main >>"$slist"
 	;;
