@@ -1,0 +1,67 @@
+#!/bin/mksh
+# © mirabilos Ⓕ MirBSD or CC0
+
+# determine path to cookies.sqlite file
+db=
+if [[ -z $1 ]]; then
+	# profile, if there is only a single one
+	for x in ~/.mozilla/firefox/*/cookies.sqlite; do
+		[[ -e $x ]] || continue
+		if [[ -n $db ]]; then
+			print -ru2 "E: ambiguous databases"
+			for x in ~/.mozilla/firefox/*/cookies.sqlite; do
+				print -ru2 "N: ${x@Q}"
+			done
+			exit 1
+		fi
+		db=$x
+	done
+elif [[ -e $1 ]]; then
+	# filename, direct
+	db=$1
+elif [[ -e ~/.mozilla/firefox/$1/cookies.sqlite ]]; then
+	# fully qualified profile name
+	db=~/.mozilla/firefox/$1/cookies.sqlite
+elif [[ $1 != */* ]]; then
+	# human-readable profile name or profile identifier
+	for x in ~/.mozilla/firefox/{$1.*,*.$1}/cookies.sqlite; do
+		[[ -e $x ]] || continue
+		if [[ -n $db ]]; then
+			print -ru2 "E: ambiguous databases"
+			for x in ~/.mozilla/firefox/{$1.*,*.$1}/cookies.sqlite; do
+				[[ ! -e $x ]] || print -ru2 "N: ${x@Q}"
+			done
+			exit 1
+		fi
+		db=$x
+	done
+fi
+
+# realpathise as sqlite3(1) has no support for --
+[[ -z $db || ! -e $db || ! -f $db || ! -s $db || ! -r $db ]] || \
+    db=$(\\builtin realpath -- "$db") || exit 1
+
+# arriving at plausible pathname, with OS/2 support?
+if [[ $db != ?([A-Z]:)/* || ! -e $db || ! -f $db || ! -s $db || ! -r $db ]]; then
+	[[ -n $db ]] || db=$1
+	print -ru2 "E: no database: ${db@Q}"
+	exit 1
+fi
+
+# run query
+exec sqlite3 -bail -batch -init /dev/null -noheader \
+    -list -nullvalue '\N' -readonly -separator $'\t' "$db" <<\EOF
+SELECT IIF(SUBSTR(host, 1, 1) = '.', SUBSTR(host, 2), host),
+    IIF(SUBSTR(host, 1, 1) = '.', 'TRUE', 'FALSE'),
+    path,
+    IIF(isSecure > 0, 'TRUE', 'FALSE'),
+    expiry, name, value
+FROM moz_cookies
+WHERE host IS NOT NULL AND host != ''
+  AND path IS NOT NULL AND path  != ''
+  AND expiry IS NOT NULL
+  AND name IS NOT NULL AND name != ''
+  AND value IS NOT NULL AND value != ''
+ORDER BY IIF(SUBSTR(host, 1, 1) = '.', SUBSTR(host, 2), host),
+    path, name;
+EOF
