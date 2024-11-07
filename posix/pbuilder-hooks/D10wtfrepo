@@ -1,7 +1,7 @@
 #!/bin/sh
-# $MirOS: contrib/hosted/tg/deb/hookdir/D10wtfrepo,v 1.16 2024/07/26 18:01:19 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/D10wtfrepo,v 1.17 2024/11/06 12:27:49 tg Exp $
 #-
-# © 2012, 2014, 2016, 2017, 2023 mirabilos Ⓕ CC0 or MirBSD
+# © 2012, 2014, 2016, 2017, 2023, 2024 mirabilos Ⓕ CC0 or MirBSD
 
 this=D10wtfrepo
 msg() {
@@ -22,9 +22,12 @@ fi
 
 d=${DIST%/*}
 d=${d%-backports*}
-dokey=
+dokey=2
 case $d in
-(sarge|etch|lenny|squeeze|wheezy|jessie|stretch|buster|bullseye)
+(sarge|etch|lenny|squeeze|wheezy|jessie|stretch)
+	dokey=0
+	;;
+(buster|bullseye)
 	dokey=1
 	;;
 (bookworm)
@@ -72,24 +75,6 @@ RlU7iWE/Y56OcGQ6vERGK5ZpUN8sGS8EX2daltMBAyaA3xQ9LjCCE6uNAtIl89Yc
 EOF
 )
 
-if test -n "$dokey"; then
-	# in bullseye, this already emits a warning…
-	printf '%s\n' "$repokey" | apt-key add -
-	cat >>"$slist" <<-EOF
-		deb http://debr.mirbsd.org/repos/wtf/ $d wtf
-	EOF
-else {
-	echo 'Types: deb'
-	echo 'URIs: http://debr.mirbsd.org/repos/wtf/'
-	echo "Suites: $d"
-	echo 'Components: lts'
-	echo 'Languages: none'
-	# … but this isn’t supported yet in bullseye, so pooh!
-	echo Signed-By:
-	printf '%s\n' "$repokey" | sed -e 's/^$/./' -e 's/^/ /'
-    } >"/etc/apt/sources.list.d/$this.sources"
-fi
-
 case $d in
 (sarge)
 	# suite dependency
@@ -102,6 +87,36 @@ case $d in
 	cat >>"$slist" <<-EOF
 		deb http://debr.mirbsd.org/repos/wtf/ lenny wtf
 	EOF
+	;;
+esac
+
+case $dokey in
+(0)
+	printf '%s\n' "$repokey" | apt-key add -
+	cat >>"$slist" <<-EOF
+		deb http://debr.mirbsd.org/repos/wtf/ $d wtf
+	EOF
+	;;
+(1)
+	printf '%s\n' "$repokey" >/etc/apt/trusted.gpg.d/wtf-debian-keyring.asc
+	cat >>"$slist" <<-EOF
+		deb http://debr.mirbsd.org/repos/wtf/ $d wtf
+	EOF
+	;;
+(2)
+	{
+		echo 'Types: deb'
+		echo 'URIs: http://debr.mirbsd.org/repos/wtf/'
+		echo "Suites: $d"
+		echo 'Components: wtf'
+		echo 'Languages: none'
+		echo Signed-By:
+		printf '%s\n' "$repokey" | sed -e 's/^$/./' -e 's/^/ /'
+	} >"/etc/apt/sources.list.d/$this.sources"
+	;;
+(*)
+	msg E "dokey='$dokey'?!"
+	exit 255
 	;;
 esac
 

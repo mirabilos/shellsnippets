@@ -1,7 +1,7 @@
 #!/bin/mksh
-# $MirOS: contrib/hosted/tg/rcp,v 1.6 2020/10/29 05:15:06 tg Exp $
+# $MirOS: contrib/hosted/tg/rcp,v 1.7 2024/11/06 11:34:49 tg Exp $
 #-
-# Copyright (c) 2009, 2010, 2013, 2020
+# Copyright (c) 2009, 2010, 2013, 2020, 2024
 #	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -34,6 +34,12 @@ while (( i < ${#args[*]} )); do
 	(-a)
 		# -a replacement for FAT filesystem targets
 		a=rlDc
+		unset args[i]
+		;;
+	(--all)
+		# -a for Linux extattrs etc.
+		a=aAX
+		#a=aAXUNH (-U/-N are atime/birthtime, -N already below)
 		unset args[i]
 		;;
 	(-h)
