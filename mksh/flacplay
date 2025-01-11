@@ -1,10 +1,14 @@
 #!/bin/mksh
-# $MirOS: contrib/hosted/tg/flacplay,v 1.2 2012/09/29 14:07:15 tg Exp $
+# $MirOS: contrib/hosted/tg/flacplay,v 1.3 2025/01/02 17:23:34 tg Exp $
+#-
+# Exit this by sending SIGQUIT to the flacplay process then pressing ^C.
 
 if a=$(whence -p waveplay) && [[ -n $a && -x $a ]]; then
 	alias _wavplay='waveplay -'
-else
+elif [[ -e /dev/audio ]]; then
 	alias _wavplay='sox -t wav /dev/stdin -t sunau /dev/audio'
+else
+	alias _wavplay='sox -t wav /dev/stdin -t alsa'
 fi
 
 trap "" INT
@@ -12,7 +16,8 @@ trap "" INT
 for a in "$@"; do
 	if [[ $a = - || -s $a ]]; then
 		[[ $a = - ]] || print -ru2 "♬ $a"
-		flac -d -c "$a" | _wavplay
+		flac --apply-replaygain-which-is-not-lossless -d -c "$a" | \
+		    _wavplay
 	else
 		print -ru2 "Skipping illegible '$a'"
 	fi
