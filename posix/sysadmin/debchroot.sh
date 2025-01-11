@@ -1,6 +1,6 @@
 #!/bin/sh
 #-
-# Copyright © 2020, 2021, 2023
+# Copyright © 2020, 2021, 2023, 2025
 #	mirabilos <m@mirbsd.org>
 # Copyright © 2019, 2020, 2022
 #	mirabilos <t.glaser@tarent.de>
@@ -180,6 +180,11 @@ debchroot_run() (
 		debchroot__host=$(chroot "$2" cat /etc/hostname 2>/dev/null) || \
 		    debchroot__host=
 		test -z "$debchroot__host" || hostname -- "$debchroot__host"
+		chroot "$2" sh -c "
+			x=/usr/sbin/policy-rc.d
+			if test -h \$x; then exit 1; fi
+			test -e \$x && test -s \$x && test -x \$x
+		" || echo >&2 "W: /usr/sbin/policy-rc.d missing in the chroot, re-run debchroot_start"
 		exec "$@"
 	    '"' -- chroot" '"$debchroot__mpt" "$@"'
 )
@@ -760,43 +765,83 @@ EOCHR
 		trydivert() {
 			trydivert1 "$@" </dev/null && trydivert2 "$@"
 		}
+		tf=
 		trydivert1() {
-			debchroot__tdp=false
-
-			if exists $1.REAL; then
-				exists $1 && debchroot__tdp=true
-			elif exists $1; then
-				mv $1 $1.REAL || exit 1
+			if exists "$1.dchr-info"; then
+				if exists "$1"; then
+					echo >&2 "W: $1 already $(cat "$1.dchr-info"), skipping"
+					return 1
+				fi
+				echo >&2 "W: $1 missing, should be $(cat "$1.dchr-info"), rewriting"
+				return 0
 			fi
-			debchroot__tdT=$(mktemp "/tmp/tf.XXXXXXXXXX") || {
-				echo >&2 "E: cannot create temporary file"
-				exit 1
-			}
-			dpkg-divert --local --quiet --rename \
-			    --divert $1.REAL --add $1 2>"$debchroot__tdT"
-			debchroot__tdE=$?
-			grep -v \
-			    -e 'Essential.*no-rename' \
-			    -e 'no-rename.*Essential' \
-			    <"$debchroot__tdT" | sed \
-			    -e 's/[^[:print:]]/[7m?[0m/g' >&2
-			rm -f "$debchroot__tdT"
-			unset debchroot__tdT
-			test x"$debchroot__tdE" != x"0" && \
-			    command -v dpkg-divert >/dev/null 2>&1 && exit $debchroot__tdE
-			unset debchroot__tdE
-			$debchroot__tdp || if exists $1; then
-				echo >&2 "E: cannot clear pre-existing $2"
-				exit 1
+			candivert=false
+			if command -v dpkg-divert >/dev/null 2>&1; then
+				if x=$(dpkg-divert --list "$1"); then
+					test -n "$x" || candivert=true
+				else
+					echo >&2 "W: dpkg-divert --list $1 failed"
+				fi
 			fi
-			unset debchroot__tdp
+			while $candivert; do
+				if test -z "$tf"; then
+					tf=$(mktemp "/tmp/tf.XXXXXXXXXX") || {
+						echo >&2 "E: cannot create temporary file, not diverting $1"
+						tf=
+						break
+					}
+				fi
+				dpkg-divert --local --quiet --rename \
+				    --divert "$1.dchr-dist" --add "$1" 2>"$tf"
+				tec=$?
+				grep -v \
+				    -e 'Essential.*no-rename' \
+				    -e 'no-rename.*Essential' \
+				    <"$tf" | sed \
+				    -e 's/[^[:print:]]/[7m?[0m/g' >&2
+				test x"$tec" = x"0" || {
+					echo >&2 "E: dpkg-divert $1 exited with errorlevel $tec, not diverting"
+					break
+				}
+				echo diverted >"$1.dchr-info"
+				return 0
+			done
+			if exists "$1"; then
+				mv "$1" "$1.dchr-dist" || exit 1
+				echo renamed >"$1.dchr-info"
+			else
+				echo absent >"$1.dchr-info"
+			fi
+			return 0
 		}
 		trydivert2() {
-			cat >$1
-			chmod 0755 $1
-			test -e $1 && test -s $1 && test -x $1 || {
+			if exists "$1.dchr-tmp"; then
+				rm -fr "$1.dchr-tmp"
+				if exists "$1.dchr-tmp"; then
+					echo >&2 "E: $1.dchr-tmp pre-exists"
+					exit 1
+				fi
+			fi
+			cat >"$1.dchr-tmp"
+			chmod 0755 "$1.dchr-tmp"
+			test -e "$1.dchr-tmp" && test -s "$1.dchr-tmp" && \
+			    test -x "$1.dchr-tmp" || {
+				echo >&2 "E: cannot install temporary $2"
+				exit 1
+			}
+			ln -f "$1.dchr-tmp" "$1" || {
 				echo >&2 "E: cannot install fake $2"
 				exit 1
+			}
+			s1=$(stat -c '%i' "$1.dchr-tmp") || s1=e$?
+			s2=$(stat -c '%i' "$1") || s2=E$?
+			test x"$s1" = x"$s2" || {
+				cmp -s "$1.dchr-tmp" "$1" || {
+					echo >&2 "E: cannot verify fake $2"
+					exit 1
+				}
+				echo >&2 "W: fake $2 cannot be verified, inode $s1 <> $s2"
+				rm -f "$1.dchr-tmp"
 			}
 		}
 
@@ -812,7 +857,7 @@ EOCHR
 		EOF
 		exists /sbin/initctl && trydivert /sbin/initctl Upstart <<-\EOF
 			#!/bin/sh
-			test x"$1" = x"version" && exec /sbin/initctl.REAL "$@"
+			test x"$1" = x"version" && exec /sbin/initctl.dchr-dist "$@"
 			echo 1>&2
 			echo 'Warning: Fake initctl called, doing nothing.' 1>&2
 			exit 0
@@ -825,6 +870,7 @@ EOCHR
 			*) exit 101 ;;
 			esac; done
 		EOF
+		test -z "$tf" || rm -f "$tf"
 
 		echo dobro >&7
 EOCHR
@@ -868,37 +914,94 @@ debchroot__undo() {
 			test -h "$1" || test -e "$1"
 		}
 
-		if command -v dpkg-divert >/dev/null 2>&1; then
-			undiverti() {
-				dpkg-divert --local --quiet --rename \
-				    --remove "$1" || rv=1
-			}
-			undivertn() { undiverti "$@"; }
-		else
-			undiverti() {
-				mv "$1.REAL" "$1" || rv=1
-			}
-			undivertn() { :; }
-		fi
+		notexists() {
+			exists "$1" && return 1 || return 0
+		}
+
 		undivert() {
-			exists "$1.REAL" || {
-				undivertn "$1"
+			exists "$1.dchr-info" || {
+				if exists "$1.dchr-dist" || exists "$1.dchr-tmp"; then
+					echo >&2 "W: $1 not fully undiverted!"
+					ls -l "$1"* | sed 's/^/N: /' >&2
+					rv=1
+				fi
 				return 0
 			}
-			rm -f "$1"
-			if exists "$1"; then
-				echo >&2 "E: cannot rm $1 before undivert"
+			how=$(cat "$1.dchr-info") || {
+				ls -l "$1"* | sed 's/^/N: /' >&2
 				rv=1
-			fi
-			undiverti "$1"
-			if exists "$1.REAL"; then
-				echo >&2 "E: undivert $1 failed to rm REAL"
-				rv=1
-			fi
-			exists "$1" || {
-				echo >&2 "E: undivert $1 failed to rename"
-				rv=1
+				return 0
 			}
+			case $how in
+			(diverted|renamed|absent) ;;
+			(*)
+				echo >&2 "E: unknown method, $1 not undiverted"
+				ls -l "$1"* | sed 's/^/N: /' >&2
+				rv=1
+				return 0 ;;
+			esac
+			if notexists "$1"; then
+				case $how in
+				(absent)
+					rm -f "$1.dchr-info" "$1.dchr-dist" "$1.dchr-tmp"
+					if exists "$1.dchr-info"; then
+						echo >&2 "W: cannot clear diversion info"
+						ls -l "$1"* | sed 's/^/N: /' >&2
+						rv=1
+					fi
+					return 0
+					;;
+				(*)
+					echo >&2 "W: fake $1 already deleted"
+					;;
+				esac
+			elif notexists "$1.dchr-tmp"; then
+				echo >&2 "W: fake $2 verification file missing, removing anyway"
+				rm "$1"
+			else
+				s1=$(stat -c '%i' "$1.dchr-tmp") || s1=e$?
+				s2=$(stat -c '%i' "$1") || s2=E$?
+				test x"$s1" = x"$s2" || \
+				    cmp -s "$1.dchr-tmp" "$1" || {
+					echo >&2 "E: cannot verify fake $1, not undiverting"
+					rv=1
+					return 0
+				}
+				rm "$1"
+			fi
+			if exists "$1"; then
+				case $how in
+				(renamed|absent)
+					echo >&2 "E: cannot remove fake $1, not undiverting"
+					rv=1
+					return 0 ;;
+				esac
+			fi
+			case $how in
+			(diverted)
+				dpkg-divert --local --quiet --rename \
+				    --remove "$1" || {
+					rv=1
+					return 0
+				} ;;
+			(renamed)
+				if exists "$1.dchr-dist"; then
+					mv "$1.dchr-dist" "$1" || rv=1
+				else
+					echo >&2 "W: $1.dchr-dist vanished, assuming deliberate absence"
+				fi ;;
+			(absent)
+				;;
+			(*)
+				exit 255 ;;
+			esac
+			rm -f "$1.dchr-info" "$1.dchr-dist" "$1.dchr-tmp"
+			if exists "$1.dchr-info"; then
+				echo >&2 "W: cannot clear diversion info"
+				ls -l "$1"* | sed 's/^/N: /' >&2
+				rv=1
+			fi
+			return 0
 		}
 
 		undivert /sbin/initctl
