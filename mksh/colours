@@ -1,0 +1,59 @@
+#!/bin/mksh
+# © mirabilos Ⓕ MirBSD or CC0
+
+set -A col -- \
+    blck 'rot ' grün brwn blau pink cyan GRAU \
+    grau 'ROT ' GRÜN GELB BLAU PINK CYAN weiß
+set -A bg
+set -A fg
+i=0
+j=-1
+while (( ++j < 8 )); do
+	fg[i]=3$j
+	bg[i]=4$j
+	let ++i
+done
+j=-1
+while (( ++j < 8 )); do
+	fg[i]=1\;3$j
+	bg[i]=10$j
+	let ++i
+done
+
+print -n "\\e[0m\\e[;H\\e[J"
+lt=┌────┬───────────────────────────────────────────────┬┬───────────────────────────────────────────────┬────┐
+z=-1
+while (( ++z < 8 )); do
+	print "$lt"
+	lt=├────┼───────────────────────────────────────────────┼┼───────────────────────────────────────────────┼────┤
+	ll=│${col[z]}│
+	lr=│${col[z+8]}│
+	for h in 0 8; do
+		print -n "$ll"
+		for s in 0 8; do
+			print -n "\\e[${bg[z + s]}m"
+			f=-1
+			while (( ++f < 8 )); do
+				print -n "\\e[${fg[f + h]}m ${col[f + h]} "
+			done
+		done
+		print "\\e[0m$lr"
+		ll="│\\e[${bg[z]}mDFLT\\e[0m│"
+		lr="│\\e[${bg[z + 8]}mDFLT\\e[0m│"
+	done
+done
+lt=├────┼───────────────────────────────────────────────┴┼───────────────────────────────────────────────┴────┘
+print "\\e[0m$lt"
+ll=│dflt│
+lr=│
+for h in 0 8; do
+	print -n "$ll"
+	f=-1
+	while (( ++f < 8 )); do
+		print -n "\\e[${fg[f + h]}m ${col[f + h]} "
+	done
+	print "\\e[0m$lr"
+	ll='│    │'
+	lr='│'
+done
+print '└────┴────────────────────────────────────────────────┘'
