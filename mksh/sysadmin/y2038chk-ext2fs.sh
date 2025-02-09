@@ -16,7 +16,16 @@ fi
 ec=1
 n=0
 p=0
-i=$(sort -rk2 </proc/mounts) || exit 255
+i=$(
+	IFS=' '
+	seen=' '
+	# not a useless use of cat: procfs behaves too weird for sh
+	cat /proc/mounts | while read -r dv rest; do
+		[[ $seen != *" $dv "* ]] || continue
+		print -r -- "$dv $rest"
+		seen+="$dv "
+	done | sort -rk2
+    ) || exit 255
 IFS=$nl
 read -rAN -1 lines <<<"$i" || exit 255
 IFS=$saveIFS
@@ -41,6 +50,9 @@ while (( i-- )); do
 		print -ru2 "E: tune2fs for $vis failed, cannot check"
 		continue
 	}
+	if [[ $dat = *"$nl"'Filesystem features:'*'sparse_super2'* ]]; then
+		print -ru2 "I: $vis cannot be online-resized by Linux"
+	fi
 	if [[ $dat = *"$nl"'Filesystem revision #:'*([	 ])0* ]]; then
 		let ++p
 		print -ru2 "W: $vis has Y2038 problem and is a revision 0 filesystem"
