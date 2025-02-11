@@ -618,14 +618,14 @@ function doout {
 
 print -r -- '/* {{{ generated */'
 print -r -- "/*     by $myua */"
-doout "$vtssmh" 'Samhain (All-Hallowe’en), solar/golden ratio'
-doout "$vtswsw" 'Jul (Wintersonnenwende, Mittwinter, longest-night, Saturnalia, schab-e Yaldā, 冬至)'
-doout "$vtsimb" 'Imbolc (Brighid, Lichtmeß, Oimelc, Lupercalia), solar/golden ratio'
-doout "$vtsftn" 'Ēostre/Ôstara (Frühjahrstagundnachtgleiche, Nouruz, Hilaria)'
-doout "$vtsblt" 'Beltaine (Walpurgis, Floralia), solar/golden ratio'
-doout "$vtsssw" 'Litha (Sommersonnenwende, Mittsommer, shortest-night)'
-doout "$vtslgh" 'Lughnasadh (Schnitterfest, Kräuterweih, Lammas), solar/golden ratio'
-doout "$vtshtn" 'Mabon (Herbsttagundnachtgleiche, harvest festival)'
+doout "$vtssmh" 'Samhain (All-Hallowe’en, Ilgės/Apkūlības), solar/golden ratio'
+doout "$vtswsw" 'Jul (Wintersonnenwende, Mittwinter, longest-night, Saturnalia, schab-e Yaldā, 冬至, Kūķu)'
+doout "$vtsimb" 'Imbolc (Brighid, Lichtmeß, Oimelc, Lupercalia, Meteņi), solar/golden ratio'
+doout "$vtsftn" 'Ēostre/Ôstara (Frühjahrstagundnachtgleiche, Nouruz, Hilaria, Lieldienas)'
+doout "$vtsblt" 'Beltaine (Walpurgis, Floralia, Jorė/Ūsiņi), solar/golden ratio'
+doout "$vtsssw" 'Litha (Sommersonnenwende, Mittsommer, shortest-night, Joninės/Jāņi)'
+doout "$vtslgh" 'Lughnasadh (Schnitterfest, Kräuterweih, Lammas, Māras), solar/golden ratio'
+doout "$vtshtn" 'Mabon (Herbsttagundnachtgleiche, harvest festival, Apjumības)'
 print -r -- '/* }}} generated */'
 print
 print -r -- '/* {{{ generated for the southern hemisphere */'
