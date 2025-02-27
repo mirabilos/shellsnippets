@@ -1,5 +1,5 @@
 #!/bin/mksh
-rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.89 2024/07/11 14:26:12 tg Exp $'
+rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.90 2025/02/27 02:30:12 tg Exp $'
 #-
 # Copyright © 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015,
 #	      2016, 2017, 2019, 2021, 2022, 2023, 2024
@@ -586,6 +586,7 @@ done
  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en"><head>
  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+ <meta name="tdm-reservation" content="1" />
  <meta name="MSSmartTagsPreventParsing" content="TRUE" />
 EOF
 print -r -- " <title>${repo_title} Index</title>"

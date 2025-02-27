@@ -1,4 +1,4 @@
-roff2htm_rcsid='$MirOS: src/scripts/roff2htm,v 1.115 2024/03/12 03:12:37 tg Exp $'
+roff2htm_rcsid='$MirOS: src/scripts/roff2htm,v 1.116 2025/02/27 02:30:04 tg Exp $'
 # $ekkoBSD: catman2html.sh,v 1.2 2004/03/07 03:02:53 stephen Exp $
 #-
 # Copyright (c) 2004, 2005, 2006, 2007, 2011, 2012, 2014, 2015,
@@ -207,6 +207,7 @@ function output_header {
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en"><head>
  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
  <meta http-equiv="Content-Style-Type" content="text/css" />
+ <meta name="tdm-reservation" content="1" />
  <meta name="MSSmartTagsPreventParsing" content="TRUE" />
  <link rel="canonical" href="http://www.mirbsd.org/man'$roff2htm_machine/$1.$2'" />
  <title>RTFM '$1\($2')</title>
