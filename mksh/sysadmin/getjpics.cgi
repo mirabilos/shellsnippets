@@ -92,6 +92,7 @@ function emit_html_start {
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en"><head>
  <meta http-equiv="cache-control" content="no-cache" />
  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+ <meta name="tdm-reservation" content="1" />
  <title>Jabber User Overview</title>
 </head><body>
 <h1>Jabber Groups</h1>

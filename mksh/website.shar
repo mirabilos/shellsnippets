@@ -476,6 +476,7 @@ X		 "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 X		<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en"><head>
 X		 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 X		 <meta http-equiv="Content-Style-Type" content="text/css" />
+X		 <meta name="tdm-reservation" content="1" />
 X		 <meta name="MSSmartTagsPreventParsing" content="TRUE" />
 X		 <link rel="stylesheet" type="text/css" href="@@RELPATH@@vstyle.css" />
 X		 <link rel="apple-touch-icon" href="@@RELPATH@@pics/blumenkohl.png" />
