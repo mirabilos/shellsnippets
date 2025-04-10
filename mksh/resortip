@@ -291,10 +291,9 @@ cmpr() {
 	}
 }
 
-while read -Ar; do
+while IFS=$' \t\n,;' read -Ar; do
 	((# ++ln ))
 	for oip in "${REPLY[@]}"; do
-		oip=${oip%,}
 		if [[ $oip = */* ]]; then
 			unset pfxlen
 			pfxlen=${oip##*/}
