@@ -1,6 +1,8 @@
 #!/bin/mksh
 # -*- mode: sh -*-
 #-
+# Copyright © 2025
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 # Copyright © 2021
 #	mirabilos <t.glaser@tarent.de>
 #
@@ -292,6 +294,7 @@ cmpr() {
 while read -Ar; do
 	((# ++ln ))
 	for oip in "${REPLY[@]}"; do
+		oip=${oip%,}
 		if [[ $oip = */* ]]; then
 			unset pfxlen
 			pfxlen=${oip##*/}
@@ -303,6 +306,28 @@ while read -Ar; do
 			else
 				((# pfxlen <= 32 )) || die "prefixlen too big"
 			fi
+		elif [[ $oip = *-* ]]; then
+			ip=${oip%-*}
+			if [[ $oip = *:* ]]; then
+				pfxlen=128
+				chkipv6 || die "invalid start IP address"
+				iprange6
+				s1=${|str6 ipmin;}
+				ip=${oip#*-}
+				chkipv6 || die "invalid IP range"
+				iprange6
+				print -r -- "6 $s1 ${|str6 ipmax;}"
+			else
+				pfxlen=32
+				chkipv4 || die "invalid start IP address"
+				iprange4
+				s1=${ipmin#16#}
+				ip=${oip#*-}
+				chkipv4 || die "invalid IP range"
+				iprange4
+				print -r -- "4 $s1 ${ipmax#16#}"
+			fi
+			continue
 		else
 			if [[ $oip = *:* ]]; then
 				pfxlen=128
