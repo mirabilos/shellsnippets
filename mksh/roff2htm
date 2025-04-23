@@ -1,9 +1,9 @@
-roff2htm_rcsid='$MirOS: src/scripts/roff2htm,v 1.116 2025/02/27 02:30:04 tg Exp $'
+roff2htm_rcsid='$MirOS: src/scripts/roff2htm,v 1.117 2025/04/23 01:13:45 tg Exp $'
 # $ekkoBSD: catman2html.sh,v 1.2 2004/03/07 03:02:53 stephen Exp $
 #-
 # Copyright (c) 2004, 2005, 2006, 2007, 2011, 2012, 2014, 2015,
 #		2016, 2017, 2018, 2020, 2021, 2022
-#	mirabilos <m@mirbsd.org>
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 # Original version for ekkoBSD by:
 # Copyright (c) 2004
 #	Stephen Paskaluk <sap@mirbsd.org>
@@ -328,7 +328,7 @@ function output_header {
 		for (i = 0; i < h3s.length; ++i)
 			h3s[i].style.marginLeft = w;
 	}
-	if (!(/(\.mirbsd|^mbsd\.evolvis)\.org$/.test(window.location.hostname))) {
+	if (!(/\.(mbsd\.evolvis\.org|mirbsd\.(org|de))$/.test('.'+window.location.hostname))) {
 		var el = document.getElementById("footerImprint");
 		el.style.display = "none";
 	}
@@ -347,9 +347,9 @@ function output_footer {
  provided by <b>mirabilos</b>.</span></p>
 <p class="footer2">These manual pages and other documentation are <a
  href="'$roff2htm_rel'man7/BSD-Licence.htm">copyrighted</a> by their
- respective writers; their sources are available at the project’s <a
- href="http://cvs.mirbsd.de/">CVSweb</a>, AnonCVS and other mirrors. The rest
- is Copyright © 2002–2024 <a href="http://www.mirbsd.org/">MirBSD</a>.</p>
+ respective writers; their sources are available via AnonCVS or <a
+ href="http://cvs.mirbsd.de/">CVSweb</a>. The rest is Copyright © 2002–2025 <a
+ href="http://www.mirbsd.org/">MirBSD</a> and Ⓕ The MirOS Licence.</p>
 <p class="footer3">This manual page’s HTML representation is supposed to be <a
  href="http://validator.w3.org/check/referer">valid XHTML/1.1</a>; if not,
  please send a bug report — diffs preferred.</p>
