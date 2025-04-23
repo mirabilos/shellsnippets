@@ -69,3 +69,6 @@ function showtermine {
 	done
 	LC_ALL=C.UTF-8 date +$'⇒ \033[1m%b %d  %Y, %H:%M:%S%z (%Z), %G-W%V-%u (%a)\033[0m ⇐'
 }
+
+# show environment sorted and indented (GNU)
+alias envs='env -0 | LC_ALL=C sort -z | tr '\''\0\n'\'' '\''\n\0'\'' | LC_ALL=C sed --posix -e '\''s/^/env: /'\'' -e '\''s/\x00/\n\t/g'\'
