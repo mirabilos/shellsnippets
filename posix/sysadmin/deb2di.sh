@@ -580,6 +580,10 @@ esac
 				adduser -- "$mkuser" $group
 			done
 		fi
+		pwck -s
+		grpck -s
+		rm -f /etc/passwd- /etc/group- /etc/shadow- /etc/gshadow- \
+		    /etc/subuid- /etc/subgid- # in case of etckeeper
 		: end of pre-scripted post-bootstrap steps
 		# prepare for manual steps as desired
 		set +x
