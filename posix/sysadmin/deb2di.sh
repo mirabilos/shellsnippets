@@ -1,7 +1,8 @@
 #!/bin/sh
+# -*- mode: sh -*-
 #-
-# Copyright © 2020, 2021, 2023
-#	mirabilos <m@mirbsd.org>
+# Copyright © 2020, 2021, 2023, 2025
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 # Copyright © 2019, 2020, 2022, 2023
 #	mirabilos <t.glaser@tarent.de>
 #
@@ -540,7 +541,7 @@ esac
 			    "s/@/$(dpkg --print-architecture)/g") ;;
 		esac
 		eatmydata apt-get --purge -y install --no-install-recommends \
-		    busybox firmware-linux-free $kpkg
+		    busybox firmware-linux-free $kpkg zstd
 		rm -f /var/cache/apt/archives/*.deb  # save temp space
 		: remaining user configuration may error out intermittently
 		set +e
