@@ -1,7 +1,8 @@
 #!/bin/mksh
+# -*- mode: sh -*-
 #-
-# Copyright © 2020, 2024
-#	mirabilos <m@mirbsd.org>
+# Copyright © 2020, 2024, 2025
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 # Copyright © 2013, 2014, 2018, 2021
 #	mirabilos <t.glaser@tarent.de>
 #
@@ -22,7 +23,8 @@
 #-
 # Simple-to-use wrapper around eatmydata plus cowbuilder to use with
 # https://www.mirbsd.org/cvs.cgi/contrib/hosted/tg/deb/pbuilderrc to
-# select the proper build chroot.
+# select the proper build chroot. Now relies on pbuilderrc to enable
+# eatmydata and datefudge.
 #
 # Example:
 # c lenny/i386 DEB_BUILD_OPTIONS=parallel=4 linux32 --build foo*.dsc
@@ -41,30 +43,18 @@ fi
 REALDIST=$1
 if [[ $1 = *'~'* ]]; then
 	CUSTOM=${REALDIST#*'~'}
-	cmd+=(CUSTOM="$CUSTOM")
+	set -A cmd+ -- "CUSTOM=$CUSTOM"
 	REALDIST=${REALDIST%%'~'*}
 fi
 DIST=${REALDIST##*:}
 shift
 
-# workaround for supporting old and new eatmydata; cf. #765579
-eatmydata='LD_LIBRARY_PATH=/usr/lib/libeatmydata LD_PRELOAD=libeatmydata.so'
-# disable for some distros without either
-case ${DIST%/*} {
-(sarge|sarge-*|etch|etch-*)
-	eatmydata=LD_PRELOAD=
-	;;
-}
-if [[ $1 = --keepmydata ]]; then
-	eatmydata=LD_PRELOAD=
-	shift
-fi
-
 # construct command line
 set -A cmd+ -- "DIST=$REALDIST" LANG=C LC_CTYPE=C LC_NUMERIC=C \
     LC_TIME=C LC_COLLATE=C LC_MONETARY=C LC_MESSAGES=C LC_PAPER=C \
     LC_NAME=C LC_ADDRESS=C LC_TELEPHONE=C LC_MEASUREMENT=C \
-    LC_IDENTIFICATION=C LC_ALL=C $eatmydata
+    LC_IDENTIFICATION=C LC_ALL=C
+[[ -n $DATEFUDGE ]] && set -A cmd+ -- "DATEFUDGE=$DATEFUDGE"
 while [[ $1 = *=* ]]; do
 	cmd[${#cmd[@]}]=$1
 	shift
