@@ -1,7 +1,8 @@
 #!/bin/sh
+# -*- mode: sh -*-
 #-
-# Copyright © 2020, 2021
-#	mirabilos <m@mirbsd.org>
+# Copyright © 2020, 2021, 2025
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 # Copyright © 2022
 #	mirabilos <t.glaser@tarent.de>
 #
@@ -100,6 +101,7 @@ debfstab() (
 	nl='
 '
 	{
+		writeln "#spec 'file' vfstype mntopts freq passno"
 		writeln '#/dev/... swap swap sw,discard=once 0 0configureyourswapdevice(s)here'
 		writeln 'swap /tmp tmpfs defaults,noatime,nosuid,nodev 0 0configuretotaste'
 		findmnt --real -abnrUuvo FSTYPE,TARGET,SOURCE,FSROOT,OPTIONS,LABEL,UUID,PARTLABEL,PARTUUID,FSTYPE | \
@@ -198,10 +200,7 @@ debfstab() (
 		  test x"$hasroot" = x"1" || \
 		    writeln '/dev/... / ... defaults 0 1makesuretoconfigure'
 		}
-	} | sort -k2,2 -k1 | {
-		writeln '#spec file vfstype mntopts freq passno'
-		cat
-	} | column -t | sed \
+	} | sort -k2,2 -k1 | column -t | sed \
 	    -e "1s/\$/\\${nl}/" \
 	    -e "s/^\\(.*\\)\\(.*\\)\$/# \\2\\${nl}\\1/" \
 	    -e "s// /g" \
