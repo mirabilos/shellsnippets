@@ -2,7 +2,7 @@
 # -*- mode: sh -*-
 #-
 # Copyright © 2013, 2015
-#	Thorsten “mirabilos” Glaser <thorsten.glaser@teckids.org>
+#	mirabilos
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission

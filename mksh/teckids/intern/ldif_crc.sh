@@ -4,7 +4,7 @@
 # From: MirOS: src/lib/libc/hash/sfv.c,v 1.2 2007/08/19 12:03:13 tg Exp $
 #-
 # Copyright © 2014
-#	Thorsten “mirabilos” Glaser <thorsten.glaser@teckids.org>
+#	mirabilos
 # Copyright © 2006
 #	Thorsten “mirabilos” Glaser <tg@mirbsd.org>
 #

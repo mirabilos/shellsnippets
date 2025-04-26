@@ -5,7 +5,7 @@
 #		2011, 2012, 2013, 2014
 #	Thorsten “mirabilos” Glaser <tg@mirbsd.org>
 # Copyright © 2013, 2014, 2015
-#	Thorsten Glaser <thorsten.glaser@teckids.org>
+#	mirabilos
 # Copyright © 2015
 #	Dominik George <dominik.george@teckids.org>
 #
