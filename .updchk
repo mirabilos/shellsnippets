@@ -1,7 +1,7 @@
 #!/bin/mksh
 # -*- mode: sh -*-
 #-
-# © 2020, 2022, 2024 mirabilos Ⓕ MirBSD
+# © 2020, 2022, 2024, 2025 mirabilos Ⓕ MirBSD
 
 export LC_ALL=C POSIXLY_CORRECT=1
 unset LANGUAGE
@@ -12,14 +12,14 @@ PATH="$mydir/mksh:$PATH" . assockit.ksh
 
 [[ $1 != /* || ! -d $1 ]] || cd "$1" || exit 255
 if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-	git grep -F '$Mir''OS: '
+	git grep -E '([$]|[Ff]rom )[Mm]ir[Oo][Ss]: .*,v .* '
 else
-	grep -Fr '$Mir''OS: '	# GNUism
+	grep -Er '([$]|[Ff]rom )[Mm]ir[Oo][Ss]: .*,v .* '  # GNUism
 fi |&
 while IFS= read -pr line; do
 	fn=${line%%:*}
 	line=${line#*:}
-	line=${line#*'$Mir''OS: '}
+	line=${line#*@('$'|[Ff]'rom ')[Mm]ir[Oo][Ss]: }
 	if [[ $line != +([! ]),v\ +([0-9.])?('+'+([! ]))\ +([0-9/])\ +([0-9:])\ +([! ])\ +([! ])\ *(\\)\$* ]]; then
 		print -ru2 -- "D: mismatch($fn) ${line@Q}"
 		continue
@@ -80,7 +80,11 @@ for df in "${asso_y[@]}"; do
 				continue ;;
 			(mksh/sysadmin/gencert.sh*1.135)
 				continue ;;
-			(mksh/@(sysadmin/@(mvndebri.sh|vcs2deb)|teckids/mk/common|website.shar)*)
+			(mksh/sysadmin/getnetcfgsrc/distrib/common/functions*1.9)
+				continue ;;
+			(mksh/@(sysadmin/@(getnetcfg|mvndebri.sh|vcs2deb)|teckids/@(mk/common|mk/base64.ksh|www/webform.sh)|ldap_user_info.cgi|website.shar)*)
+				continue ;;
+			(mksh/timefnssrc/kern/c/mirtime.c*)
 				continue ;;
 			(mksh/uhr-preR41contrib/hosted/tg/uhr1.5*)
 				continue ;;
