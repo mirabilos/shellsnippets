@@ -1,8 +1,9 @@
 #!/bin/mksh
-rcsid='$MirOS: contrib/hosted/tg/deb/quinn-ls.sh,v 1.17 2024/04/25 14:47:36 tg Exp $'
+# -*- mode: sh -*-
+rcsid='$MirOS: contrib/hosted/tg/deb/quinn-ls.sh,v 1.18 2025/04/25 20:17:30 tg Exp $'
 #-
 # Copyright © 2011, 2012, 2013, 2016, 2017
-#	Thorsten Glaser <tg@debian.org>
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission

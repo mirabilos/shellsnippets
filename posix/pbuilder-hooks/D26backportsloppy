@@ -1,5 +1,5 @@
 #!/bin/sh
-# $MirOS: contrib/hosted/tg/deb/hookdir/D26backportsloppy,v 1.4 2024/08/24 18:21:16 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/D26backportsloppy,v 1.5 2025/04/25 19:55:32 tg Exp $
 #-
 # © 2012, 2014, 2016, 2017, 2019, 2023 mirabilos Ⓕ CC0 or MirBSD
 
@@ -23,7 +23,12 @@ fi
 d=${DIST%/*}
 d=${d%-backports*}
 case $d in
-(lenny|squeeze)
+(lenny)
+	apt-get -y --purge install debian-backports-keyring
+	echo deb http://archive.debian.org/debian-backports/ \
+	    $d-backports-sloppy main >>"$slist"
+	;;
+(squeeze)
 	echo deb http://archive.debian.org/debian-backports/ \
 	    $d-backports-sloppy main >>"$slist"
 	;;

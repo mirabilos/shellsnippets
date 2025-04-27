@@ -1,12 +1,8 @@
 # -*- mode: sh -*-
-# $MirOS: contrib/hosted/tg/progress-bar,v 1.6 2020/05/11 14:28:31 tg Exp $
+# $MirOS: contrib/hosted/tg/progress-bar,v 1.7 2025/04/26 23:51:41 tg Exp $
 #-
-# Copyright © 2018, 2020
-#	mirabilos <m@mirbsd.org>
-# Copyright © 2017
-#	mirabilos <t.glaser@tarent.de>
-# Copyright © 2015, 2017
-#	mirabilos
+# Copyright © 2015, 2017, 2018, 2020
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission

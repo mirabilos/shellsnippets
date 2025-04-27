@@ -1,8 +1,9 @@
 #!/bin/mksh
-# $MirOS: contrib/hosted/tg/deb/BuildDSC.sh,v 1.24 2020/10/30 03:41:55 tg Exp $
+# -*- mode: sh -*-
+# $MirOS: contrib/hosted/tg/deb/BuildDSC.sh,v 1.25 2025/04/25 20:17:29 tg Exp $
 #-
 # Copyright © 2015, 2016, 2017, 2020
-#	mirabilos <m@mirbsd.org>
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 # Copyright © 2010, 2011, 2018
 #	mirabilos <t.glaser@tarent.de>
 #

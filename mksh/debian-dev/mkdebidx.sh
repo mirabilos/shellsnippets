@@ -1,24 +1,27 @@
 #!/bin/mksh
-rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.90 2025/02/27 02:30:12 tg Exp $'
+# -*- mode: sh -*-
+rcsid='$MirOS: contrib/hosted/tg/deb/mkdebidx.sh,v 1.91 2025/04/25 20:17:30 tg Exp $'
 #-
 # Copyright © 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015,
 #	      2016, 2017, 2019, 2021, 2022, 2023, 2024
-#	mirabilos <m@mirbsd.org>
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission
-# is granted to deal in this work without restriction, including un-
+# is granted to deal in this work without restriction, including un‐
 # limited rights to use, publicly perform, distribute, sell, modify,
 # merge, give away, or sublicence.
 #
-# This work is provided "AS IS" and WITHOUT WARRANTY of any kind, to
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
 # the utmost extent permitted by applicable law, neither express nor
 # implied; without malicious intent or gross negligence. In no event
 # may a licensor, author or contributor be held liable for indirect,
 # direct, other damage, loss, or other issues arising in any way out
 # of dealing in the work, even if advised of the possibility of such
 # damage or existence of a defect, except proven that it results out
-# of said person's immediate fault when using the work as intended.
+# of said person’s immediate fault when using the work as intended.
+#-
+# Generate repository metadata on repositories for Debian’s apt.
 
 unset normarchs repo_keyid gpg_remote gpg_bin repo_origin repo_label repo_title
 unset hide_components

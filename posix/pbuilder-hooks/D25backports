@@ -1,5 +1,5 @@
 #!/bin/sh
-# $MirOS: contrib/hosted/tg/deb/hookdir/D25backports,v 1.12 2024/08/24 18:21:16 tg Exp $
+# $MirOS: contrib/hosted/tg/deb/hookdir/D25backports,v 1.13 2025/04/25 19:55:32 tg Exp $
 #-
 # © 2012, 2014, 2016, 2017, 2018, 2019, 2022, 2023 mirabilos Ⓕ CC0 or MirBSD
 #
@@ -30,7 +30,12 @@ fi
 d=${DIST%/*}
 d=${d%-backports*}
 case $d in
-(sarge|etch|lenny|squeeze)
+(sarge|squeeze)
+	echo deb http://archive.debian.org/debian-backports/ \
+	    $d-backports main >>"$slist"
+	;;
+(etch|lenny)
+	apt-get -y --purge install debian-backports-keyring
 	echo deb http://archive.debian.org/debian-backports/ \
 	    $d-backports main >>"$slist"
 	;;

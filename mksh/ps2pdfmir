@@ -1,11 +1,9 @@
 #!/bin/mksh
 # -*- mode: sh -*-
-# $MirOS: contrib/hosted/tg/ps2pdfmir,v 1.9 2021/08/18 18:28:15 tg Exp $
+# $MirOS: contrib/hosted/tg/ps2pdfmir,v 1.10 2025/04/26 23:51:41 tg Exp $
 #-
-# Copyright © 2009, 2010, 2015, 2021
-#	Thorsten “mirabilos” Glaser <tg@mirbsd.org>
-# Copyright © 2014, 2015
-#	mirabilos
+# Copyright © 2009, 2010, 2014, 2015, 2021
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission
