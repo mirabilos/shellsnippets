@@ -80,7 +80,7 @@ mj() {
 	# reg=	← country (eu, de, fr, uk, "")
 	# site=	← site search
 	# qm=	← none of these words
-	${BROWSER:-lynx} "https://www.mojeek.com/search?theme=dark&hp=minimal&t=40&si=1&lang=en&lb=&arc=none&autocomp=0&qsbu=1&qsba=0&qss[]=Bing&qss[]=Brave&qss[]=DuckDuckGo&qss[]=Ecosia&qss[]=Gigablast&qss[]=Google&qss[]=Startpage&qss[]=Yandex&date=1&cdate=1&size=1&tlen=256&dlen=512&rp_i=0&spell=1&newtab=1&ib=1&tn=3&ref=0&reg=&site=&qm=&q=$_q"
+	${BROWSER:-lynx} "https://www.mojeek.com/search?theme=dark&hp=minimal&t=40&clufmt=1&lang=en&lb=&arc=none&autocomp=0&qsbu=1&qsba=0&qss[]=Bing&qss[]=Brave&qss[]=DuckDuckGo&qss[]=Ecosia&qss[]=Gigablast&qss[]=Google&qss[]=Startpage&qss[]=Yandex&date=1&cdate=1&size=1&tlen=256&dlen=512&rp_i=0&spell=1&newtab=1&ib=1&tn=3&ref=0&reg=&site=&qm=&q=$_q"
 }
 
 # Clew Search
