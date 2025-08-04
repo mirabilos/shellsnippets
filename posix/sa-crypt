@@ -1,0 +1,317 @@
+#!/bin/sh
+# -*- mode: sh -*-
+#-
+# Copyright © 2007, 2025
+#	mirabilos <m$(date +%Y)@mirbsd.de>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+#-
+# Use keys loaded into ssh-agent to encrypt/decrypt data files. This
+# script is intended for Debian bullseye or newer (or compatible).
+#
+# Implementation note: the actual data is symmetric encrypted, using
+# a session key generated from identical data for {en,de}cryption, a
+# salt and the label and pubkey used as well as the -s argument when
+# present are reproducibly signed with the corresponding private key
+# by the running ssh-agent, then hashed into a fixed-size string, as
+# openssl enc only reads a single line from the password source, and
+# PBKDF2-derived into the symmetric crypto key to avoid a warning.
+
+# shell support
+case $ZSH_VERSION:$VERSION in
+:zsh*) ZSH_VERSION=2 ;;
+esac
+
+if test -n "${ZSH_VERSION+x}" && (emulate sh) >/dev/null 2>&1; then
+	emulate sh
+	NULLCMD=:
+fi
+
+if test -n "$KSH_VERSION"; then
+	alias writeln='print -r --'
+else
+	writeln() {
+		printf '%s\n' "$1"
+	}
+fi
+
+# general setup
+set -eo noglob
+v='v1'
+ns='sa-crypt:v1@mirbsd.de'
+ht=$(printf '\t')
+nl='
+'
+IFS=" $ht$nl"
+saveIFS=$IFS
+
+# set LC_CTYPE but keep everything else from the current locale
+if test -n "${LC_ALL+set}"; then
+	all_locales=$(locale) || all_locales='
+LC_ADDRESS
+LC_COLLATE
+LC_CTYPE
+LC_IDENTIFICATION
+LC_MEASUREMENT
+LC_MESSAGES
+LC_MONETARY
+LC_NAME
+LC_NUMERIC
+LC_PAPER
+LC_TELEPHONE
+LC_TIME'
+	IFS=$nl
+	for loc in $all_locales; do
+		loc=${loc%%=*}
+		case $loc in
+		LC_ALL) ;;
+		LC_*) eval "$loc=\$LC_ALL; export $loc" ;;
+		esac
+	done
+	IFS=$saveIFS
+	unset LC_ALL
+fi
+LC_CTYPE=C
+export LC_CTYPE
+
+# error handling
+me=${0##*/}
+cleanup() {
+	:  # more later
+}
+die() {
+	set +e
+	cleanup
+	printf >&2 'E: %s: %s\n' "$me" "$1"
+	shift
+	test $# -eq 0 || printf >&2 'N: %s\n' "$@"
+	exit 1
+}
+eval '(set -o pipefail)' >/dev/null 2>&1 || \
+    die 'support for "set -o pipefail" by sh is needed'
+set -o pipefail
+
+# ensure openssl(1) is available, and get an IV already while here
+hasrnd=set
+test -e ~/.rnd || unset hasrnd
+test x"$(writeln hi | openssl enc -base64)" = x"aGkK" || \
+    die 'openssl(1) not working'
+test x"$(writeln hi | openssl dgst -sha512 -r | \
+    dd iflag=fullblock bs=16 count=1 2>/dev/null)" = x"d78abb0542736865" || \
+    die 'openssl(1) not working'
+iv=$(openssl rand -base64 ${hasrnd+-rand} ${hasrnd+~/.rnd} -writerand ~/.rnd 18) || \
+    die 'openssl(1) not working'
+timestamp=$(date +%s)
+
+# option handling
+usage() {
+	printf >&2 '%s\n' \
+	    "E: Usage: $me -e [-s <symmetric-secret>] <label> [<pubkey>]" \
+	    "N:        $me -d [-s <symmetric-secret>] [<label>]" \
+	    "N: this acts like a filter, encrypting/decrypting from stdin to stdout" \
+	    "N: <symmetric-secret> if given must be passed for both encrypt/decrypt" \
+	    "N: if <label> begins with a + it must be given when decrypting" \
+	    "N: any given label when decrypting will need to match the stored one" \
+	    "I: only ssh-rsa and ssh-ed25519 keys can be used"
+	exit ${1-1}
+}
+
+s_sec=
+label=
+case $1 in
+-e) isenc=true ;;
+-d) isenc=false ;;
+-h|-\?) usage 0 ;;
+*) usage ;;
+esac
+shift
+if test x"$1" = x"-s"; then
+	shift
+	s_sec=$nl$1
+	shift
+fi
+if test $# -gt 0; then
+	label=$1
+	shift
+fi
+case $label in
+*"$nl"*) die 'newlines in labels are not permitted' ;;
+esac
+if $isenc; then
+	# <label> is mandatory here
+	test -n "$label" || usage
+	# disallow further arguments other than one pubkey
+	test $# -lt 2 || usage
+	# when no pubkey passed, guess
+	if test $# -eq 0; then
+		x=$(ssh-add -L) || x=
+		IFS=$nl
+		set -- $x
+		IFS=$saveIFS
+		test $# -gt 0 || die 'no ssh key loaded into the agent'
+		test $# -eq 1 || die 'more than one key loaded into the agent' "$@"
+	fi
+	# separate pubkey into algorithm, base64-encoded and comment
+	set -- $1
+	# other parameters
+	salt=$iv@$timestamp
+	xkey=$(dd if=/dev/urandom iflag=fullblock bs=12 count=1 2>/dev/null | \
+	    openssl enc -base64) || die 'could not acquire extra salt'
+else
+	# disallow further arguments
+	test $# -eq 0 || usage
+	# read crypted-file header
+	IFS= read -r x || die 'cannot read first line of input'
+	test x"$x" = x"-----BEGIN sa-crypt encrypted file-----" || \
+	    die 'input not an sa-crypt encrypted file'
+	IFS= read -r x || die 'cannot read second line of input'
+	case $x in
+	"Version: $v "*) ;;
+	*) die 'invalid input file format (unsupported version)' "$x" ;;
+	esac
+	salt=${x#"Version: $v "}
+	xkey=${salt%%,*}
+	salt=${salt#*,}
+	IFS= read -r x || die 'cannot read third line of input'
+	case $x in
+	'Label: '*) ;;
+	*) die 'invalid input file format (expected label)' "$x" ;;
+	esac
+	x=${x#'Label: '}
+	if test -z "$label"; then
+		case $x in
+		'+'*) die 'must pass label when decrypting this file' ;;
+		esac
+		label=$x
+	else
+		test x"$label" = x"$x" || die 'mismatching label specified'
+	fi
+	IFS= read -r x || die 'cannot read forth line of input'
+	case $x in
+	'Pubkey: '*) ;;
+	*) die 'invalid input file format (expected pubkey)' "$x" ;;
+	esac
+	set -- ${x#'Pubkey: '}
+	IFS= read -r x || die 'cannot read fifth line of input'
+	test -z "$x" || die 'invalid input file format (expected empty line)' "$x"
+fi
+# usable pubkey?
+case $1 in
+ssh-rsa|ssh-ed25519) ;;
+*) die "key type '$1' not possible to use" ;;
+esac
+pubkey="$1 $2"
+set --
+
+# obtain an uncritical tempfile
+Q=$(umask 077 && mktemp) || Q=
+case $Q in
+/*) ;;
+*) die 'cannot create temporary file' ;;
+esac
+# obtain a temporary file we can shred(1) later
+T=$(umask 077 && mktemp /dev/shm/sacrypt.XXXXXXXXXX) || \
+    T=$(umask 077 && mktemp) || T=
+case $T in
+/*) ;;
+*) rm -f "$Q"; die 'cannot create temporary file' ;;
+esac
+cleanup() {
+	(test -e "$T" && shred "$T" || :)
+	trap - EXIT
+	rm -f "$T" "$Q"
+}
+trap cleanup EXIT
+
+# ensure openssl works and we can call it
+cat >"$T" <<EOPASS
+meow
+EOPASS
+cat >"$Q" <<EODATA
+U2FsdGVkX1/IRyuSzU/YuQ3W9FUH5a5pH+NAKM0U5Ek=
+EODATA
+rv=1
+for saltlen in '-saltlen 8' ''; do
+	x=$(openssl enc -rand ~/.rnd -writerand ~/.rnd \
+	    -salt $saltlen -pbkdf2 -iter 16384 -pass file:"$T" \
+	    -d -aes-256-cbc -a 2>/dev/null <"$Q") || x=
+	if test x"$x" = x"miau"; then
+		rv=0
+		break
+	fi
+done
+if test $rv -ne 0; then
+	# run it again without suppressing the diagnostic
+	(set -x; openssl enc -rand ~/.rnd -writerand ~/.rnd \
+	    -salt $saltlen -pbkdf2 -iter 16384 -pass file:"$T" \
+	    -d -aes-256-cbc -a <"$Q" || :)
+	die 'openssl cannot decrypt using parameters specified'
+fi
+
+# obtain secret for symmetric encryption
+cat >"$Q" <<EOPUBKEY
+$pubkey
+EOPUBKEY
+# begin critical region (secrets in $T)
+set +e
+<<EOSTDIN ssh-keygen -Y sign -q -n "$ns" -O hashalg=sha512 -f "$Q" | \
+    (cat <<EOPF && cat) | openssl dgst -sha512 -r | \
+    dd iflag=fullblock bs=128 count=1 of="$T" 2>/dev/null
+$salt $pubkey
+$label$s_sec
+EOSTDIN
+$xkey,$salt
+EOPF
+rv=$?
+test $rv -eq 0 || die 'could not obtain session key'
+
+# symmetric part for encrypting
+if $isenc; then
+	printf '%s\n' \
+	    '-----BEGIN sa-crypt encrypted file-----' \
+	    "Version: $v $xkey,$salt" \
+	    "Label: $label" \
+	    "Pubkey: $pubkey" \
+	    '' || die 'could not emit file header'
+	gzip -n9 | openssl enc -rand ~/.rnd -writerand ~/.rnd \
+	    -salt $saltlen -pbkdf2 -iter 16384 -pass file:"$T" \
+	    -e -aes-256-cbc -a
+	rv=$?
+	cleanup # immediately shred
+	test $rv -eq 0 || die 'could not encrypt'
+	writeln '-----END sa-crypt encrypted file-----' || \
+	    die 'could not emit file trailer'
+	exit 0
+fi
+
+# symmetric part for decrypting, a bit more convoluted
+(
+	while IFS= read -r line; do
+		if test x"$line" = x'-----END sa-crypt encrypted file-----'; then
+			# prevent SIGPIPE: read everything and discard
+			while IFS= read -r line; do :; done
+			exit 0
+		fi
+		writeln "$line"
+	done
+	die 'invalid input file format (expected trailer)'
+) | openssl enc -rand ~/.rnd -writerand ~/.rnd \
+    -salt $saltlen -pbkdf2 -iter 16384 -pass file:"$T" \
+    -d -aes-256-cbc -a | gzip -d
+rv=$?
+cleanup # immediately shred
+test $rv -eq 0 || die 'could not decrypt'
+exit 0
