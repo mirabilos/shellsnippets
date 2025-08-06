@@ -1,4 +1,6 @@
 #!/bin/mksh
+# © mirabilos Ⓕ CC0 or MirBSD
+
 :<<\EOF
 
 This is a self-updating money counter. Example could be:
@@ -15,6 +17,7 @@ Company budget:
 
 2019-zz-zz coffee			20,-- €
 2020-aa-aa milk				 5,-- €
+2020-bb-bb sugar 1,20
 -
 Σ
 

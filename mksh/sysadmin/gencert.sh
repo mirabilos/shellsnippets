@@ -1,11 +1,9 @@
 #!/bin/mksh
-# $Id: gencert.sh 1505+cvs 2010-10-11 12:26:46Z tglase $
+# -*- mode: sh -*-
 # $MirOS: src/etc/rc,v 1.139 2024/06/06 00:30:02 tg Exp $
 #-
-# Copyright © 2010
-#	mirabilos <t.glaser@tarent.de>
-# Copyright © 2020, 2024
-#	mirabilos <m@mirbsd.org>
+# Copyright © 2010, 2020, 2024
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission

@@ -1,11 +1,8 @@
 #!/bin/mksh
-# $Id: ui.cgi 5123 2017-01-16 16:10:38Z tglase $
-# root@dev:/var/www/tarentpgp/ui.cgi
+# -*- mode: sh -*-
 #-
-# Copyright (c) 2009, 2010, 2012
-#	mirabilos <t.glaser@tarent.de>
-# Copyright (c) 2002, 2003, 2004, 2006, 2007, 2008, 2009
-#	Thorsten Glaser <tg@mirbsd.org>
+# Copyright (c) 2002, 2003, 2004, 2006, 2007, 2008, 2009, 2010, 2012
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission

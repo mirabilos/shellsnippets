@@ -1,8 +1,8 @@
 #!/bin/mksh
-# $Id: ansi-colours 3961 2014-03-24 08:41:04Z tglase $
+# -*- mode: sh -*-
 #-
 # Copyright © 2014
-#	mirabilos <t.glaser@tarent.de>
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission

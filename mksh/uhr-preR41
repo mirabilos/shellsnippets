@@ -1,8 +1,9 @@
 #!/bin/mksh
+# -*- mode: sh -*-
 # $MirOS: contrib/hosted/tg/uhr,v 1.5 2012/05/28 00:30:00 tg Exp $
 #-
 # Copyright © 2012
-#	Thorsten Glaser <tg@mirbsd.org>
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission

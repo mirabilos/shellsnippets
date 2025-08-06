@@ -1,6 +1,7 @@
 #!/bin/sh
+# -*- mode: sh -*-
 #-
-# Written by Thorsten Glaser.
+# © mirabilos Ⓕ CC0 or MirBSD
 
 printf '%s' '53% [Waiting for headers]'
 while :; do

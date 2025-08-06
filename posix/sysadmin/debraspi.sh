@@ -1,13 +1,12 @@
 #!/bin/sh
+# -*- mode: sh -*-
 echo >&2 E: WIP
 exit 255
 #XXX TODO: use debchroot.sh helpers?
 
 #-
-# Copyright © 2020, 2021
-#	mirabilos <m@mirbsd.org>
-# Copyright © 2019, 2020
-#	mirabilos <t.glaser@tarent.de>
+# Copyright © 2019, 2020, 2021
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission

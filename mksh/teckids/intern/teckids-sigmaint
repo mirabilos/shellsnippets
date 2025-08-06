@@ -2,7 +2,7 @@
 # -*- mode: sh -*-
 #-
 # Copyright © 2013, 2014
-#	Thorsten Glaser <tg@mirbsd.org>
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 # Copyright © 2014
 #	Dominik George <dominik.george@teckids.org>
 #

@@ -1,9 +1,9 @@
 #!/bin/mksh
-# $Id: vcs2deb 3196 2012-09-23 15:43:52Z tglase $
-# $MirOS: contrib/hosted/tg/deb/BuildDSC.sh,v 1.14 2011/11/17 15:27:53 tg Exp $
+# -*- mode: sh -*-
+# From MirOS: contrib/hosted/tg/deb/BuildDSC.sh,v 1.14 2011/11/17 15:27:53 tg Exp $
 #-
 # Copyright (c) 2010, 2011, 2012
-#	Thorsten Glaser <t.glaser@tarent.de>
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission

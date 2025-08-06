@@ -2,7 +2,7 @@
 # -*- mode: sh -*-
 #-
 # Copyright © 2019
-#	mirabilos <t.glaser@tarent.de>
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission
@@ -20,7 +20,7 @@
 # of said person’s immediate fault when using the work as intended.
 #-
 # Shows all packages whose installed version is not available from a
-# repository any more.
+# repository any more. Compare: ../debian-dev/aptcheck
 #
 # Suggested extra usage:
 # apt-cache policy $(mksh showlcl.sh | while read a b; do echo $a; done) | less

@@ -1,5 +1,8 @@
 #!/bin/mksh
+# -*- mode: sh -*-
 # $MirOS: contrib/hosted/tg/L365,v 1.2 2012/08/23 17:39:59 tg Exp $
+#-
+# © mirabilos Ⓕ CC0 or MirBSD
 #-
 # Player for music streams from live365.com (not affiliated).
 

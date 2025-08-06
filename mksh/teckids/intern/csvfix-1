@@ -1,3 +1,6 @@
+# -*- mode: sh -*-
+# © mirabilos Ⓕ CC0 or MirBSD
+
 s=$'\x1C'
 while IFS=$s read l1 o1 l2 o2; do
 	[[ $l1 = "$l2" && $o1 = "$o2" ]] && continue

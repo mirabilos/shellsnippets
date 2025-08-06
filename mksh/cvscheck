@@ -1,4 +1,7 @@
 #!/bin/mksh
+# -*- mode: sh -*-
+#-
+# © mirabilos Ⓕ CC0 or MirBSD
 
 repo=${1:-/cvs}
 

@@ -1,7 +1,7 @@
-# $Id: svg-path-abs2rel 2081 2011-06-09 20:21:16Z tglase $
+# -*- mode: sh -*-
 #-
 # Copyright © 2010
-#	Thorsten Glaser <t.glaser@tarent.de>
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission

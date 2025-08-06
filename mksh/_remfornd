@@ -1,8 +1,9 @@
 #!/usr/bin/env mksh
+# -*- mode: sh -*-
 # From MirOS: contrib/code/Snippets/shuffle,v 1.8 2014/02/10 00:36:12 tg Exp $
 #-
 # Copyright © 2006, 2010, 2011, 2012, 2015, 2017, 2018
-#	mirabilos <m@mirbsd.org>
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission

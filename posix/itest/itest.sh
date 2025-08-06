@@ -1,8 +1,8 @@
 #!/bin/sh
+# -*- mode: sh -*-
 #-
 # Application demonstration for GNU gettext in shell scripts.
-# Copyright © 2015 mirabilos <t.glaser@tarent.de>
-# Published under any OSI-approved Open Source licence.
+# Copyright © 2015 mirabilos Ⓕ MirBSD or CC0
 #-
 # Call with, e.g: $ LC_ALL=de_DE.UTF-8 sh itest.sh x y z
 

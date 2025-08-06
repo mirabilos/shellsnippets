@@ -1,4 +1,8 @@
 #!/bin/sh
+# -*- mode: sh -*-
+#-
+# © mirabilos Ⓕ CC0 or MirBSD
+
 dispnr=${1:-1}
 hostname=$(hostname)
 COOKIE=$(PATH=/usr/sbin:$PATH openssl rand -hex 16)

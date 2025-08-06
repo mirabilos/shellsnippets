@@ -16,7 +16,7 @@ X#!/bin/mksh
 X# -*- mode: sh -*-
 X#-
 X# Copyright © 2016
-X#	mirabilos <t.glaser@tarent.de>
+X#	mirabilos <m$(date +%Y)@mirbsd.de>
 X#
 X# Provided that these terms and disclaimer and all copyright notices
 X# are retained or reproduced in an accompanying document, permission
@@ -195,7 +195,7 @@ X#!/bin/mksh
 X# -*- mode: sh -*-
 X#-
 X# Copyright © 2016
-X#	mirabilos <t.glaser@tarent.de>
+X#	mirabilos <m$(date +%Y)@mirbsd.de>
 X#
 X# Provided that these terms and disclaimer and all copyright notices
 X# are retained or reproduced in an accompanying document, permission
@@ -326,7 +326,7 @@ X#!/bin/mksh
 X# -*- mode: sh -*-
 X#-
 X# Copyright © 2016
-X#	mirabilos <t.glaser@tarent.de>
+X#	mirabilos <m$(date +%Y)@mirbsd.de>
 X#
 X# Provided that these terms and disclaimer and all copyright notices
 X# are retained or reproduced in an accompanying document, permission
@@ -416,12 +416,8 @@ sed 's/^X//' >tl2jd.sh << 'END-of-tl2jd.sh'
 X#!/bin/mksh
 X# -*- mode: sh -*-
 X#-
-X# Copyright © 2016
-X#	mirabilos <t.glaser@tarent.de>
-X# Copyright © 2015
-X#	mirabilos
-X# Copyright © 2007, 2008, 2012, 2013, 2014
-X#	mirabilos <m@mirbsd.org>
+X# Copyright © 2007, 2008, 2012, 2013, 2014, 2015, 2016
+X#	mirabilos <m$(date +%Y)@mirbsd.de>
 X#
 X# Provided that these terms and disclaimer and all copyright notices
 X# are retained or reproduced in an accompanying document, permission

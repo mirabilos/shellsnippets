@@ -1,5 +1,8 @@
 #!/bin/mksh
+# -*- mode: sh -*-
 #-
+# © mirabilos Ⓕ CC0 or MirBSD
+#
 # shuffle file descriptors around to make mplayer work
 # with _remfor{,nd} and remote MP3 files — bufmplayer,
 # in useful-scripts.git, appears to not work there but

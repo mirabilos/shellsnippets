@@ -1,8 +1,8 @@
 #!/bin/mksh
-# $Id: virtmem 4638 2015-11-27 10:28:12Z tglase $
+# -*- mode: sh -*-
 #-
 # Copyright © 2015
-#	mirabilos <t.glaser@tarent.de>
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission

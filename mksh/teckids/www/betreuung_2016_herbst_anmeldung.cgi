@@ -1,5 +1,6 @@
 #!/bin/mksh
 # -*- mode: sh -*-
+# Ⓕ CC0 or MirBSD
 
 conf=betreuung_2016_herbst
 kurz=BHerbst16

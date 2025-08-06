@@ -1,8 +1,8 @@
 #!/bin/mksh
-# $Id: mvndput.sh 2077 2011-06-09 12:30:40Z tglase $
+# -*- mode: sh -*-
 #-
 # Copyright (c) 2011
-#	Thorsten Glaser <t.glaser@tarent.de>
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission

@@ -1,3 +1,6 @@
+# -*- mode: sh -*-
+# © mirabilos Ⓕ CC0 or MirBSD
+
 test -z "$BASH_VERSION" || shopt -s extglob
 
 # Debian Bug Tracking System

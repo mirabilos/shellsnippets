@@ -1,7 +1,8 @@
 #!/bin/sh
+# -*- mode: sh -*-
 #-
 # Idea: Raphaël Rigo, https://twitter.com/_trou_/status/1313951783182651393
-# This script: © mirabilos; dedicated to the general public under CC0
+# This script: © mirabilos; dedicated to the general public under CC0 or MirBSD
 
 defangle=-45
 defalpha=0.25

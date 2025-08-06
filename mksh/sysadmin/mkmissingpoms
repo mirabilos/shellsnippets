@@ -1,8 +1,8 @@
 #!/bin/mksh
-# $Id: mkmissingpoms 4271 2015-01-07 14:13:00Z tglase $
+# -*- mode: sh -*-
 #-
 # Copyright © 2015
-#	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission

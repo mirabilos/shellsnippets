@@ -1,3 +1,7 @@
 #!/bin/sh
+# -*- mode: sh -*-
+#-
+# © mirabilos Ⓕ CC0 or MirBSD
+
 egrep -h '] (<|«|(-|¬|\[|\[\[|>|\*-> )|\*\*\* [^ ]* did a CTCP |[*#] )' \
     ${1:-~/sirc.log} | tr -d ''

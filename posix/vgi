@@ -1,2 +1,6 @@
 #!/bin/sh
+# -*- mode: sh -*-
+#-
+# © mirabilos Ⓕ CC0 or MirBSD
+
 egrep -ve ' has (quit|joined|left) ' -e '-\!- (ServerMode|Netsplit|Irssi)' -e 'is now known as' -e '^--- ' "$@"

@@ -1,5 +1,8 @@
 #!/bin/sh
+# -*- mode: sh -*-
 #-
+# © mirabilos Ⓕ CC0 or MirBSD
+#
 # keyboard layout quick switcher; usage:
 #  k                # loads ~/.Xmodmap
 #  k .rdp           # loads ~/.Xmodmap.rdp

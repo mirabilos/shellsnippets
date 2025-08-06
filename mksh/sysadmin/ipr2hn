@@ -1,8 +1,8 @@
 #!/bin/mksh
-# $Id: ipr2hn 2651 2012-01-09 13:52:46Z tglase $
+# -*- mode: sh -*-
 #-
 # Copyright © 2012
-#	mirabilos <t.glaser@tarent.de>
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission

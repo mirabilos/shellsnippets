@@ -1,8 +1,9 @@
 #!/bin/mksh
-# $MirOS: contrib/hosted/tg/verscmp,v 1.2 2014/06/20 22:50:56 tg Exp $
+# -*- mode: sh -*-
+# $MirOS: contrib/hosted/tg/verscmp,v 1.1 2014/06/20 22:50:56 tg Exp $
 #-
 # Copyright © 2013, 2014
-#	Thorsten Glaser <tg@mirbsd.org>
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission
@@ -21,6 +22,8 @@
 #-
 # Compare versions. Syntax: verscmp filea fileb
 # Files contain IFS-separated: name, version, ignored
+#
+# TODO: use useful-scripts.git/misc/dversion.py
 
 fa=$1; fb=$2
 [[ -n $fa && -s $fa && -n $fb && -s $fb ]] || exit 1

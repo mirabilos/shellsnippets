@@ -45,10 +45,9 @@ function getmembers {
 
 warns=0
 
-asso_setnull whitelist jtobisch
-asso_setnull whitelist nbildhauer
-asso_setnull whitelist nik
-asso_setnull whitelist tglaser
+asso_setnull whitelist name1
+asso_setnull whitelist name2
+asso_setnull whitelist name3
 
 set -A proj -- $(getmembers "$project_cn")
 for x in "${proj[@]}"; do

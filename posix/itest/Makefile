@@ -1,8 +1,7 @@
 #!/usr/bin/make -f
 #-
 # Application demonstration for GNU gettext in shell scripts.
-# Copyright © 2015 mirabilos <t.glaser@tarent.de>
-# Published under any OSI-approved Open Source licence.
+# Copyright © 2015 mirabilos Ⓕ MirBSD or CC0
 
 P=itest
 V=1.0

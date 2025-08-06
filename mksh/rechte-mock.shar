@@ -18,18 +18,15 @@
 mkdir rechte-mock
 echo x - rechte-mock/.htaccess
 sed 's/^X//' >rechte-mock/.htaccess << 'END-of-rechte-mock/.htaccess'
-X# $Id$
-X
 XOptions +ExecCGI
 XAddHandler cgi-script .cgi
 END-of-rechte-mock/.htaccess
 echo x - rechte-mock/addrole.cgi
 sed 's/^X//' >rechte-mock/addrole.cgi << 'END-of-rechte-mock/addrole.cgi'
 X#!/bin/mksh
-X# $Id$
 X#-
 X# Copyright © 2011, 2012
-X#	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
+X#	mirabilos <m$(date +%Y)@mirbsd.de>
 X#
 X# Provided that these terms and disclaimer and all copyright notices
 X# are retained or reproduced in an accompanying document, permission
@@ -73,10 +70,9 @@ Xexit 0
 END-of-rechte-mock/addrole.cgi
 echo x - rechte-mock/common
 sed 's/^X//' >rechte-mock/common << 'END-of-rechte-mock/common'
-X# $Id$
 X#-
 X# Copyright © 2011, 2012
-X#	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
+X#	mirabilos <m$(date +%Y)@mirbsd.de>
 X#
 X# Provided that these terms and disclaimer and all copyright notices
 X# are retained or reproduced in an accompanying document, permission
@@ -294,10 +290,9 @@ END-of-rechte-mock/common
 echo x - rechte-mock/grpimport.cgi
 sed 's/^X//' >rechte-mock/grpimport.cgi << 'END-of-rechte-mock/grpimport.cgi'
 X#!/bin/mksh
-X# $Id$
 X#-
 X# Copyright © 2011, 2012
-X#	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
+X#	mirabilos <m$(date +%Y)@mirbsd.de>
 X#
 X# Provided that these terms and disclaimer and all copyright notices
 X# are retained or reproduced in an accompanying document, permission
@@ -400,10 +395,9 @@ END-of-rechte-mock/grpimport.cgi
 echo x - rechte-mock/grprole.cgi
 sed 's/^X//' >rechte-mock/grprole.cgi << 'END-of-rechte-mock/grprole.cgi'
 X#!/bin/mksh
-X# $Id$
 X#-
 X# Copyright © 2011, 2012
-X#	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
+X#	mirabilos <m$(date +%Y)@mirbsd.de>
 X#
 X# Provided that these terms and disclaimer and all copyright notices
 X# are retained or reproduced in an accompanying document, permission
@@ -492,10 +486,9 @@ END-of-rechte-mock/grprole.cgi
 echo x - rechte-mock/roleperm.cgi
 sed 's/^X//' >rechte-mock/roleperm.cgi << 'END-of-rechte-mock/roleperm.cgi'
 X#!/bin/mksh
-X# $Id$
 X#-
 X# Copyright © 2011, 2012
-X#	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
+X#	mirabilos <m$(date +%Y)@mirbsd.de>
 X#
 X# Provided that these terms and disclaimer and all copyright notices
 X# are retained or reproduced in an accompanying document, permission
@@ -611,17 +604,19 @@ END-of-rechte-mock/roleperm.cgi
 echo x - rechte-mock/se.cgi
 sed 's/^X//' >rechte-mock/se.cgi << 'END-of-rechte-mock/se.cgi'
 X#!/bin/mksh
-X# $Id$
-X#-
-X# Copyright © Thorsten Glaser, taken from MirBSD with permission.
+X# © mirabilos Ⓕ MirBSD or CC0
 X
 Xvars=$(set)
-X#set -A args -- "$0" "$@"
-X#opts=$(set -o)
-X#set -o arc4random
+Xset -A args -- "$0" "$@"
+Xopts=$(set -o)
+Xif [[ -o ?arc4random ]]; then
+X	set -o arc4random
+Xfi
 Xprint Content-type: text/plain
-X#print Entropy: $RANDOM
+Xprint X-Entropy: $RANDOM
+Xprint X-RCSID: '$MirOS: contrib/hosted/tg/se.cgi,v 1.1 2024/10/29 15:05:44 tg Exp $'
 Xprint
+Xprint -r "ARGC=${#args[*]}"
 Xinteger i=0
 Xwhile (( i < ${#args[*]} )); do
 X	print -r "ARGV[$i]=${args[i]}"
@@ -629,8 +624,8 @@ X	let i++
 Xdone
 Xprint -r -- "$vars"
 Xprint -- ------------------------------------------------------------------------------
-X#print -r -- "$opts"
-X#print -- ------------------------------------------------------------------------------
+Xprint -r -- "$opts"
+Xprint -- ------------------------------------------------------------------------------
 Xif [[ $REQUEST_METHOD = POST ]]; then
 X	cat
 X	print

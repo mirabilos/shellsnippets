@@ -1,9 +1,8 @@
 #!/bin/mksh
+# -*- mode: sh -*-
 #-
-# Copyright © 2022
-#	mirabilos <m@mirbsd.org>
-# Copyright © 2013, 2014
-#	mirabilos <t.glaser@tarent.de>
+# Copyright © 2013, 2014, 2022
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission

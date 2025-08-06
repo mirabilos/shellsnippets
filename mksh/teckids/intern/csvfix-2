@@ -1,3 +1,6 @@
+# -*- mode: sh -*-
+# © mirabilos Ⓕ CC0 or MirBSD
+
 sort -u <schools2.ssv | while IFS=$'\x1C' read l1 l2 o1 o2; do
 	ldapsearch -QLLL "(&(l=$l1)(o=$o1))" dn | \
 	    tr '\n' $'\a' | sed -e $'s/\a //g' | tr $'\a' '\n' |&

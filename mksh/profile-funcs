@@ -1,3 +1,6 @@
+# -*- mode: sh -*-
+# © mirabilos Ⓕ MirBSD
+
 # XHTML validator
 xv() {
 	local i rv=0 s

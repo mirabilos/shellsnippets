@@ -1,5 +1,5 @@
 #!/bin/sh
-# $Id: whoswaps 4266 2014-12-29 11:28:16Z tglase $
+# -*- mode: sh -*-
 #-
 # Quelle: http://sven.stormbind.net/blog/posts/ocol_who_is_sitting_in_my_swap_space/
 

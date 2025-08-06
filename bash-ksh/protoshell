@@ -1,4 +1,8 @@
 #!/usr/mpkg/bin/bash
+# -*- mode: sh -*-
+#-
+# © mirabilos Ⓕ CC0 or MirBSD
+
 function dumpargv {
 	local i=0 j
 	for j in "$@"; do

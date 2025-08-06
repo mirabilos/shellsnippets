@@ -1,5 +1,6 @@
+# -*- mode: sh -*-
 # Copyright (c) 2011, 2012, 2013, 2017, 2019, 2023
-#	mirabilos <m@mirbsd.org>
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission

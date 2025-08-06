@@ -1,10 +1,9 @@
 #!/bin/sh
-# $Id: genkey-privatgebrauch.sh 5123 2017-01-16 16:10:38Z tglase $
+# -*- mode: sh -*-
+# $Id: genkey-privatgebrauch.sh 5123 2017-01-16 16:10:38Z ~ $
 #-
-# Copyright © 2010, 2011, 2013, 2015, 2017
-#	mirabilos <t.glaser@tarent.de>
-# Copyright (c) 2008
-#	Thorsten Glaser <tg@mirbsd.org>
+# Copyright © 2008, 2010, 2011, 2013, 2015, 2017
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission
@@ -253,7 +252,7 @@ Press Return to continue / Drücke Enter, um fortzusetzen!
 "
 	read egal
 else
-	echo "WARNING: Unknown GnuPG version '$vsn', tell tglase!"
+	echo "WARNING: Unknown GnuPG version '$vsn', tell an admin!"
 fi
 
 

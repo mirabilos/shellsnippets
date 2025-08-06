@@ -1,3 +1,6 @@
+# -*- mode: sh -*-
+# © mirabilos Ⓕ CC0 or MirBSD
+
 # Set the xterm window title to the current working directory
 # plus either the currently executing command line or “<mksh>”
 

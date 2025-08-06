@@ -1,7 +1,8 @@
 #!/bin/mksh
+# -*- mode: sh -*-
 #-
 # Copyright © 2015, 2021, 2022, 2024
-#	mirabilos <tg@debian.org>
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission

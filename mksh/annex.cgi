@@ -1,7 +1,8 @@
 #!/bin/mksh
+# -*- mode: sh -*-
 #-
 # Copyright © 2012
-#	Thorsten Glaser <tg@mirbsd.org>
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission

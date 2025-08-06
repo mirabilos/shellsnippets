@@ -23,7 +23,7 @@ X
 X[…]
 XThe MirOS Project web site source code is
 XCopyright © 2007, 2008, 2009, 2011
-X	Thorsten “mirabilos” Glaser <tg@mirbsd.de>
+X	mirabilos <m$(date +%Y)@mirbsd.de>
 XCopyright © 2006, 2008, 2011
 X	Benny Siegert <bsiegert@mirbsd.org>
 XThis source code is available under the terms of the stan-
@@ -256,7 +256,7 @@ sed 's/^X//' >mk/common << 'END-of-mk/common'
 Xrcsid_common='$MirOS: www/mk/common,v 1.3 2009/10/31 17:02:38 tg Exp $'
 X#-
 X# Copyright (c) 2007, 2008
-X#	Thorsten Glaser <tg@mirbsd.de>
+X#	mirabilos <m$(date +%Y)@mirbsd.de>
 X#
 X# Provided that these terms and disclaimer and all copyright notices
 X# are retained or reproduced in an accompanying document, permission
@@ -481,9 +481,8 @@ X		 <meta name="MSSmartTagsPreventParsing" content="TRUE" />
 X		 <link rel="stylesheet" type="text/css" href="@@RELPATH@@vstyle.css" />
 X		 <link rel="apple-touch-icon" href="@@RELPATH@@pics/blumenkohl.png" />
 X		 <link rel="canonical" href="$mws__canonpath" />
-X		 <meta name="author" content="Thorsten Glaser" />
 X		 <meta name="copyright" content="All rights reserved. Redistribution except for scientific and educational uses strictly prohibited. Unmodified redistribution with no endorsement permitted." />
-X		 <meta name="owner" content="The MirOS Project and The MirPorts Framework" />
+X		 <meta name="owner" content="The MirOS Project" />
 X		 <meta name="licence" content="see the source files in CVSWEB for details" />
 X		 <title>MirOS: $mws__pagename</title>
 X		 <meta name="robots" content="index, follow" />@@RSS@@
@@ -1191,7 +1190,7 @@ echo x - mk/strftm.c
 sed 's/^X//' >mk/strftm.c << 'END-of-mk/strftm.c'
 X/*-
 X * Copyright (c) 2008
-X *	Thorsten Glaser <tg@mirbsd.org>
+X *	mirabilos <m$(date +%Y)@mirbsd.de>
 X *
 X * Provided that these terms and disclaimer and all copyright notices
 X * are retained or reproduced in an accompanying document, permission
@@ -1284,7 +1283,7 @@ X// $MirOS: www/mk/ttf2png,v 1.6 2009/09/25 19:10:45 tg Exp $
 X
 X/*-
 X * Copyright (c) 2009
-X *	Thorsten Glaser <tg@mirbsd.org>
+X *	mirabilos <m$(date +%Y)@mirbsd.de>
 X *
 X * Provided that these terms and disclaimer and all copyright notices
 X * are retained or reproduced in an accompanying document, permission

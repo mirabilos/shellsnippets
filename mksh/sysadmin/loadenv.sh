@@ -1,6 +1,5 @@
-# $Id: loadenv.sh 3900 2014-01-11 20:47:43Z tglase $
-#-
-# Not complicated enough for copyright.
+# -*- mode: sh -*-
+# © mirabilos Ⓕ CC0 or MirBSD
 
 [[ -s /usr/share/tarent/.Xresources ]] && xrdb /usr/share/tarent/.Xresources
 # load ~/.Xmodmap and ~/.Xresources if they exist

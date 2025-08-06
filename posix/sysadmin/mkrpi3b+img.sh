@@ -1,9 +1,8 @@
 #!/bin/sh
+# -*- mode: sh -*-
 #-
-# Copyright © 2020, 2021
-#	mirabilos <m@mirbsd.org>
-# Copyright © 2019, 2020
-#	mirabilos <t.glaser@tarent.de>
+# Copyright © 2019, 2020, 2021
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission

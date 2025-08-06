@@ -1,5 +1,8 @@
+# -*- mode: sh -*-
 # $MirOS: contrib/hosted/tg/historic/assotest,v 1.6 2024/04/25 14:46:46 tg Exp $
 #-
+# © mirabilos Ⓕ CC0 or MirBSD
+#
 # some number of interactive tests for asso-kit
 
 if [[ $1 != x ]]; then

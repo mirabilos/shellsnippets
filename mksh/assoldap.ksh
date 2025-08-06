@@ -1,7 +1,7 @@
 # -*- mode: sh -*-
 #-
 # Copyright © 2013, 2014, 2015
-#	mirabilos <m@mirbsd.org>
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 # Copyright © 2014, 2015
 #	Dominik George <dominik.george@teckids.org>
 #

@@ -1,8 +1,8 @@
 #!/bin/mksh
-# $Id: csrgen 4043 2014-05-23 09:35:30Z tglase $
+# -*- mode: sh -*-
 #-
 # Copyright © 2010, 2011, 2014
-#	Thorsten Glaser <t.glaser@tarent.de>
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission

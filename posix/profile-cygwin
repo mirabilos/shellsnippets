@@ -1,3 +1,6 @@
+# -*- mode: sh -*-
+# © mirabilos Ⓕ CC0 or MirBSD
+
 # put this into ~/.profile on Cygwin to run a CR-LF line ended script with mksh
 
 mkshdos_re=$(printf 's/\r$//')

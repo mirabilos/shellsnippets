@@ -15,7 +15,7 @@ X#!/bin/mksh
 X#-
 X# tarent-activity WildFly startup script
 X# Copyright © 2013
-X#	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
+X#	Thorsten Glaser <t.glaser@tarent.de>
 X#	Umer Kayani <u.kayani@tarent.de>
 X#
 X# Provided that these terms and disclaimer and all copyright notices
@@ -218,7 +218,7 @@ X# Description:       Init script for WildFly/Liferay used by tarent-activity
 X### END INIT INFO
 X#-
 X# Copyright © 2013
-X#	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
+X#	Thorsten Glaser <t.glaser@tarent.de>
 X#
 X# Provided that these terms and disclaimer and all copyright notices
 X# are retained or reproduced in an accompanying document, permission

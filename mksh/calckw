@@ -1,7 +1,7 @@
 #!/bin/mksh
 # -*- mode: sh -*-
 #-
-# © 2023 mirabilos <m@mirbsd.org> Ⓕ CC0
+# © 2023 mirabilos Ⓕ CC0 or MirBSD
 #-
 # Calculate ISO calendar week ranges for a whole year, for calendar-mirbsd
 

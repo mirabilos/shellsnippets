@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2015, 2017, 2020
- *	mirabilos <mirabilos@evolvis.org>
+ *	mirabilos <m$(date +%Y)@mirbsd.de>
  *
  * Provided that these terms and disclaimer and all copyright notices
  * are retained or reproduced in an accompanying document, permission

@@ -1,10 +1,8 @@
 #!/bin/mksh
 # -*- mode: sh -*-
 #-
-# Copyright © 2015
-#	mirabilos
-# Copyright © 2013, 2014
-#	Thorsten Glaser <tg@mirbsd.org>
+# Copyright © 2013, 2014, 2015
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 # Copyright © 2014
 #	Dominik George <dominik.george@teckids.org>
 #

@@ -1,4 +1,8 @@
 #!/bin/mksh
+# -*- mode: sh -*-
+#-
+# © mirabilos Ⓕ CC0 or MirBSD
+
 set -A args
 blub=0
 for x in "$@"; do

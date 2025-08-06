@@ -1,8 +1,8 @@
 #!/bin/mksh
-# $Id: dmppgsql.sh 4369 2015-05-06 14:51:42Z tglase $
+# -*- mode: sh -*-
 #-
 # Copyright © 2015
-#	Thorsten Glaser <t.glaser@tarent.de>
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 # Copyright © 2007
 #	Benjamin Kix <b.kix@tarent.de>
 #

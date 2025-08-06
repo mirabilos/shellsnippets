@@ -3,10 +3,8 @@
 #-
 # From: MirOS: src/lib/libc/hash/sfv.c,v 1.2 2007/08/19 12:03:13 tg Exp $
 #-
-# Copyright © 2014
-#	mirabilos
-# Copyright © 2006
-#	Thorsten “mirabilos” Glaser <tg@mirbsd.org>
+# Copyright © 2006, 2014
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission

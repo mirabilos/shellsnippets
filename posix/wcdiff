@@ -1,5 +1,8 @@
 #!/bin/sh
+# -*- mode: sh -*-
 # $MirOS: contrib/hosted/tg/wcdiff,v 1.2 2014/11/17 10:34:14 tg Exp $
+#-
+# © mirabilos Ⓕ CC0 or MirBSD
 
 exec wdiff -w '[4;34m⌦[0m[1;4;31m' -x '[0m[4;34m⌫[0m' \
     -y '[4;34m▶[0m[1;4;32m' -z '[0m[4;34m◀[0m' "$@"

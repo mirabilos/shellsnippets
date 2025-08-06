@@ -1,7 +1,7 @@
 # -*- mode: sh -*-
 #-
 # Copyright © 2009, 2012, 2015, 2017, 2018, 2019, 2023
-#	Thorsten Glaser <t.glaser@tarent.de>
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission
