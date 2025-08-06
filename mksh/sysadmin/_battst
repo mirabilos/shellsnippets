@@ -1,7 +1,8 @@
 #!/bin/mksh-static
+# -*- mode: sh -*-
 #-
-# Copyright © 2021
-#	mirabilos <t.glaser@tarent.de>
+# Copyright © 2021, 2025
+#	mirabilos <m$(date +%Y)@mirbsd.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission
@@ -21,7 +22,10 @@
 # Put this as ~/.etc/bin/_battst chmod 755. ~/.screenrc:
 #backtick 5 2 10 /bin/mksh-static -c 'x=$(</sys/devices/platform/coretemp.0/hwmon/hwmon2/temp1_input); print -r -- "${x%???},${x:${#x}-3:1}"'
 # -or-
+#backtick 5 2 10 /bin/mksh-static -c 'x=$(/bin/cat /sys/class/thermal/thermal_zone0/temp); print -r -- "${x%???}"'
+# -or-
 #backtick 5 2 10 /bin/mksh-static -o noglob -c 'set -- $(</proc/acpi/ibm/thermal); print -r -- "$2"'
+# -plus-
 #backtick 6 2 10 /bin/mksh-static $HOME/.etc/bin/_battst
 #hardstatus alwayslastline "%{wm}A %{kr} %H %{ky} %5` %6`%{ky} %l %{kg} %D %Y-%m-%d %0c %{=b by} %01L=%=%-w%50L>[%n%f %t]%+w%-1< "
 
