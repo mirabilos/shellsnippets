@@ -81,7 +81,7 @@ colour=0
 [[ $level = Low ]] && colour=3
 [[ $level = Critical ]] && colour=4
 
-if [[ $capacity != 100 && ! $capacity > 80 ]]; then
+if [[ $capacity != 100 && ! $capacity > 65 ]]; then
 	[[ $i = ' ' ]] && i='~'
 	i=$blink1$i$blink0
 fi
