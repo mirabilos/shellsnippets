@@ -137,7 +137,9 @@ cat /proc/swaps >/dev/null
 sleep "$delay"
 
 run cryptdisks_stop "$d"
+sleep 1
 run cryptdisks_start "$d"
+sleep 1
 run swapon -o discard${p:+,pri="$p"} "/dev/mapper/$d"
 
 log_action_end_msg 0
