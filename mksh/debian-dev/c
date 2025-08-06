@@ -1,10 +1,8 @@
 #!/bin/mksh
 # -*- mode: sh -*-
 #-
-# Copyright © 2020, 2024, 2025
+# Copyright © 2013, 2014, 2018, 2020, 2021, 2024, 2025
 #	mirabilos <m$(date +%Y)@mirbsd.de>
-# Copyright © 2013, 2014, 2018, 2021
-#	mirabilos <t.glaser@tarent.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission
@@ -33,6 +31,11 @@
 
 unset LANGUAGE
 export LC_ALL=C
+
+if (( USER_ID == 0)) && [[ -z ${SUDO+set} ]]; then
+	# already root so omit the sudo call by default
+	SUDO=
+fi
 
 set -A cmd -- env --unset=XDG_RUNTIME_DIR
 
