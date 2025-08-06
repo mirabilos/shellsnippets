@@ -119,9 +119,10 @@ timestamp=$(date +%s)
 # option handling
 usage() {
 	printf >&2 '%s\n' \
-	    "E: Usage: $me -e [-s <symmetric-secret>] <label> [<pubkey>]" \
-	    "N:        $me -d [-s <symmetric-secret>] [<label>]" \
-	    "N: this acts like a filter, encrypting/decrypting from stdin to stdout" \
+	    "E: Usage: $me -e {common-options} <label> [<pubkey>]" \
+	    "N:        $me -d {common-options} [<label>]" \
+	    "N: common: [-f infile] [-o outfile] [-s <symmetric-secret>]" \
+	    "I: this acts like a filter, encrypting/decrypting from stdin to stdout" \
 	    "N: <symmetric-secret> if given must be passed for both encrypt/decrypt" \
 	    "N: if <label> begins with a + it must be given when decrypting" \
 	    "N: any given label when decrypting will need to match the stored one" \
@@ -131,18 +132,45 @@ usage() {
 
 s_sec=
 label=
-case $1 in
--e) isenc=true ;;
--d) isenc=false ;;
--h|-\?) usage 0 ;;
-*) usage ;;
-esac
-shift
-if test x"$1" = x"-s"; then
-	shift
-	s_sec=$nl$1
-	shift
-fi
+isenc=
+ploop=true
+while $ploop; do
+	test $# -gt 0 || break
+	case $1 in
+	-d)
+		test -z "$isenc" || usage
+		isenc=false
+		shift ;;
+	-e)
+		test -z "$isenc" || usage
+		isenc=true
+		shift ;;
+	-f)
+		shift
+		test $# -gt 0 || usage
+		exec <"$1"
+		shift ;;
+	-h|-\?)
+		usage 0 ;;
+	-o)
+		shift
+		test $# -gt 0 || usage
+		exec >"$1"
+		shift ;;
+	-s)
+		shift
+		test $# -gt 0 || usage
+		s_sec=$nl$1
+		shift ;;
+	--)
+		ploop=false
+		shift ;;
+	-*)
+		usage ;;
+	*)
+		ploop=false ;;
+	esac
+done
 if test $# -gt 0; then
 	label=$1
 	shift
