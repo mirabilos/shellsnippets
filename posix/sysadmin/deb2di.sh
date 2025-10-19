@@ -361,7 +361,7 @@ esac
 		esac
 		mkdir -p "${rnd%/*}"
 		test -d "${rnd%/*}"/.
-		dd if=/dev/urandom bs=256 count=1 conv=notrunc of="$rnd"
+		dd if=/dev/urandom bs=24 count=1 conv=notrunc of="$rnd"
 		chown 0:0 "${rnd%/*}" "$rnd"
 		chmod 755 "${rnd%/*}"
 		chmod 600 "$rnd"
@@ -642,7 +642,7 @@ Press Enter to continue; use the "exit" command to quit.' 13 69
 		>>/var/log/syslog echo "$(date +"%b %d %T")" \
 		    "${HOSTNAME%%.*} deb2di.sh[$$]:" \
 		    finishing up post-installation
-		dd if=/dev/urandom bs=256 count=1 seek=1 conv=notrunc of="$rnd"
+		dd if=/dev/urandom bs=24 count=1 seek=1 conv=notrunc of="$rnd"
 	EOS
 ) >"$sfn" || die 'post-installation script creation failure'
 
