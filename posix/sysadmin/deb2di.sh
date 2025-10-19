@@ -416,10 +416,11 @@ esac
 		ln -sfT /proc/self/mounts /etc/mtab
 		test -d /etc/network || mkdir /etc/network
 		test -e /etc/network/interfaces || {
-			echo "# interfaces(5) file used by ifup(8) and ifdown(8)" >/etc/network/interfaces
-			echo "# Include files from /etc/network/interfaces.d:" >>/etc/network/interfaces
-			echo "source /etc/network/interfaces.d/*" >>/etc/network/interfaces
-		}
+			echo "# interfaces(5) file used by ifup(8) and ifdown(8)"
+			echo
+			echo "# Include files from /etc/network/interfaces.d:"
+			echo "source /etc/network/interfaces.d/*"
+		} >/etc/network/interfaces
 		grep -q 'iface lo inet loopback' /etc/network/interfaces || \
 		    cat >>/etc/network/interfaces <<-'EOF'
 
