@@ -551,6 +551,7 @@ esac
 			(buster) echo bsdmainutils ;;
 			(*) echo bsdextrautils ;;
 		    esac)
+		apt-mark minimize-manual
 		rm -f /var/cache/apt/archives/*.deb  # save temp space
 		: install extra packages
 		rm -f /etc/passwd- /etc/group- /etc/shadow- /etc/gshadow- \
