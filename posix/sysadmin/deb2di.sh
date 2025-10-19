@@ -31,6 +31,7 @@ die() {
 	exit 1
 }
 
+#XXX todo convert to deb822-sources
 getslist() {
 	case $relse in
 	(KEEP) ;;
@@ -67,14 +68,7 @@ deb http://deb.debian.org/debian-security/ trixie-security main non-free-firmwar
 deb http://deb.debian.org/debian/ trixie-updates main non-free-firmware non-free contrib
 deb http://deb.debian.org/debian/ trixie-proposed-updates main non-free-firmware non-free contrib
 deb http://deb.debian.org/debian/ trixie-backports main non-free-firmware non-free contrib
-
-# add stable, for when testing gets uninstallablylish
-deb http://deb.debian.org/debian/ stable main non-free-firmware non-free contrib
-deb http://deb.debian.org/debian-security/ stable-security main non-free-firmware non-free contrib
-deb http://deb.debian.org/debian/ stable-updates main non-free-firmware non-free contrib
-deb http://deb.debian.org/debian/ proposed-updates main non-free-firmware non-free contrib
-deb http://deb.debian.org/debian/ stable-backports main non-free-firmware non-free contrib
-deb http://deb.debian.org/debian/ stable-backports-sloppy main non-free-firmware non-free contrib
+deb http://deb.debian.org/debian/ trixie-backports-sloppy main non-free-firmware non-free contrib
 		EOF
 		;;
 	(stable) cat <<-'EOF'
