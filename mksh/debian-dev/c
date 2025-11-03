@@ -32,6 +32,12 @@
 unset LANGUAGE
 export LC_ALL=C
 
+if [[ -n $DEB_BUILD_OPTIONS ]]; then
+	# lest sudo does not carry them over
+	print -ru2 -- 'W: set options like DEB_BUILD_OPTIONS after the REALDIST'
+	sleep 3
+fi
+
 if (( USER_ID == 0)) && [[ -z ${SUDO+set} ]]; then
 	# already root so omit the sudo call by default
 	SUDO=
