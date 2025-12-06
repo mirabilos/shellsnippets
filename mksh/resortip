@@ -348,7 +348,7 @@ done | sort -u | {
 		print -ru2 -- "E: $*"
 		exit 1
 	}
-	Ln=0
+	read -r Ln Lf Lt || Ln=0
 	while read -r Cn Cf Ct; do
 		if cmpr; then
 			outipr
