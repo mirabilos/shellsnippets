@@ -1,7 +1,7 @@
 #!/bin/mksh
 # -*- mode: sh -*-
 #-
-# Copyright © 2015, 2021, 2022, 2024
+# Copyright © 2015, 2021, 2022, 2024, 2025
 #	mirabilos <m$(date +%Y)@mirbsd.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -102,9 +102,15 @@ done
 fp=$(sed -n '/^Package: /s///p' c/control)
 fv=$(sed -n '/^Version: /s///p' c/control)
 fa=$(sed -n '/^Architecture: /s///p' c/control)
+fA=$(sed -n '/^Architecture-Variant: /s///p' c/control)
 [[ $fp = +([a-zA-Z0-9.+~:-]) ]] || die "huh? fp $fp"
 [[ $fv = +([a-zA-Z0-9.+~:-]) ]] || die "huh? fv $fv"
 [[ $fa = +([a-zA-Z0-9.+~:-]) ]] || die "huh? fa $fa"
+if [[ -n $fA ]]; then
+	[[ $fA = +([a-zA-Z0-9.+~:-]) ]] || die "huh? fA $fA"
+	[[ $fA = "$fa"?* ]] || die "fA $fA mismatch fa $fa"
+	fa=$fA
+fi
 
 rm -f debrepack.tmp*
 function touchif {
