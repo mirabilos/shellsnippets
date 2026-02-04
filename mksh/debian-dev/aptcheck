@@ -1,7 +1,7 @@
 #!/usr/bin/env mksh
 # -*- mode: sh -*-
 #-
-# Copyright © 2021, 2024
+# Copyright © 2021, 2024, 2026
 #	mirabilos <m$(date +%Y)@mirbsd.de>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -167,10 +167,10 @@ while IFS= read -pr line; do
 	fi
 	if [[ $line = '        '* ]]; then
 		(( s == 3 )) || die unexpected archive line
-		case ${line##+( )} {
+		case $pinlow:${line##+( )} {
 		(*' /var/lib/dpkg/status')
 			(( rtype |= 1 )) ;;
-		(*'-backports'?(-sloppy)'/'+([a-z0-9_-])' '+([a-z0-9-])' Packages')
+		(*'-backports'?(-sloppy)'/'+([a-z0-9_-])' '+([a-z0-9-])' Packages'|1:*)
 			(( rtype |= 2 )) ;;
 		(*' '*' '*/*' '+([a-z0-9-])' Packages')
 			(( rtype |= 4 )) ;;
@@ -191,6 +191,13 @@ while IFS= read -pr line; do
 	set -- $line
 	shift $x
 	cv=$1
+	pin=$2
+	[[ ${#pin} -le 7 && $pin = ?(-)+([0-9]) ]] || die weird pin
+	if (( pin < 500 )); then
+		pinlow=1
+	else
+		pinlow=0
+	fi
 	rtype=0
 done
 maybe_emit
