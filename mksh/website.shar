@@ -586,7 +586,7 @@ X		 href="mailto:junk@mirbsd.org">junk@mirbsd.org</a>, or <a
 X		 href="mailto:junk@mirsolutions.de">junk@mirsolutions.de</a> –
 X		 it won’t do any good to you.</p>
 X		<p>• <a
-X		 href="mailto:miros-discuss@mirbsd.org">eMail</a> contact to
+X		 href="mailto:$mailinglistaddress">eMail</a> contact to
 X		 The MirOS Project • This website is (supposed to be) <a
 X		 href="http://validator.w3.org/check/referer">Valid HTML</a>! •
 X		</p>
@@ -875,8 +875,8 @@ X		 <description>$pname - the MirOS Project</description>
 X		 <atom:link href="$mws__abspath/$1" rel="self" type="application/rss+xml" />
 X		 <lastBuildDate>$lastchanged</lastBuildDate>
 X		 <link>http://mirbsd.de/</link>
-X		 <managingEditor>tg@mirbsd.org (The MirOS Project)</managingEditor>
-X		 <webMaster>bsiegert@mirbsd.org (The MirOS Project)</webMaster>
+X		 <managingEditor>$email (The MirOS Project)</managingEditor>
+X		 <webMaster>$email (The MirOS Project)</webMaster>
 X		 <copyright>All content Copyright © by The MirOS Project or its respective
 X		  writers. Permission to reproduce wlog entries in unmodified form without
 X		  notice is granted provided they are not used to endorse or promote any
